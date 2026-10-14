@@ -1,0 +1,26 @@
+# Arquivos gerados pelo Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Ambiente virtual
+.venv
+
+# Caches das ferramentas
+.ruff_cache/
+.pytest_cache/
+
+# Configuração e segredos do seu PC (o repositório só tem os .example)
+config.toml
+.env
+
+# Dados do app: banco, logs, clipes, exportações
+dados/
+
+# Vídeos e áudios (nunca vão para o git)
+*.mkv
+*.mp4
+*.wav

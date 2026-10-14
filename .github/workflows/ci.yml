@@ -1,0 +1,28 @@
+# CI: a cada push, confere lint, formatação e testes.
+# Roda em Windows porque o app usa funções do Windows (energia, ociosidade, desligamento).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Instalar dependências (exatamente as do uv.lock)
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check
+
+      - name: Formatação
+        run: uv run ruff format --check
+
+      - name: Testes
+        run: uv run pytest

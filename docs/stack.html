@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Clipador de lives - Stack e Ferramentas</title>
+<!-- Fonte do PDF "Clipador - Stack e Ferramentas.pdf". Para regerar:
+     msedge --headless --no-pdf-header-footer --print-to-pdf="docs/Clipador - Stack e Ferramentas.pdf" docs/stack.html -->
+<style>
+  @page { size: A4; margin: 16mm 15mm; }
+  :root { --ink:#1d2330; --muted:#5b6475; --line:#d9dee7; --accent:#6d3fd1; --accent-soft:#f1ecfc; --warn:#b4540a; --warn-soft:#fdf2e6; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10pt; line-height: 1.45; margin: 0; background:#fff; }
+  h1 { font-size: 22pt; margin: 0 0 2mm; letter-spacing: -0.3px; }
+  h2 { font-size: 13.5pt; margin: 8mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 2px solid var(--accent); }
+  h3 { font-size: 10.5pt; margin: 5mm 0 1.5mm; color: var(--accent); text-transform: uppercase; letter-spacing: .6px; page-break-after: avoid; }
+  p { margin: 0 0 2mm; }
+  .sub { color: var(--muted); font-size: 10.5pt; margin-bottom: 5mm; }
+  .tags span { display:inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 0.5mm 3mm; font-size: 8.5pt; margin: 0 1.5mm 1.5mm 0; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 2mm; }
+  tr { page-break-inside: avoid; }
+  th { text-align: left; font-size: 8.5pt; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--line); padding: 1.5mm 2mm; }
+  td { border-bottom: 1px solid var(--line); padding: 1.8mm 2mm; vertical-align: top; }
+  td.tool { width: 30%; font-weight: 600; }
+  td.tool small { display:block; font-weight: 400; color: var(--muted); font-size: 8.5pt; }
+  code { font-family: Consolas, monospace; font-size: 9pt; background:#f3f4f7; padding: 0 1mm; border-radius: 2px; }
+  .diagram { border: 1px solid var(--line); border-radius: 6px; padding: 3mm; margin: 2mm 0; page-break-inside: avoid; }
+  .risk { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 2.5mm 3.5mm; margin-bottom: 2.5mm; page-break-inside: avoid; border-radius: 0 4px 4px 0; }
+  .risk b:first-child { color: var(--warn); }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 2.5mm 3.5mm; margin: 2mm 0; border-radius: 0 4px 4px 0; page-break-inside: avoid; }
+  ul, ol { margin: 0 0 2mm; padding-left: 5mm; }
+  li { margin-bottom: 1mm; }
+  .pb { page-break-before: always; }
+  .fase { margin: 7mm 0 2.5mm; font-size: 11.5pt; font-weight: 700; color: var(--accent); page-break-after: avoid; }
+  .fase small { color: var(--muted); font-weight: 400; font-size: 9.5pt; }
+  .etapa { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 3.5mm; overflow: hidden; }
+  .etapa-h { background: var(--accent-soft); padding: 2mm 3mm; font-weight: 700; font-size: 10.5pt; page-break-after: avoid; }
+  .etapa-h span { color: var(--accent); margin-right: 2mm; }
+  .etapa table { margin: 0; }
+  .etapa td { padding: 1.6mm 3mm; }
+  .etapa tr:last-child td { border-bottom: none; }
+  .etapa td.k { width: 19%; color: var(--muted); font-weight: 600; font-size: 8.8pt; }
+  .etapa ul { margin: 0; }
+  .etapa li { margin-bottom: 0.6mm; }
+  pre { font-family: Consolas, monospace; font-size: 8.3pt; line-height: 1.35; background: #f3f4f7; padding: 2.5mm 3mm; border-radius: 4px; margin: 1mm 0; white-space: pre; page-break-inside: avoid; }
+  .foot { margin-top: 8mm; color: var(--muted); font-size: 8.5pt; border-top: 1px solid var(--line); padding-top: 2mm; }
+</style>
+</head>
+<body>
+
+<h1>Clipador de lives</h1>
+<div class="sub">Stack, ferramentas, roteiro completo e riscos · nome provisório · outubro de 2026</div>
+<div class="tags"><span>100% gratuito</span><span>Python 3.12</span><span>GTX 1050 Ti · 4 GB</span><span>Windows 10</span><span>Projeto de portfólio</span></div>
+
+<p>App pessoal que transforma as gravações diárias da live (OBS, ~3h) em clipes para YouTube e TikTok. O processamento roda de madrugada, a revisão acontece no dia seguinte numa interface web local e <b>nada é publicado sem aprovação</b>.</p>
+
+<h2>1. Pipeline</h2>
+<div class="diagram">
+<svg viewBox="0 0 700 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6475"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6d3fd1"/></marker>
+  </defs>
+  <rect x="5" y="5" width="210" height="460" rx="8" fill="#f7f8fb" stroke="#d9dee7"/>
+  <rect x="245" y="5" width="210" height="460" rx="8" fill="#f7f8fb" stroke="#d9dee7"/>
+  <rect x="485" y="5" width="210" height="460" rx="8" fill="#f7f8fb" stroke="#d9dee7"/>
+  <text x="110" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#1d2330">Durante a live</text>
+  <text x="350" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#1d2330">Madrugada</text>
+  <text x="590" y="28" text-anchor="middle" font-size="13" font-weight="700" fill="#1d2330">Dia seguinte</text>
+
+  <g font-size="11" fill="#1d2330">
+    <rect x="20" y="50" width="180" height="48" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="110" y="70" text-anchor="middle" font-weight="600">OBS grava (MKV)</text>
+    <text x="110" y="86" text-anchor="middle" font-size="9.5" fill="#5b6475">faixas: mistura · voz · jogo · música</text>
+    <rect x="20" y="118" width="180" height="48" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="110" y="138" text-anchor="middle" font-weight="600">7 · Coletor do LoL</text>
+    <text x="110" y="154" text-anchor="middle" font-size="9.5" fill="#5b6475">eventos + horário → SQLite</text>
+
+    <rect x="260" y="50" width="180" height="36" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="350" y="72" text-anchor="middle" font-weight="600">4 · Monitor de pasta</text>
+    <rect x="260" y="104" width="180" height="36" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="350" y="126" text-anchor="middle" font-weight="600">5·6 · Áudio e transcrição</text>
+    <rect x="260" y="158" width="180" height="48" rx="6" fill="#fff" stroke="#6d3fd1" stroke-width="1.5"/>
+    <text x="350" y="178" text-anchor="middle" font-weight="600">8 · Detectores (plugins)</text>
+    <text x="350" y="194" text-anchor="middle" font-size="9.5" fill="#5b6475">volume da voz · fala · LoL</text>
+    <rect x="260" y="224" width="180" height="36" rx="6" fill="#fff" stroke="#6d3fd1" stroke-width="1.5"/>
+    <text x="350" y="246" text-anchor="middle" font-weight="600">8 · Nota de cada momento</text>
+    <rect x="260" y="278" width="180" height="48" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="350" y="298" text-anchor="middle" font-weight="600">9 · Cortes FFmpeg (NVENC)</text>
+    <text x="350" y="314" text-anchor="middle" font-size="9.5" fill="#5b6475">horizontal · vertical A · B</text>
+    <rect x="260" y="400" width="180" height="48" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="350" y="420" text-anchor="middle" font-weight="600">11 · Desligamento</text>
+    <text x="350" y="436" text-anchor="middle" font-size="9.5" fill="#5b6475">fila vazia + 10 min ocioso</text>
+
+    <rect x="500" y="50" width="180" height="48" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="590" y="70" text-anchor="middle" font-weight="600">12·13 · Revisão web local</text>
+    <text x="590" y="86" text-anchor="middle" font-size="9.5" fill="#5b6475">teclado · autoplay · por nota</text>
+    <rect x="500" y="118" width="180" height="48" rx="6" fill="#fff" stroke="#6d3fd1" stroke-width="1.5"/>
+    <text x="590" y="138" text-anchor="middle" font-weight="600">14 · Aprovações / recusas</text>
+    <text x="590" y="154" text-anchor="middle" font-size="9.5" fill="#5b6475">salvas no SQLite</text>
+    <rect x="500" y="186" width="180" height="48" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="590" y="206" text-anchor="middle" font-weight="600">15 · YouTube</text>
+    <text x="590" y="222" text-anchor="middle" font-size="9.5" fill="#5b6475">Shorts + clipes · agendado</text>
+    <rect x="500" y="252" width="180" height="48" rx="6" fill="#fff" stroke="#9aa3b2"/>
+    <text x="590" y="272" text-anchor="middle" font-weight="600">16 · TikTok</text>
+    <text x="590" y="288" text-anchor="middle" font-size="9.5" fill="#5b6475">pasta · rascunho · post</text>
+  </g>
+
+  <g stroke="#5b6475" stroke-width="1.4" fill="none">
+    <path d="M200,74 L258,68" marker-end="url(#a)"/>
+    <path d="M200,142 C230,142 230,182 258,182" marker-end="url(#a)"/>
+    <path d="M350,86 L350,102" marker-end="url(#a)"/>
+    <path d="M350,140 L350,156" marker-end="url(#a)"/>
+    <path d="M350,206 L350,222" marker-end="url(#a)"/>
+    <path d="M350,260 L350,276" marker-end="url(#a)"/>
+    <path d="M350,326 L350,398" marker-end="url(#a)" stroke-dasharray="4 3"/>
+    <path d="M440,302 C470,302 470,74 498,74" marker-end="url(#a)"/>
+    <path d="M590,98 L590,116" marker-end="url(#a)"/>
+    <path d="M590,166 L590,184" marker-end="url(#a)"/>
+    <path d="M680,142 C700,142 700,276 682,276" marker-end="url(#a)"/>
+  </g>
+  <path d="M500,150 C470,150 470,242 442,242" stroke="#6d3fd1" stroke-width="1.6" fill="none" stroke-dasharray="5 3" marker-end="url(#b)"/>
+  <rect x="500" y="320" width="180" height="48" rx="6" fill="#fff" stroke="#6d3fd1" stroke-width="1.5"/>
+  <text x="590" y="340" text-anchor="middle" font-size="11" font-weight="600" fill="#1d2330">17 · Engajamento</text>
+  <text x="590" y="356" text-anchor="middle" font-size="9.5" fill="#5b6475">views · curtidas · retenção</text>
+  <path d="M590,300 L590,318" stroke="#5b6475" stroke-width="1.4" fill="none" marker-end="url(#a)"/>
+  <path d="M500,344 C462,344 462,252 442,252" stroke="#6d3fd1" stroke-width="1.6" fill="none" stroke-dasharray="5 3" marker-end="url(#b)"/>
+  <text font-size="9.5" fill="#6d3fd1" text-anchor="middle" font-weight="600">
+    <tspan x="590" y="400">aprovações e engajamento</tspan><tspan x="590" y="413">ajustam os pesos da nota</tspan>
+  </text>
+  <text x="365" y="365" font-size="9.5" fill="#5b6475">quando a fila acabar</text>
+</svg>
+</div>
+<p style="color:var(--muted);font-size:9pt">Os números são as etapas do roteiro (seção 3). As etapas 0 a 3 (base), 10 (títulos, que roda junto dos cortes), 18 (vitrine) e 19 (futuro) não aparecem no diagrama. Bordas roxas: o "ciclo de aprendizado" do projeto. As linhas tracejadas roxas são o diferencial de portfólio: as suas decisões e o engajamento do público viram dados para melhorar a nota.</p>
+
+<h3>Ideias de arquitetura</h3>
+<ul>
+  <li><b>Detectores como plugins</b>: interface comum <code>Detector.detectar(gravacao) -&gt; list[Momento]</code>. Outro jogo ou o chat da Twitch vira só um plugin novo, sem depender de um jogo só.</li>
+  <li><b>Fila retomável em SQLite</b>: cada etapa salva o próprio estado. Se o PC desligar ou travar, o processamento continua de onde parou.</li>
+  <li><b>Aprovações como dados</b>: medir a precisão do detector ("dos 15 sugeridos, aprovei 9") e depois ajustar os pesos com uma regressão logística.</li>
+  <li><b>Engajamento como dados</b>: visualizações, curtidas e retenção dos cortes publicados ensinam a nota a prever o que o público gosta, não só o que você aprova.</li>
+  <li><b>Vitrine técnica</b>: CI no GitHub Actions, ADRs curtos em <code>docs/adr/</code>, GIF da interface e diagrama da pipeline no README, modo demo com dados de exemplo.</li>
+</ul>
+
+<h2 class="pb">2. Ferramentas</h2>
+<p>Todas são gratuitas. A maioria também é de código aberto; as exceções são serviços e componentes de fabricantes (GitHub, drivers e CUDA da NVIDIA, comandos do Windows). As APIs do YouTube e do TikTok são gratuitas, mas têm limites (veja a seção 4).</p>
+
+<h3>Base do projeto</h3>
+<table>
+<tr><th>Ferramenta</th><th>Por que usar</th></tr>
+<tr><td class="tool">Python 3.12</td><td>Melhor ecossistema para áudio, vídeo e IA, e já está instalado no PC.</td></tr>
+<tr><td class="tool">uv</td><td>Gerencia Python, ambiente virtual e dependências num comando só, com lockfile. Qualquer pessoa clona o repositório e roda igual.</td></tr>
+<tr><td class="tool">ruff</td><td>Lint e formatação numa ferramenta só, muito rápida. Mantém o código com cara de projeto profissional.</td></tr>
+<tr><td class="tool">pytest</td><td>Testes dos detectores e do alinhamento de tempo, que são as partes mais fáceis de quebrar sem perceber.</td></tr>
+<tr><td class="tool">pytest-cov</td><td>Mede quanto do código os testes cobrem. Gera o número do selo de cobertura no README.</td></tr>
+<tr><td class="tool">pre-commit</td><td>Roda ruff e testes rápidos antes de cada commit, para nada quebrado chegar no GitHub.</td></tr>
+<tr><td class="tool">pydantic-settings + TOML<small>config.toml / .env fora do git</small></td><td>Configuração validada e tipada: um valor errado gera um erro claro no início, não no meio da madrugada. As chaves ficam fora do código.</td></tr>
+<tr><td class="tool">Typer</td><td>Cria a linha de comando do app (<code>clipador status</code>, <code>clipador demo</code>...) a partir de funções Python com tipos, com ajuda automática.</td></tr>
+<tr><td class="tool">logging (biblioteca padrão)</td><td>Log em arquivo rotativo, sem dependência extra. Essencial para saber o que aconteceu enquanto você dormia.</td></tr>
+</table>
+
+<h3>Processamento</h3>
+<table>
+<tr><th>Ferramenta</th><th>Por que usar</th></tr>
+<tr><td class="tool">watchdog</td><td>Avisa quando aparece uma gravação nova na pasta. O app espera o arquivo parar de crescer antes de processar.</td></tr>
+<tr><td class="tool">FFmpeg<small>build com NVENC (ex.: gyan.dev "full")</small></td><td>Padrão da indústria para vídeo: separa faixas, corta, monta os verticais e remove a música. O encoder <code>h264_nvenc</code> usa o chip de vídeo da 1050 Ti e codifica bem mais rápido que a CPU.</td></tr>
+<tr><td class="tool">faster-whisper<small>modelo medium · int8 · CUDA</small></td><td>Mesmo modelo do Whisper, até ~4x mais rápido e com menos memória. Em int8 o <code>medium</code> cabe nos 4 GB. Dá timestamps por palavra, usados no alinhamento e nas legendas. O filtro de silêncio (VAD) evita que ele "invente" frases em trechos sem fala.</td></tr>
+<tr><td class="tool">CUDA 12 + cuDNN 9<small>bibliotecas da NVIDIA</small></td><td>Necessárias para o faster-whisper usar a placa. Instaláveis pelo próprio pip (pacotes <code>nvidia-cublas-cu12</code> e <code>nvidia-cudnn-cu12</code>), sem instalar o CUDA Toolkit inteiro. No Windows, o app pode precisar apontar para a pasta dessas DLLs na inicialização. Precisa ser a versão 12: veja o risco "GTX 1050 Ti" na seção 4.</td></tr>
+<tr><td class="tool">numpy + soundfile</td><td>Calcula o volume da faixa do microfone ao longo do tempo para achar os picos da sua voz, o sinal principal do detector.</td></tr>
+<tr><td class="tool">httpx</td><td>Cliente HTTP moderno. Usado pelo coletor da Live Client Data API do LoL (<code>https://127.0.0.1:2999</code>, com certificado próprio da Riot) e pela API do TikTok.</td></tr>
+<tr><td class="tool">Ollama + qwen3:4b<small>IA de texto local</small></td><td>Roda um modelo de IA no próprio PC, gratuito e sem internet, para sugerir títulos e hashtags com cara de gente (etapa 10). O qwen3:4b ocupa 2,5 GB e cabe na 1050 Ti.</td></tr>
+<tr><td class="tool">SQLite + SQLModel</td><td>Banco num arquivo só, sem servidor. Guarda fila, momentos, eventos do LoL e aprovações. O SQLModel junta tabelas e validação com tipos.</td></tr>
+<tr><td class="tool">Alembic</td><td>Migrações do banco: quando uma tabela muda numa etapa futura, o banco que já existe é atualizado sem perder dados.</td></tr>
+<tr><td class="tool">scikit-learn</td><td>Regressão logística para ajustar os pesos da nota com base nas suas aprovações e recusas, e métricas de precisão para o README.</td></tr>
+</table>
+
+<h3>Interface de revisão</h3>
+<table>
+<tr><th>Ferramenta</th><th>Por que usar</th></tr>
+<tr><td class="tool">FastAPI + Uvicorn</td><td>API em Python com tipos e documentação automática em <code>/docs</code>. Serve os clipes e grava as aprovações.</td></tr>
+<tr><td class="tool">Node.js LTS + npm</td><td>Necessário para instalar e rodar as ferramentas do frontend (Vite, React, Tailwind). Só é usado no desenvolvimento: o build final vira arquivos estáticos servidos pelo FastAPI.</td></tr>
+<tr><td class="tool">React + TypeScript</td><td>Frontend mais pedido em vagas. TypeScript evita erros bobos e combina com os tipos do backend.</td></tr>
+<tr><td class="tool">Vite</td><td>Servidor de desenvolvimento e build do frontend, rápido e simples de configurar.</td></tr>
+<tr><td class="tool">Tailwind CSS</td><td>Interface bonita e consistente sem escrever muito CSS.</td></tr>
+<tr><td class="tool">Recharts</td><td>Gráficos em React para a tela de Estatísticas (precisão do detector ao longo do tempo).</td></tr>
+<tr><td class="tool">Vitest</td><td>Testes do frontend com a mesma configuração do Vite.</td></tr>
+</table>
+
+<h3>Publicação</h3>
+<table>
+<tr><th>Ferramenta</th><th>Por que usar</th></tr>
+<tr><td class="tool">YouTube Data API v3<small>google-api-python-client + google-auth-oauthlib</small></td><td>Upload e agendamento dos Shorts e dos clipes horizontais. Biblioteca oficial do Google, com login OAuth. Não existe API separada para Shorts: um vídeo vertical de até 3 minutos é classificado como Short automaticamente.</td></tr>
+<tr><td class="tool">YouTube Analytics API</td><td>Gratuita. Quanto de cada vídeo as pessoas assistem (retenção), usado na etapa 17. Na etapa 19, também os melhores horários do seu público.</td></tr>
+<tr><td class="tool">TikTok Display API</td><td>Lê visualizações, curtidas, comentários e compartilhamentos dos seus vídeos no TikTok (etapa 17).</td></tr>
+<tr><td class="tool">TikTok Content Posting API</td><td>Envio como rascunho e, depois da auditoria, post direto. Exige criar um app no TikTok for Developers; dá para testar no modo sandbox com a sua conta. Enquanto isso, a opção "salvar numa pasta" funciona sem API.</td></tr>
+</table>
+
+<h3>Sistema e desligamento</h3>
+<table>
+<tr><th>Ferramenta</th><th>Por que usar</th></tr>
+<tr><td class="tool">ctypes + SetThreadExecutionState</td><td>Função nativa do Windows que impede o PC de entrar em suspensão no meio do processamento da madrugada. Sem instalar nada.</td></tr>
+<tr><td class="tool">ctypes + GetLastInputInfo</td><td>Função nativa do Windows que diz há quanto tempo o teclado e o mouse estão parados. Usada na regra dos 10 minutos.</td></tr>
+<tr><td class="tool">Agendador de Tarefas do Windows</td><td>Inicia o app sozinho quando você faz login. Assim o coletor do LoL já está rodando quando a partida começa (ele consulta a API a cada poucos segundos e só grava quando há partida) e o monitor de pasta pega a gravação assim que a live termina.</td></tr>
+<tr><td class="tool">shutdown.exe</td><td>Comando do próprio Windows: <code>shutdown /s /t 60</code> desliga em 60 s e <code>shutdown /a</code> cancela.</td></tr>
+</table>
+
+<h3>Repositório e vitrine</h3>
+<table>
+<tr><th>Ferramenta</th><th>Por que usar</th></tr>
+<tr><td class="tool">Git + GitHub</td><td>Histórico do projeto e vitrine pública para recrutadores.</td></tr>
+<tr><td class="tool">GitHub Actions</td><td>CI que roda lint e testes a cada push. Grátis para repositórios públicos e gera o selo "passing" no README.</td></tr>
+<tr><td class="tool">Mermaid</td><td>Diagramas escritos em texto dentro do README. O GitHub desenha sozinho.</td></tr>
+<tr><td class="tool">ADRs (Markdown)</td><td>Um arquivo curto por decisão ("por que SQLite e não Postgres"). Mostra raciocínio de engenharia.</td></tr>
+</table>
+
+<h3>Futuro (etapa 19)</h3>
+<table>
+<tr><th>Ferramenta</th><th>Por que usar</th></tr>
+<tr><td class="tool">twitchio</td><td>Lê o chat da Twitch durante a live. Picos de mensagens viram mais um sinal (um plugin novo).</td></tr>
+<tr><td class="tool">MediaPipe</td><td>Detecta rosto e expressão na câmera para usar sua reação como sinal. Roda localmente.</td></tr>
+</table>
+
+<h2 class="pb">3. Roteiro do projeto, etapa por etapa</h2>
+<p>As etapas seguem a <b>ordem de estrutura</b>: cada uma só depende das anteriores. Primeiro vem a base, que todo o resto usa (ambiente, configuração, banco de dados, dados de exemplo). Depois vem a pipeline na ordem em que os dados passam por ela, e por fim a revisão, a publicação e a vitrine.</p>
+<p>Toda etapa segue o mesmo ciclo: <b>plano → código → testes → parar e esperar sua aprovação</b>. Cada etapa termina com um commit, a CI verde no GitHub e o README atualizado com o que o app passou a fazer. Em cada uma, "Instalar" lista o que entra de novo e "Pronto quando" é o critério para passar para a próxima.</p>
+
+<div class="fase">Fase A · Fundação <small>a base que todas as outras etapas usam</small></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 0</span>Preparação do PC</div><table>
+<tr><td class="k">Objetivo</td><td>Deixar o PC pronto para desenvolver e o OBS gravando no formato que o app espera. Nesta etapa ainda não tem código.</td></tr>
+<tr><td class="k">Instalar</td><td><ul>
+  <li><b>Primeiro, resolver o bloqueio do pip</b> (erro "certificate verify failed: self-signed certificate"). Quase sempre é um antivírus (Avast, Kaspersky, ESET etc.) com a "verificação de HTTPS/SSL" ligada, ou um proxy. Desligue essa verificação no antivírus ou abra uma exceção para o Python. Não desative a verificação de certificado do pip. Sem isso, nenhuma biblioteca instala.</li>
+  <li><b>Driver da NVIDIA</b> da série <b>570 a 580</b>. Abaixo de 570 o Ollama (etapa 10) não usa a placa; a série 580 é a última que suporta placas Pascal como a 1050 Ti (<i>conferido</i>; veja o risco "GTX 1050 Ti" na seção 4). Confira a versão com <code>nvidia-smi</code>.</li>
+  <li><b>uv</b> (o Python 3.12 já está instalado): <code>winget install astral-sh.uv</code></li>
+  <li><b>FFmpeg</b> com NVENC: <code>winget install Gyan.FFmpeg</code></li>
+  <li><b>Node.js LTS</b>: <code>winget install OpenJS.NodeJS.LTS</code></li>
+  <li><b>Git</b>: <code>winget install Git.Git</code>. Depois configure nome e e-mail (<code>git config --global user.name</code> e <code>user.email</code>) e crie uma conta no GitHub.</li>
+  <li><b>VS Code</b> (opcional), com as extensões Python e Ruff.</li>
+  <li>Depois dos <code>winget install</code>, <b>feche e abra o terminal</b> para os comandos novos serem encontrados.</li>
+</ul></td></tr>
+<tr><td class="k">Configurar o OBS</td><td><ul>
+  <li><b>Configurações → Saída → modo de saída "Avançado" → aba Gravação</b>: formato <b>MKV</b> e faixas de áudio <b>1, 2, 3 e 4</b> marcadas.</li>
+  <li><b>Pasta de gravação</b> num disco com bastante espaço livre (100 GB ou mais; veja o risco "Espaço em disco").</li>
+  <li><b>Fontes separadas</b>: o "Áudio da área de trabalho" mistura tudo o que toca no PC. Use <b>Captura de áudio de aplicativo</b> (OBS 28 ou mais novo, Windows 10 versão 2004 ou mais nova): uma fonte para o LoL e outra para o player de música. Desative o "Áudio da área de trabalho" para nada sair duplicado.</li>
+  <li><b>Edição → Propriedades avançadas de áudio</b>, em "Faixas":
+    <ul>
+      <li><b>Faixa 1 = mistura completa</b> (voz + jogo + música): marcar nas três fontes. É a faixa que vai para a Twitch.</li>
+      <li><b>Faixa 2 = voz</b>: só no microfone.</li>
+      <li><b>Faixa 3 = jogo</b>: só na captura do LoL.</li>
+      <li><b>Faixa 4 = música</b>: só na captura do player.</li>
+    </ul></li>
+  <li>Na aba <b>Transmissão</b>, a "Faixa de áudio" continua sendo a <b>1</b>. Se a voz ficasse sozinha na faixa 1, a live iria ao ar só com a sua voz.</li>
+  <li>Mantenha o nome de arquivo padrão do OBS, com data e hora (ex.: <code>2026-10-14 20-00-00.mkv</code>). O app usa esse horário no alinhamento com o LoL.</li>
+</ul></td></tr>
+<tr><td class="k">Pronto quando</td><td><ul>
+  <li><code>python --version</code> (3.12), <code>uv --version</code>, <code>node --version</code>, <code>git --version</code> e <code>nvidia-smi</code> funcionam num terminal novo, e o <code>nvidia-smi</code> mostra driver entre 570 e 580.</li>
+  <li><code>ffmpeg -hide_banner -encoders | findstr nvenc</code> mostra <code>h264_nvenc</code>.</li>
+  <li><code>python -m pip install --dry-run requests</code> roda sem erro de certificado.</li>
+  <li>Uma gravação de teste de 1 minuto, conferida com <code>ffprobe</code>, tem <b>4 faixas de áudio</b>. A faixa 1 tem o som completo, e a música não aparece nas faixas 2 e 3.</li>
+</ul></td></tr>
+</table></div>
+<div class="etapa"><div class="etapa-h"><span>Etapa 1</span>Esqueleto do projeto</div><table>
+<tr><td class="k">Objetivo</td><td>Criar a estrutura do repositório e as ferramentas de qualidade antes de qualquer funcionalidade. Assim, todo código novo já nasce com lint, testes e CI.</td></tr>
+<tr><td class="k">Instalar</td><td>O projeto é criado com <code>uv init --package clipador</code> (estrutura <code>src/</code>) e o Python fixado em 3.12 (<code>.python-version</code>). Depois, via <code>uv add</code>: pydantic-settings e Typer. Ferramentas de desenvolvimento (<code>uv add --dev</code>): ruff, pytest e pre-commit.</td></tr>
+<tr><td class="k">Código</td><td>Estrutura de pastas (cada pasta de <code>src</code> é preenchida na etapa indicada):
+<pre>clipador/
+├─ src/clipador/
+│  ├─ config.py · logs.py · cli.py      (etapa 1)
+│  ├─ banco/        modelos e fila      (etapa 2)
+│  ├─ demo/         dados de exemplo    (etapa 3)
+│  ├─ sistema/      serviço, energia    (etapas 4 e 11)
+│  ├─ ingestao/     monitor e áudio     (etapas 4 e 5)
+│  ├─ transcricao/  faster-whisper      (etapa 6)
+│  ├─ jogo/         coletor do LoL      (etapa 7)
+│  ├─ detectores/   plugins e nota      (etapa 8)
+│  ├─ cortes/       FFmpeg              (etapa 9)
+│  ├─ titulos/      IA local (Ollama)   (etapa 10)
+│  ├─ web/          API FastAPI         (etapa 12)
+│  ├─ aprendizado/  métricas e pesos    (etapas 14 e 17)
+│  ├─ engajamento/  métricas das redes  (etapa 17)
+│  └─ publicacao/   YouTube e TikTok    (etapas 15 e 16)
+├─ frontend/        React + Vite        (etapa 13)
+├─ tests/
+├─ dados/           fora do git: banco, logs, clipes, exportações
+├─ docs/adr/
+├─ .github/workflows/ci.yml
+├─ config.example.toml · .env.example
+├─ pyproject.toml · .pre-commit-config.yaml
+└─ README.md · LICENSE</pre>
+<ul>
+  <li><code>config.py</code>: lê <code>config.toml</code> (pastas, faixas do OBS, pesos, limite diário, desligamento e o que as próximas etapas acrescentarem) e <code>.env</code> (chaves), e valida tudo com pydantic.</li>
+  <li><code>logs.py</code>: log em arquivo rotativo em <code>dados/logs/</code>.</li>
+  <li><code>cli.py</code>: comando <code>clipador</code> com o subcomando <code>clipador versao</code>.</li>
+  <li><code>.gitignore</code> com <code>config.toml</code>, <code>.env</code>, <code>dados/</code> e os arquivos de vídeo.</li>
+  <li>CI: GitHub Actions roda ruff e pytest a cada push, em <b>Windows</b> (<code>windows-latest</code>), porque o app usa funções do Windows.</li>
+  <li>Primeiro ADR: "Por que Python + SQLite + FastAPI".</li>
+  <li><code>LICENSE</code> (MIT) desde o início, para o repositório já nascer público e reutilizável.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Nenhuma funcionalidade de clipes ainda. O comando <code>clipador versao</code> roda, e uma configuração inválida gera um erro claro.</td></tr>
+<tr><td class="k">Testes</td><td>A configuração de exemplo carrega sem erro. Um valor inválido (ex.: limite diário negativo) é rejeitado. <code>clipador versao</code> responde (teste da CLI com o <code>CliRunner</code> do Typer).</td></tr>
+<tr><td class="k">Pronto quando</td><td>Repositório no GitHub com CI verde, pre-commit funcionando e README inicial explicando o objetivo do projeto.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 2</span>Banco de dados e fila retomável</div><table>
+<tr><td class="k">Objetivo</td><td>Criar o "estado" do app. Todas as etapas seguintes leem e gravam aqui, por isso ele vem antes de qualquer processamento.</td></tr>
+<tr><td class="k">Instalar</td><td>SQLModel e Alembic (o SQLite já vem com o Python).</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>banco/modelos.py</code>, com as tabelas:
+    <ul>
+      <li><code>Gravacao</code>: arquivo, início, duração, status.</li>
+      <li><code>Tarefa</code>: tipo, gravação ou publicação a que se refere, status (pendente, em andamento, feita, erro), tentativas, último erro, <b>executar a partir de</b> (para tarefas agendadas, como a coleta de métricas e o reenvio depois que a cota zerar).</li>
+      <li><code>Transcricao</code>: gravação, palavras com início e fim.</li>
+      <li><code>EventoJogo</code>: tipo, horário real, tempo de jogo, dados do evento.</li>
+      <li><code>Momento</code>: gravação, início, fim, sinais, nota, motivo, títulos e hashtags sugeridos (etapa 10).</li>
+      <li><code>Clipe</code>: momento, formato, arquivo, duração.</li>
+      <li><code>Decisao</code>: momento, aprovado/recusado, formatos e destinos escolhidos, título e hashtags escolhidos, tipo do título (etapa 10), ajuste do corte (início e fim), data.</li>
+      <li><code>Publicacao</code>: clipe, plataforma, <b>ID do vídeo na plataforma</b> (necessário para buscar métricas), status, link, agendada para, unidades de cota gastas, data.</li>
+      <li><code>PesosNota</code>: versão dos pesos, valores, data, precisão medida (etapas 14 e 17).</li>
+      <li><code>Metrica</code>: publicação, momento da coleta (24 h, 72 h, 7 dias), visualizações, curtidas, comentários, compartilhamentos, retenção (etapa 17).</li>
+    </ul></li>
+  <li><b>Tipos de tarefa</b>. A cadeia principal é <code>extrair_audio → transcrever → detectar → cortar → gerar_titulos</code>; quando uma termina, ela cria a próxima. Outras tarefas, criadas por eventos:
+    <ul>
+      <li><code>recortar</code>: quando você ajusta um corte (etapa 12).</li>
+      <li><code>publicar</code>: só depois da sua aprovação (etapas 15 e 16).</li>
+      <li><code>coletar_metricas</code>: agendada para 24 h, 72 h e 7 dias após a publicação (etapa 17).</li>
+    </ul></li>
+  <li><code>banco/fila.py</code>: pega a próxima tarefa pendente e a marca como "em andamento". Se o app cair, tarefas "em andamento" voltam para "pendente" na próxima abertura. Uma tarefa que falha é tentada de novo até 3 vezes; depois vira "erro" com a mensagem guardada.</li>
+  <li><b>SQLite em modo WAL</b>: o serviço da madrugada e a interface web acessam o banco ao mesmo tempo sem travar um ao outro.</li>
+  <li><b>Alembic</b> para migrações: quando uma etapa futura muda uma tabela, o banco existente é atualizado sem perder dados.</li>
+  <li><b>Backup do banco</b> (<code>banco/backup.py</code>): o banco é o "caderno" do app, com aprovações, métricas, hashtags, títulos e pesos aprendidos. Ele é pequeno, mas não dá para recriar. O app faz uma cópia por dia usando a função de backup do próprio SQLite, que é segura mesmo com o banco em uso, e guarda as últimas 14 numa pasta do config. O ideal é outro disco ou uma pasta sincronizada com o Google Drive. Comando manual: <code>clipador backup</code>.</li>
+  <li>CLI: <code>clipador status</code> mostra a fila e os erros.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>O app guarda o que precisa fazer e o que já fez. Desligar no meio não perde trabalho.</td></tr>
+<tr><td class="k">Testes</td><td>Em banco temporário: uma tarefa interrompida volta para a fila. Uma tarefa que falha 3 vezes vira "erro" e não trava as outras. Terminar uma tarefa cria a próxima da cadeia. Uma tarefa agendada não roda antes da hora. A migração inicial cria todas as tabelas. O backup gera uma cópia que abre e tem os mesmos dados, e só as últimas 14 ficam guardadas.</td></tr>
+<tr><td class="k">Pronto quando</td><td><code>clipador status</code> mostra uma fila de teste. ADR: "Por que SQLite e não Postgres".</td></tr>
+</table></div>
+<div class="etapa"><div class="etapa-h"><span>Etapa 3</span>Modo demo e dados de exemplo</div><table>
+<tr><td class="k">Objetivo</td><td>Ter uma "live falsa" pequena para testar todas as etapas seguintes sem depender de uma gravação de 3 horas. Ela também vira o modo demo da entrevista.</td></tr>
+<tr><td class="k">Instalar</td><td>Nada novo. Usa o FFmpeg.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>demo/gerar.py</code>: usa o FFmpeg para criar um MKV de 3 minutos com imagem de teste e as mesmas 4 faixas do OBS, feitas de sons sintéticos (ruído e tons). A faixa de voz tem picos de volume em horários conhecidos.</li>
+  <li>Junto com o vídeo: eventos falsos do LoL, uma transcrição pronta e títulos prontos. Por isso a demo <b>pula o Whisper e a IA de títulos e não precisa de GPU</b>: roda em qualquer notebook, inclusive o da entrevista.</li>
+  <li>CLI: <code>clipador demo</code> usa uma pasta e um banco separados (<code>dados/demo/</code>) e roda tudo neles, sem tocar nos dados reais.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Qualquer pessoa clona o repositório, roda <code>clipador demo</code> e vê o app funcionando. Basta ter Python (via uv) e FFmpeg; não precisa de GPU, Ollama nem contas no YouTube ou TikTok.</td></tr>
+<tr><td class="k">Testes</td><td>A gravação demo tem 4 faixas e a duração certa. Os picos ficam nos horários esperados. Rodar a demo duas vezes não duplica nada.</td></tr>
+<tr><td class="k">Pronto quando</td><td>O comando gera os arquivos de exemplo em menos de 1 minuto. Nas próximas etapas, cada recurso novo ganha o seu pedaço na demo; nas etapas 14 e 17, por exemplo, entram decisões e métricas de engajamento falsas para os gráficos.</td></tr>
+</table></div>
+
+<div class="fase">Fase B · Pipeline noturna <small>na ordem em que a gravação passa</small></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 4</span>Monitor de pasta e execução em segundo plano</div><table>
+<tr><td class="k">Objetivo</td><td>Perceber sozinho que uma live terminou, colocar a gravação na fila e processar sem atrapalhar a live.</td></tr>
+<tr><td class="k">Instalar</td><td>watchdog.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>ingestao/monitor.py</code>: observa a pasta do OBS. Um arquivo novo só entra na fila depois de ficar 2 minutos sem mudar de tamanho, ou seja, quando a gravação terminou.</li>
+  <li>Ao abrir, o app também <b>varre a pasta</b> e pega gravações que ainda não estão no banco. Assim nada se perde se ele estava fechado quando a live acabou.</li>
+  <li><code>sistema/servico.py</code>: laço principal. O monitor e o coletor do LoL (etapa 7) rodam em paralelo, em threads, e as tarefas da fila são executadas uma por vez.</li>
+  <li><b>Enquanto houver uma gravação em andamento</b> (arquivo ainda crescendo), a fila fica parada, para o processamento não disputar CPU e GPU com a live.</li>
+  <li>O serviço também roda o <b>backup diário do banco</b> (etapa 2), uma vez por dia, e executa as <b>tarefas agendadas</b> quando chega a hora delas (coleta de métricas, reenvio depois que a cota zerar). Se o PC estava desligado na hora marcada, a tarefa roda assim que ele ligar.</li>
+  <li><code>sistema/energia.py</code>: <code>SetThreadExecutionState</code> impede a suspensão do Windows enquanto houver fila e libera quando ela acaba.</li>
+  <li>CLI: <code>clipador iniciar</code>, mais <code>clipador instalar-servico</code>, que cadastra o app no <b>Agendador de Tarefas</b> para abrir no login, sem janela (<code>pythonw</code>), com tudo indo para o log.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Terminou a live, a gravação entra na fila sozinha e o processamento começa. O PC não dorme no meio.</td></tr>
+<tr><td class="k">Testes</td><td>Um arquivo ainda crescendo não entra na fila e mantém a fila parada. Um arquivo estável entra uma vez só. Arquivos que não são vídeo são ignorados. A varredura na abertura encontra gravações antigas não processadas. Uma tarefa agendada atrasada roda assim que o serviço abre.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Gravar 1 minuto no OBS e a gravação aparecer em <code>clipador status</code> sem fazer nada. Depois de reiniciar o PC, o app abre sozinho.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 5</span>Extração do áudio da voz</div><table>
+<tr><td class="k">Objetivo</td><td>Tirar da gravação o áudio da sua voz, no formato que o Whisper e o detector de volume usam, e registrar os dados do vídeo.</td></tr>
+<tr><td class="k">Instalar</td><td>soundfile e numpy.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>ingestao/audio.py</code>: usa o <code>ffprobe</code> para conferir faixas, duração, resolução e fps. Os números das faixas vêm do <code>config.toml</code>; para o FFmpeg, a faixa 2 do OBS é o segundo fluxo de áudio (<code>0:a:1</code>).</li>
+  <li>Extrai a voz em WAV mono 16 kHz (o formato que o Whisper espera). As faixas de jogo e música não são extraídas: os cortes da etapa 9 leem direto do MKV.</li>
+  <li>Lê o horário de início pelo nome do arquivo. Se o nome não seguir o padrão do OBS, usa a data de criação do arquivo e avisa no log.</li>
+  <li>Se faltar faixa, a tarefa falha com uma mensagem clara ("gravação sem a faixa 2 (voz): confira o OBS").</li>
+  <li>Os arquivos temporários em <code>dados/trabalho/</code> são apagados quando a gravação termina a pipeline.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Cada gravação gera o áudio da voz pronto para a transcrição e para o detector de volume.</td></tr>
+<tr><td class="k">Testes</td><td>Na gravação demo: a duração do WAV bate com a do vídeo e os picos estão nos lugares certos. Um nome de arquivo fora do padrão ainda gera um horário de início. Uma gravação sem a faixa de voz dá erro claro.</td></tr>
+<tr><td class="k">Pronto quando</td><td>A extração funciona na demo e numa gravação real do OBS.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 6</span>Transcrição da voz</div><table>
+<tr><td class="k">Objetivo</td><td>Transformar a sua fala em texto com o horário de cada palavra.</td></tr>
+<tr><td class="k">Instalar</td><td>faster-whisper e as bibliotecas do CUDA 12 (<code>nvidia-cublas-cu12</code>, <code>nvidia-cudnn-cu12</code>). Na primeira execução, o modelo <code>medium</code> (~1,5 GB) é baixado uma vez e fica em cache.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>transcricao/whisper.py</code>: modelo <code>medium</code> com <code>compute_type="int8"</code> na GPU, idioma <code>pt</code>, filtro de silêncio (<code>vad_filter</code>) e <code>word_timestamps</code>.</li>
+  <li><b>Vocabulário</b>: um texto inicial (<code>initial_prompt</code>) com nomes de campeões e gírias do config, para o Whisper acertar "Yasuo", "gank", "flash" etc. O Whisper só aproveita um texto inicial curto (cerca de 224 tokens), então a lista deve ter só os termos que mais aparecem. Os mais importantes também podem ir em <code>hotwords</code>, outro parâmetro do faster-whisper.</li>
+  <li>Se faltar memória na placa, cai para o <code>small</code>. Se não tiver GPU, usa a CPU, mais devagar.</li>
+  <li>Salva no banco a cada trecho transcrito. Se for interrompido, continua do último trecho salvo.</li>
+  <li><b>Versão fixada</b>: as versões atuais do <code>ctranslate2</code> (o motor do faster-whisper) usam CUDA 12 + cuDNN 9 (<i>conferido no README oficial</i>). O lockfile do uv trava essa versão, para uma atualização futura para CUDA 13 não quebrar a 1050 Ti.</li>
+  <li>Ao terminar, <b>libera a memória da GPU</b> antes da próxima tarefa (regra: uma tarefa de GPU por vez).</li>
+  <li>Exporta legenda <code>.srt</code> para conferência.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Toda live ganha uma transcrição pesquisável, que alimenta o detector de fala e as legendas dos clipes.</td></tr>
+<tr><td class="k">Testes</td><td>A conversão do resultado do Whisper para o banco e para <code>.srt</code> e a retomada após interrupção são testadas com dados prontos, sem GPU, para a CI rodar. A transcrição real é testada à mão.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Uma gravação real de 3h é transcrita numa madrugada, com o tempo gasto e o modelo usado registrados no log.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 7</span>Coletor do LoL e alinhamento de tempo</div><table>
+<tr><td class="k">Objetivo</td><td>Registrar os eventos da partida durante a live e saber em que segundo da gravação cada um aconteceu.</td></tr>
+<tr><td class="k">Instalar</td><td>httpx. O certificado da Riot (<code>riotgames.pem</code>), disponível na documentação oficial para desenvolvedores, fica no repositório para a conexão HTTPS ser verificada.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>jogo/lol_coletor.py</code>: a cada 2 segundos consulta a Live Client Data API em <code>https://127.0.0.1:2999/liveclientdata/</code>:
+    <ul>
+      <li><code>eventdata</code>: lista de eventos da partida.</li>
+      <li><code>gamestats</code>: o tempo de jogo atual.</li>
+      <li><code>activeplayername</code>: o seu nome na partida.</li>
+    </ul>
+    Fora de partida, a API não responde e o coletor só espera, sem encher o log de erro.</li>
+  <li>Eventos guardados: <code>ChampionKill</code>, <code>Multikill</code>, <code>Ace</code>, <code>FirstBlood</code>, <code>DragonKill</code>, <code>BaronKill</code>, <code>TurretKilled</code>. Cada um é marcado como <b>seu</b> ou não, comparando com o seu nome (abate seu, morte sua, participação). O nome vem como Riot ID (<code>Nome#TAG</code>), e os eventos podem trazer só o <code>Nome</code>, então a comparação ignora a parte do <code>#TAG</code>.</li>
+  <li>Sem duplicar: cada evento tem um <code>EventID</code>, e o coletor só salva os novos.</li>
+  <li><code>jogo/alinhamento.py</code>: a cada consulta, guarda o par (horário do PC, tempo de jogo). Com isso calcula <b>quando a partida começou no relógio real</b>. O horário real de cada evento é esse início mais o <code>EventTime</code>; subtraindo o início da gravação, sai o segundo exato no vídeo.</li>
+  <li>Roda dentro do serviço da etapa 4, que já abre no login.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Depois da live, o banco sabe em que segundo da gravação aconteceu cada evento e quais foram seus.</td></tr>
+<tr><td class="k">Testes</td><td><b>Obrigatórios</b>: partida que começa depois da gravação, gravação que passa da meia-noite, evento fora do intervalo da gravação, várias partidas na mesma live, evento repetido que não pode ser duplicado e um evento marcado como seu pelo nome, com e sem <code>#TAG</code>.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Numa partida real, um abate seu aparece no segundo certo da gravação, com margem de 2 s.</td></tr>
+</table></div>
+<div class="etapa"><div class="etapa-h"><span>Etapa 8</span>Detectores e nota</div><table>
+<tr><td class="k">Objetivo</td><td>Achar os melhores momentos da live e dar uma nota de 0 a 100 para cada um.</td></tr>
+<tr><td class="k">Instalar</td><td>Nada novo.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>detectores/base.py</code>: interface <code>Detector.detectar(gravacao) -&gt; list[Momento]</code>. Cada detector devolve, por trecho, um sinal de 0 a 1 e pode ser ligado ou desligado no config.</li>
+  <li><code>volume_voz.py</code> (<b>sinal principal</b>): mede o volume da voz em decibéis, em janelas de 0,5 s, e compara com a <b>mediana</b> dos 60 s anteriores (o seu volume normal). Pico = ficar pelo menos <b>10 dB</b> acima do normal (configurável) por 1 s ou mais. Gritos e risadas altas caem aqui.</li>
+  <li><code>fala.py</code>: expressões faladas, configuráveis ("meu Deus", "não acredito", "caramba"...), e fala acelerada (palavras por segundo bem acima da sua média). Risada não entra aqui: o Whisper não escreve risada como "kkkk".</li>
+  <li><code>lol.py</code>: pontos por evento (ex.: pentakill &gt; barão &gt; abate). Eventos seus valem mais que os do resto da partida.</li>
+  <li><code>nota.py</code>:
+    <ul>
+      <li>Junta sinais próximos num momento só.</li>
+      <li>Define a janela do clipe: começa alguns segundos antes do primeiro sinal (padrão 10 s) e termina depois do último (padrão 5 s), com duração entre 15 e 60 s. Esses padrões depois são ajustados automaticamente pelos seus ajustes de corte (etapa 14). A janela nunca passa do começo ou do fim da gravação.</li>
+      <li>Nota = 100 × média ponderada dos sinais. Os pesos iniciais ficam no config; depois das etapas 14 e 17, a versão aprovada fica na tabela <code>PesosNota</code>.</li>
+      <li>Guarda só os melhores, até <code>max_momentos_por_live</code> (padrão 30), para não cortar centenas de clipes.</li>
+    </ul></li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Cada live gera uma lista de momentos ordenada por nota, com o motivo de cada nota ("grito + abate duplo seu").</td></tr>
+<tr><td class="k">Testes</td><td><b>Obrigatórios</b>:
+  <ul>
+    <li>Cada detector acha os picos da gravação demo e ignora o ruído.</li>
+    <li>Um aumento lento de volume não conta como pico.</li>
+    <li>Momentos sobrepostos viram um só, e a janela respeita os limites de 15 e 60 s.</li>
+    <li>A nota respeita os pesos.</li>
+    <li>Uma live sem partida de LoL funciona só com voz e fala.</li>
+  </ul></td></tr>
+<tr><td class="k">Pronto quando</td><td>Numa live real, pelo menos metade dos 15 primeiros momentos parecem bons para você.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 9</span>Cortes com FFmpeg</div><table>
+<tr><td class="k">Objetivo</td><td>Transformar os momentos em vídeos prontos para postar.</td></tr>
+<tr><td class="k">Instalar</td><td>Nada novo. Usa o FFmpeg com NVENC.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>cortes/ffmpeg.py</code>: monta e roda os comandos do FFmpeg, lendo direto do MKV.
+    <ul>
+      <li><b>Áudio</b>: mistura só as faixas 2 (voz) e 3 (jogo), <b>sem a música</b>, com o volume de cada uma no config. O volume final é normalizado (filtro <code>loudnorm</code>, por volta de -14 LUFS, o padrão de YouTube e TikTok).</li>
+      <li><b>Vídeo</b>: corte com recodificação, preciso ao quadro, em <code>h264_nvenc</code>. Saída em <b>MP4</b> (H.264 + AAC), o formato mais aceito pelas plataformas.</li>
+    </ul></li>
+  <li><code>horizontal.py</code>: clipe 16:9 do momento, na resolução da gravação.</li>
+  <li><code>vertical_a.py</code>: 1080×1920. O vídeo inteiro fica no centro, e uma cópia ampliada e desfocada (<code>boxblur</code>) preenche o fundo.</li>
+  <li><code>vertical_b.py</code>: <b>PAUSA</b>. O desenvolvimento para aqui, e essa parte é revisada com atenção antes de implementar (seção 5).</li>
+  <li><b>Legendas</b> opcionais queimadas no vertical, ligadas ou desligadas no config. Para cada clipe, o app gera um <code>.srt</code> só com as palavras daquele trecho, com os tempos recalculados para começar do zero, e queima com o filtro <code>subtitles</code>.</li>
+  <li><b>Thumbnail</b>: um quadro do pico do momento, usada quando um clipe horizontal sobe como vídeo normal no YouTube (etapa 15).</li>
+  <li>Quais formatos gerar fica no config. Nome dos arquivos: <code>data_nota_id_formato.mp4</code>, em <code>dados/clipes/</code>.</li>
+  <li>As mesmas funções atendem a tarefa <code>recortar</code>, que corta de novo um clipe quando você ajusta o início ou o fim na revisão (etapa 12).</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>De manhã, a pasta <code>dados/clipes/</code> tem os clipes do dia, nos formatos escolhidos, prontos para revisar.</td></tr>
+<tr><td class="k">Testes</td><td>Os comandos FFmpeg montados batem com o esperado (testados sem rodar o FFmpeg). Na demo, o clipe tem a duração e a resolução certas, áudio sem a faixa de música e abre como MP4 válido. A legenda do clipe começa no tempo zero e bate com a fala.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Uma live real gera os clipes durante a madrugada sem erro, um formato de cada vez na GPU, e eles tocam no celular.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 10</span>Títulos e hashtags com IA local</div><table>
+<tr><td class="k">Objetivo</td><td>Sugerir títulos e hashtags que pareçam escritos por você, não por um robô, para o app ficar mais autônomo.</td></tr>
+<tr><td class="k">Instalar</td><td><ul>
+  <li><b>Ollama</b> (gratuito, roda modelos de IA no próprio PC, sem internet): <code>winget install Ollama.Ollama</code>. <i>Conferido na documentação oficial:</i> suporta a GTX 1050 Ti, mas exige <b>driver NVIDIA 570 ou mais novo</b> para essa placa (na prática, entre 570 e 580; veja a etapa 0).</li>
+  <li>Modelo <b>qwen3:4b</b> (2,5 GB, cabe nos 4 GB da placa; atende mais de 100 idiomas, incluindo português): <code>ollama pull qwen3:4b</code>. Se faltar memória, cai para o <code>qwen3:1.7b</code> (1,4 GB). O modelo fica no config, para trocar por um melhor no futuro.</li>
+  <li>Biblioteca Python <code>ollama</code>, via uv.</li>
+</ul></td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>titulos/gerador.py</code>: para cada momento, envia ao modelo o trecho da transcrição (o que você falou), os eventos do jogo (campeão, pentakill...) e as instruções de estilo. Recebe <b>3 sugestões de título</b> e as hashtags, numa resposta em JSON (o Ollama permite exigir esse formato).</li>
+  <li><b>Estilo</b>: frases curtas, com o seu jeito de falar, curiosidade ou exagero, sem cara de "melhores momentos #12". Exemplos do estilo esperado:
+    <ul>
+      <li>Pentakill de Yasuo com grito → <i>"EU NÃO ACREDITO NO QUE ESSE YASUO FEZ"</i>, <i>"O time desistiu. O Yasuo não."</i></li>
+      <li>Flash errado com risada → <i>"Eu juro que apertei o flash"</i>, <i>"O flash mais triste da história do LoL"</i></li>
+    </ul></li>
+  <li><b>Aprende o seu estilo</b>: os últimos títulos que você escolheu ou editou na revisão (tabela <code>Decisao</code>; até uns 10, para caber no pedido) entram como exemplos nas próximas gerações. Quanto mais você usa, mais os títulos ficam com a sua cara.</li>
+  <li><b>Tipo de cada título</b>: o próprio modelo marca cada sugestão como "frase sua", "pergunta", "exagero" ou "descrição". Esse tipo é usado na etapa 17 para descobrir quais tipos dão mais engajamento.</li>
+  <li><b>Hashtags</b>: mistura a sua lista fixa do config (ex.: <code>#leagueoflegends #lolbr</code>) com as que o modelo sugere a partir do momento (ex.: <code>#yasuo #pentakill</code>). A partir da etapa 17, a escolha também considera quais hashtags trazem mais engajamento. Padrão: 3 a 5 hashtags por vídeo. Regras do YouTube, <i>conferidas na ajuda oficial</i>: ele mostra no título até 3 das hashtags que considera mais interessantes; com mais de 60, todas são ignoradas; hashtags sem relação com o vídeo podem levar à remoção dele. Por isso o app só sugere hashtags ligadas ao conteúdo do clipe (jogo, campeão, o que aconteceu).</li>
+  <li><b>Limites de texto</b>: título do YouTube até 100 caracteres; legenda do TikTok até 2.200 caracteres (<i>conferido na documentação da Content Posting API</i>). O app corta ou avisa antes de passar.</li>
+  <li>Roda na fila depois dos cortes. Usa a GPU, então segue a regra de uma tarefa de GPU por vez, e descarrega o modelo da memória ao terminar (<code>keep_alive=0</code>). Pede o modo sem "raciocínio" do modelo, que é mais rápido para textos curtos.</li>
+  <li>Se o Ollama não estiver instalado ou falhar, o app usa um título simples a partir da frase mais marcante da transcrição, e nada trava.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Cada clipe chega na revisão com 3 títulos e hashtags prontos. Você só escolhe ou ajusta.</td></tr>
+<tr><td class="k">Testes</td><td>Com o modelo simulado: o pedido leva a transcrição e os eventos certos, a resposta JSON é validada, títulos acima do limite são cortados (YouTube: 100 caracteres) e a falha do Ollama cai no título simples. A qualidade dos títulos é avaliada à mão, com lives reais.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Numa live real, para a maioria dos clipes, pelo menos uma das 3 sugestões serve sem edição ou com edição pequena.</td></tr>
+</table></div>
+<div class="etapa"><div class="etapa-h"><span>Etapa 11</span>Desligamento automático</div><table>
+<tr><td class="k">Objetivo</td><td>Desligar o PC sozinho depois do processamento, sem atrapalhar se você estiver usando.</td></tr>
+<tr><td class="k">Instalar</td><td>Nada novo. Usa funções do próprio Windows.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>sistema/ociosidade.py</code>: <code>GetLastInputInfo</code> diz há quanto tempo o teclado e o mouse estão parados. Isso só funciona dentro da sua sessão do Windows, e é por isso que o app abre pelo Agendador no login, e não como serviço do sistema.</li>
+  <li><code>sistema/desligamento.py</code>: quando a fila acaba, verifica a cada minuto se você está ocioso há 10 min. Programas abertos não impedem.
+    <ul>
+      <li>Gravação em andamento conta como fila.</li>
+      <li><b>Tarefas agendadas para o futuro não contam</b> (ex.: coleta de métricas daqui a 7 dias, reenvio depois que a cota zerar). Se contassem, o PC nunca desligaria.</li>
+    </ul></li>
+  <li>Depois, contagem de 60 s com <code>shutdown /s /t 60</code>; o Windows mostra um aviso na tela. Mexer no mouse ou no teclado faz o app rodar <code>shutdown /a</code> e voltar a esperar. Você também pode digitar <code>shutdown /a</code>.</li>
+  <li><b>Atenção</b>: assistir a um vídeo sem tocar no PC conta como ocioso. Nesse caso o aviso de 60 s aparece, e basta mexer o mouse.</li>
+  <li>Config: <code>desligar_ao_terminar</code>, <code>minutos_ocioso = 10</code> e <code>modo_teste</code>, que só escreve "desligaria agora" no log. O <code>modo_teste</code> vem <b>ligado</b> por padrão.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Você vai dormir. O app termina tudo e desliga o PC.</td></tr>
+<tr><td class="k">Testes</td><td>A regra é testada com relógio e ociosidade simulados, sem desligar de verdade: fila pendente, gravação em andamento, só tarefas agendadas para o futuro (deve desligar), usuário ativo, cancelamento durante a contagem e modo de teste.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Uma noite inteira em modo de teste mostra no log o horário certo em que o PC teria desligado. Só então você desliga o <code>modo_teste</code>.</td></tr>
+</table></div>
+<div class="fase">Fase C · Revisão <small>o que você usa no dia seguinte</small></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 12</span>API de revisão (backend)</div><table>
+<tr><td class="k">Objetivo</td><td>Expor clipes e decisões para a interface web.</td></tr>
+<tr><td class="k">Instalar</td><td>FastAPI e Uvicorn.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>web/api.py</code>, ouvindo só em <code>127.0.0.1</code> (não fica visível na rede):
+    <ul>
+      <li><code>GET /api/momentos</code>: momentos do dia ordenados por nota, com os formatos já cortados e os títulos e hashtags sugeridos de cada um.</li>
+      <li><code>GET /api/clipes/{id}/video</code>: envia o vídeo com suporte a <i>Range</i>, para dar para avançar e voltar no player.</li>
+      <li><code>POST /api/momentos/{id}/decisao</code>: aprovar ou recusar, com os formatos e destinos escolhidos, o título e as hashtags.</li>
+      <li><code>DELETE /api/momentos/{id}/decisao</code>: desfazer uma decisão (antes da publicação).</li>
+      <li><code>POST /api/momentos/{id}/ajuste</code>: novo início e fim do corte. Cria uma tarefa que corta de novo só esse clipe. Se o clipe já foi aprovado, a publicação espera o novo corte ficar pronto.</li>
+      <li><code>GET /api/status</code>: fila, erros e cota do YouTube.</li>
+      <li><code>GET /api/estatisticas</code>: dados dos gráficos.</li>
+    </ul></li>
+  <li><b>Limite diário</b> (padrão 15): a revisão mostra os 15 momentos de maior nota do dia; o restante fica num "ver mais".</li>
+  <li><b>Aprovar</b> = escolher formatos e destinos. Os destinos padrão ficam no config (ex.: vertical → Shorts e TikTok). Os 3 títulos e as hashtags sugeridos na etapa 10 aparecem para você escolher ou editar.</li>
+  <li>CLI: <code>clipador web</code> sobe a API e abre o navegador.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>A documentação interativa em <code>/docs</code> já permite revisar, mesmo sem a interface pronta.</td></tr>
+<tr><td class="k">Testes</td><td>Cada rota com o banco demo: ordenação, limite diário, decisão salva com formatos, destinos, título e hashtags, desfazer, ajuste do corte cria a tarefa de novo corte, momento inexistente devolve 404, vídeo devolve 206 quando o pedido usa <i>Range</i>.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Dá para revisar a demo inteira pelo <code>/docs</code>.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 13</span>Interface de revisão (frontend)</div><table>
+<tr><td class="k">Objetivo</td><td>Revisar os clipes do dia rápido, quase só pelo teclado.</td></tr>
+<tr><td class="k">Instalar</td><td>Via npm: React, Vite, TypeScript, Tailwind, Recharts (gráficos) e Vitest.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>frontend/</code> com 3 telas:
+    <ul>
+      <li><b>Revisão</b>: player grande com autoplay, nota, motivo, título editável e formatos.</li>
+      <li><b>Fila e status</b>: o que está processando, o que deu erro e a cota do dia.</li>
+      <li><b>Estatísticas</b>: gráficos de precisão e de sinais; engajamento a partir da etapa 17.</li>
+    </ul></li>
+  <li>Atalhos:
+    <ul>
+      <li><b>A</b> aprova e <b>R</b> recusa.</li>
+      <li><b>U</b> desfaz.</li>
+      <li><b>← →</b> navega e <b>espaço</b> pausa.</li>
+      <li><b>1/2/3</b> troca o formato exibido.</li>
+      <li><b>T</b> edita o título e <b>Tab</b> alterna entre as 3 sugestões.</li>
+      <li><b>[</b> e <b>]</b> recuam ou avançam o início do corte em 1 s; <b>Shift + [</b> e <b>Shift + ]</b> fazem o mesmo com o fim.</li>
+    </ul></li>
+  <li><b>Ajuste do corte</b>: uma linha do tempo embaixo do player, com alças de início e fim para arrastar. O ajuste é mostrado na hora no player; ao aprovar, o app corta de novo só esse clipe.</li>
+  <li>Enquanto você digita no campo de título, os atalhos ficam desligados (senão, digitar "a" aprovaria o clipe). <b>Esc</b> sai do campo.</li>
+  <li>Contador "7 de 15 revisados hoje".</li>
+  <li><b>Autoplay</b>: o navegador só toca vídeo com som depois de você interagir com a página. O primeiro clipe espera uma tecla; os seguintes tocam sozinhos.</li>
+  <li>No desenvolvimento, o Vite repassa as chamadas <code>/api</code> para o FastAPI (proxy). No uso normal, o build vira arquivos estáticos servidos pelo próprio FastAPI, e o Node não é necessário.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Revisar 15 clipes leva poucos minutos. Toda decisão fica salva.</td></tr>
+<tr><td class="k">Testes</td><td>Vitest nos atalhos, no desfazer, no contador e no ajuste do corte (início nunca depois do fim, limites de 15 a 60 s). Teste manual completo com a demo.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Você revisa uma live real inteira sem tocar no mouse. Um GIF dessa tela vai para o README.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 14</span>Aprendizado com as aprovações</div><table>
+<tr><td class="k">Objetivo</td><td>Usar as suas decisões para medir e melhorar o detector. É o diferencial de portfólio.</td></tr>
+<tr><td class="k">Instalar</td><td>scikit-learn.</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>aprendizado/metricas.py</code>: precisão por dia ("dos 15 sugeridos, aprovei 9") e quais sinais aparecem mais nos aprovados.</li>
+  <li><code>aprendizado/pesos.py</code>: com 100 decisões ou mais, treina uma regressão logística. As entradas são os sinais de cada momento; a saída é "aprovou?". Os coeficientes, normalizados, viram os pesos sugeridos.</li>
+  <li><b>Comparação justa</b>: a precisão "antes e depois" é medida com validação cruzada, em decisões que o modelo não viu no treino. Você vê os números e aceita ou recusa. A versão aceita vai para a tabela <code>PesosNota</code>.</li>
+  <li><b>Limitação</b>, documentada no README: só os momentos que você revisou têm decisão. O modelo aprende entre os já bem avaliados, não sobre a live inteira.</li>
+  <li>Os gráficos aparecem na tela de Estatísticas.</li>
+  <li><b>Janela do corte</b>: a média dos seus ajustes de início e fim (etapa 13) atualiza os padrões da etapa 8. Se você sempre adianta o início em 3 s, os próximos cortes já começam 3 s antes.</li>
+  <li>Na etapa 17, o mesmo mecanismo passa a usar também o engajamento do público.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Com o tempo, a nota fica mais parecida com o seu gosto.</td></tr>
+<tr><td class="k">Testes</td><td>Métricas com decisões inventadas de resultado conhecido. Um sinal que sempre leva à aprovação recebe peso maior. O treino se recusa a rodar com menos de 100 decisões.</td></tr>
+<tr><td class="k">Pronto quando</td><td>O README mostra um gráfico real da precisão ao longo do tempo. ADR: "Por que regressão logística".</td></tr>
+</table></div>
+
+<div class="fase">Fase D · Publicação <small>só o que você aprovou</small></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 15</span>Upload no YouTube</div><table>
+<tr><td class="k">Objetivo</td><td>Enviar os clipes aprovados para o YouTube, respeitando a cota.</td></tr>
+<tr><td class="k">Instalar</td><td>google-api-python-client e google-auth-oauthlib.</td></tr>
+<tr><td class="k">Configurar (você)</td><td><ul>
+  <li>No Google Cloud Console: criar um projeto e ativar a YouTube Data API v3.</li>
+  <li>Tela de consentimento OAuth: tipo "Externo", permissão <code>youtube.upload</code>, publicada "Em produção" (em "Teste" o login expira em 7 dias). O Google mostra um aviso de "app não verificado" no login; para uso pessoal, basta continuar.</li>
+  <li>Criar uma credencial OAuth do tipo "App para computador" e salvar o <code>client_secret.json</code> fora do git.</li>
+  <li><b>Cada passo que envolve o Google é combinado antes de ser feito.</b></li>
+</ul></td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>publicacao/youtube.py</code>: login uma vez (o token fica salvo fora do git e é renovado sozinho). Upload retomável, que continua de onde parou se a internet cair. O ID do vídeo devolvido pelo YouTube fica salvo em <code>Publicacao</code>, para as métricas da etapa 17.</li>
+  <li>Título e hashtags que você aprovou (as hashtags vão na descrição), mais descrição e tags a partir de modelos no config. Categoria "Jogos" (<code>categoryId</code> 20) e <b>"não é conteúdo para crianças"</b> (<code>selfDeclaredMadeForKids = false</code>), declaração que o YouTube exige.</li>
+  <li>Shorts = vertical de até 3 min. Clipes horizontais sobem como vídeo normal.</li>
+  <li><b>Avisar inscritos</b> (<code>notifySubscribers</code>) fica configurável. Muitos Shorts por dia podem gerar notificação demais para quem é inscrito.</li>
+  <li>Thumbnail personalizada só nos clipes horizontais: exige canal verificado por telefone e gasta ~50 unidades. Nos Shorts, o YouTube escolhe o quadro.</li>
+  <li><code>publicacao/cota.py</code>: conta os envios do dia (limite de 100) e as unidades das outras ações (limite de 10.000; thumbnail = 50). Se passar do limite, para e continua depois que a cota zera (4h–5h em Brasília).</li>
+  <li><b>Agendamento automático</b>: o vídeo sobe como privado com data e hora de publicação (<code>publishAt</code>), e o YouTube publica sozinho no horário. Os horários padrão ficam no config, com um intervalo mínimo entre publicações para não soltar tudo de uma vez.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Você aprova e o app envia. O link fica salvo no banco e aparece na interface.</td></tr>
+<tr><td class="k">Testes</td><td>Cota, fila e montagem do pedido (título, categoria, privacidade, declaração para crianças, aviso aos inscritos, horário de publicação respeitando o intervalo mínimo) testados com a API simulada, sem gastar cota. Um upload real privado é testado à mão.</td></tr>
+<tr><td class="k">Pronto quando</td><td>Um Short aprovado aparece agendado no seu canal, com título, descrição e categoria certos, e é publicado sozinho no horário.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 16</span>TikTok</div><table>
+<tr><td class="k">Objetivo</td><td>Levar os verticais aprovados ao TikTok, do jeito mais simples para o mais automático.</td></tr>
+<tr><td class="k">Instalar</td><td>Nada novo (httpx).</td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><b>(a) Pasta</b>: copia o vertical aprovado para <code>dados/exportar/tiktok/</code> com a legenda e as hashtags aprovadas num <code>.txt</code> ao lado. Funciona desde o primeiro dia.</li>
+  <li><b>(b) Rascunho</b>: criar um app no TikTok for Developers com a Content Posting API, testar no sandbox e fazer login OAuth com a permissão <code>video.upload</code>. O app envia o vídeo pelo endpoint de upload para a caixa de entrada (<code>/v2/post/publish/inbox/video/init/</code>), e você finaliza no celular. Para usar fora do sandbox, o app do TikTok precisa ser aprovado na análise.
+    <ul>
+      <li>Para mandar o app para análise, o TikTok pede ícone, descrição e links de <b>Termos de Uso</b> e <b>Política de Privacidade</b>. Dá para hospedar essas páginas de graça no GitHub Pages.</li>
+      <li>Login como <b>app de desktop</b>, <i>conferido na documentação oficial</i>: o endereço de retorno (<i>redirect URI</i>) pode ser <code>http://127.0.0.1:{porta}/callback/</code> (só <code>localhost</code> ou <code>127.0.0.1</code>, com porta) e precisa estar cadastrado no app. O login exige <b>PKCE</b> (um código de verificação gerado a cada login, com desafio em SHA-256 codificado em hexadecimal).</li>
+      <li><b>Login que dura</b> (<i>conferido na documentação oficial</i>): o token de acesso vale 24 h e o de renovação (<i>refresh token</i>) vale 365 dias. O app renova o acesso sozinho e avisa quando faltar pouco para o login vencer.</li>
+      <li><b>Nenhum pedido de aprovação ao TikTok é feito sem ser combinado antes.</b></li>
+    </ul></li>
+  <li><b>(c) Post direto</b> (permissão <code>video.publish</code>): só depois da auditoria do TikTok. Antes dela, os posts ficam privados. Antes de cada post, o app consulta as informações do criador (<code>creator_info</code>): opções de privacidade permitidas e duração máxima. Isso a documentação exige.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Os aprovados chegam ao TikTok com o mínimo de trabalho manual que a plataforma permite.</td></tr>
+<tr><td class="k">Testes</td><td>Exportação para a pasta (vídeo e <code>.txt</code>). Montagem dos pedidos com a API simulada.</td></tr>
+<tr><td class="k">Pronto quando</td><td>A opção (a) funciona sempre. A (b) funciona no sandbox.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 17</span>Métricas de engajamento</div><table>
+<tr><td class="k">Objetivo</td><td>Medir como cada corte publicado foi no YouTube e no TikTok e usar isso para a nota prever o que o <b>público</b> engaja, não só o que você aprova.</td></tr>
+<tr><td class="k">Instalar</td><td>Nada novo. Usa as mesmas bibliotecas das etapas 15 e 16.</td></tr>
+<tr><td class="k">Configurar (você)</td><td><ul>
+  <li>Google: ativar a <b>YouTube Analytics API</b> no mesmo projeto e incluir as permissões de leitura <code>youtube.readonly</code> (estatísticas dos seus vídeos) e <code>yt-analytics.readonly</code> (retenção). A <code>youtube.upload</code> da etapa 15 serve só para enviar. O app pede o login de novo uma vez.</li>
+  <li>TikTok: adicionar o produto <b>Display API</b> ao app, com a permissão <code>video.list</code>.</li>
+  <li><b>Cada passo que envolve Google ou TikTok é combinado antes de ser feito.</b></li>
+</ul></td></tr>
+<tr><td class="k">Código</td><td><ul>
+  <li><code>engajamento/coleta.py</code>: para cada publicação, coleta as métricas três vezes, <b>24 h, 72 h e 7 dias</b> depois. São tarefas agendadas na própria fila. Fontes, <i>conferidas na documentação oficial</i>:
+    <ul>
+      <li><b>YouTube Data API</b> (<code>videos.list</code>, parte <code>statistics</code>): visualizações, curtidas e comentários. Custa 1 unidade por chamada, e uma chamada pode trazer vários vídeos de uma vez (passando vários IDs).</li>
+      <li><b>YouTube Analytics API</b>: <code>averageViewDuration</code> e <code>averageViewPercentage</code>, quanto do vídeo as pessoas assistem. É o sinal mais importante nos Shorts. Os dados do Analytics costumam chegar com atraso de alguns dias, por isso a retenção conta só nas coletas de 72 h e 7 dias.</li>
+      <li><b>TikTok Display API</b> (<code>video.list</code>): <code>view_count</code>, <code>like_count</code>, <code>comment_count</code> e <code>share_count</code>. A lista traz só os vídeos <b>públicos</b>, do mais novo para o mais antigo, até 20 por página. Vídeos privados (como os de post direto antes da auditoria) não aparecem.</li>
+    </ul></li>
+  <li><b>Ligar o rascunho do TikTok ao vídeo publicado</b>: no modo rascunho você finaliza a postagem no celular, então o app não recebe o ID do vídeo. Ele procura nos seus vídeos pelo horário de criação e pelo título.</li>
+  <li><code>engajamento/indice.py</code>: transforma as métricas num <b>índice de engajamento</b> comparável entre vídeos. Ele junta três medidas, com fórmula e pesos no config:
+    <ul>
+      <li>visualizações divididas pela mediana do canal naquela rede (assim o crescimento do canal não distorce a comparação);</li>
+      <li>taxa de interação: curtidas + comentários + compartilhamentos, divididos pelas visualizações;</li>
+      <li>retenção.</li>
+    </ul></li>
+  <li><code>aprendizado/engajamento.py</code>: com <b>50 cortes ou mais</b> com a métrica de 7 dias, treina uma regressão logística ("ficou acima da mediana?") a partir dos sinais de cada momento. A <b>nota final</b> vira uma mistura configurável, por exemplo 50% seu gosto (etapa 14) e 50% engajamento previsto. A comparação justa e o seu aceite seguem a mesma regra da etapa 14, e a versão aceita vai para <code>PesosNota</code>.</li>
+  <li><code>engajamento/hashtags.py</code>, <b>hashtags que funcionam</b>: cada hashtag usada fica ligada às métricas do vídeo. O app compara o engajamento médio dos vídeos com e sem ela, e só conclui algo depois de a hashtag aparecer em pelo menos 5 vídeos. Para não usar só as mesmas de sempre, de vez em quando ele troca uma hashtag por outra ainda pouco testada, <b>sempre entre hashtags relacionadas ao clipe</b>: hashtag sem relação com o vídeo pode fazer o YouTube removê-lo. Esse equilíbrio entre "aproveitar o que funciona" e "testar o novo" é o problema do <i>multi-armed bandit</i>, resolvido com a técnica <i>epsilon-greedy</i>. As melhores hashtags passam a ser priorizadas nas sugestões da etapa 10.</li>
+  <li><b>Títulos que funcionam</b>: o mesmo vale para o tipo de título (frase sua, pergunta, exagero), marcado pelo próprio modelo da etapa 10. Os tipos que dão mais engajamento passam a ser pedidos com mais frequência.</li>
+  <li>A tela de Estatísticas ganha: ranking dos cortes por engajamento, ranking das hashtags, engajamento por tipo de momento (grito, abate, fala) e comparação entre YouTube e TikTok.</li>
+</ul></td></tr>
+<tr><td class="k">Funcionalidade</td><td>Você vê quais cortes funcionaram com o público, e a nota passa a priorizar os tipos de momento que geram mais engajamento.</td></tr>
+<tr><td class="k">Testes</td><td>
+  <ul>
+    <li>Índice calculado com números inventados de resultado conhecido.</li>
+    <li>Coletas de 24 h, 72 h e 7 dias agendadas certo.</li>
+    <li>Rascunho do TikTok ligado ao vídeo certo pelo horário. Se o vídeo ainda não aparece (não foi finalizado ou está privado), o app tenta de novo na próxima coleta, sem erro.</li>
+    <li>Ranking de hashtags com dados inventados; uma hashtag com menos de 5 usos não é ranqueada; a exploração respeita a taxa configurada.</li>
+    <li>Treino se recusa a rodar com menos de 50 cortes.</li>
+    <li>APIs simuladas, sem gastar cota.</li>
+  </ul></td></tr>
+<tr><td class="k">Limitações</td><td>Engajamento também depende de horário, tendências e do algoritmo de cada rede. Com poucos vídeos, o modelo erra bastante. Isso fica documentado no README; a etapa 19 ("melhores horários") ataca parte do problema.</td></tr>
+<tr><td class="k">Pronto quando</td><td>A tela mostra métricas reais de pelo menos 10 cortes publicados. Ao chegar em 50, sai a primeira sugestão de pesos, com a comparação antes e depois.</td></tr>
+</table></div>
+<div class="fase">Fase E · Vitrine e futuro</div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 18</span>Vitrine final (versão 1.0)</div><table>
+<tr><td class="k">Objetivo</td><td>Deixar o projeto pronto para mostrar a recrutadores.</td></tr>
+<tr><td class="k">Instalar</td><td>pytest-cov (mede quanto do código os testes cobrem).</td></tr>
+<tr><td class="k">O que fazer</td><td><ul>
+  <li><b>README completo</b>:
+    <ul>
+      <li>GIF da revisão e diagrama da pipeline em Mermaid.</li>
+      <li>Gráfico de engajamento: quais tipos de momento o público mais assiste.</li>
+      <li>Selos da CI e da cobertura de testes.</li>
+      <li>Gráfico de precisão e limitações conhecidas.</li>
+      <li>"Como rodar a demo em 3 comandos".</li>
+      <li>Decisões técnicas, com links para os ADRs.</li>
+      <li>Guia passo a passo para configurar as contas do Google e do TikTok (em <code>docs/</code>), para outra pessoa conseguir usar o app com os próprios canais.</li>
+    </ul></li>
+  <li><b>Vídeo curto</b> (1–2 min) mostrando o fluxo inteiro, para o README e o LinkedIn.</li>
+  <li><b>Roteiro de demonstração</b> de 5 minutos para entrevista, usando <code>clipador demo</code>.</li>
+  <li>Revisão geral: código morto, nomes e cobertura de pelo menos 80% nos detectores e no alinhamento.</li>
+  <li>Tag <code>v1.0</code> e release no GitHub, com a lista do que o app faz.</li>
+</ul></td></tr>
+<tr><td class="k">Pronto quando</td><td>Uma pessoa que nunca viu o projeto consegue rodar a demo seguindo só o README.</td></tr>
+</table></div>
+
+<div class="etapa"><div class="etapa-h"><span>Etapa 19</span>Futuro</div><table>
+<tr><td class="k">Ideias</td><td>Cada ideia é um plugin ou módulo novo, sem mexer no resto, e passa pelo mesmo ciclo (plano → código → testes → aprovação):<ul>
+  <li><b>Chat da Twitch</b> (twitchio): picos de mensagens por minuto viram um sinal.</li>
+  <li><b>Melhores horários</b>: YouTube Analytics API (gratuita) para descobrir quando seu público assiste e ajustar o agendamento.</li>
+  <li><b>Reação na câmera</b> (MediaPipe): expressões fortes viram um sinal.</li>
+  <li><b>Outros jogos</b>: um plugin de detector por jogo.</li>
+  <li><b>Vídeo longo</b> (ex.: compilado da semana): adiado de propósito. Primeiro o app fica redondo com os cortes.</li>
+  <li><b>Outras redes</b> (Instagram, Kwai...): por enquanto só YouTube e TikTok, na fase de testes.</li>
+  <li><b>App web no celular</b>: a mesma interface de revisão adaptada ao celular, com atalho na tela inicial (PWA), notificações pelo app gratuito ntfy ("15 clipes prontos", "erro na madrugada") e acesso fora de casa pelo Tailscale. Ponto a resolver antes: o PC desliga depois do processamento, então o celular só alcança o app com o PC ligado.</li>
+  <li><b>Métricas por hora de live</b>: cruzar o engajamento com o ponto da live em que cada momento aconteceu (1ª, 2ª, 3ª hora), com o horário e o dia da semana. Serve para decisões sobre as próprias lives, como duração ideal e o que fazer em cada parte. Só depois de alguns meses de dados, para ter parâmetro.</li>
+</ul></td></tr>
+</table></div>
+<h2 class="pb">4. Riscos e cuidados</h2>
+
+<div class="risk"><b>YouTube: cota diária.</b> <i>Conferido na documentação oficial em 14/10/2026.</i> O upload tem uma cota própria: <b>100 envios por dia</b>, e cada envio gasta 1. As outras ações dividem 10.000 unidades por dia: ler dados custa ~1, trocar a thumbnail 50, editar um vídeo 50. As cotas zeram à meia-noite do horário do Pacífico, entre 4h e 5h em Brasília. Na prática, a cota não limita o projeto. Mesmo assim, o app conta o uso e, se passar do limite, guarda o resto na fila para o dia seguinte.</div>
+
+<div class="risk"><b>YouTube: regra antiga sobre vídeos privados.</b> Antigamente, vídeos enviados por projetos não verificados ficavam presos como privados. <i>A documentação atual do <code>videos.insert</code> diz que eles não são mais restritos.</i> Com isso, o agendamento automático (<code>publishAt</code>) funciona desde o início, sem auditoria. Confira no primeiro upload real: se o Google voltar a restringir, o app sobe como privado e você publica pelo YouTube Studio.</div>
+<div class="risk"><b>YouTube: login que expira.</b> Se o app OAuth do Google ficar em modo "Teste", o login (refresh token) expira a cada 7 dias e o upload da madrugada falha (<i>conferido na documentação OAuth do Google</i>). Um login sem uso por 6 meses também expira. Mude o app para "Em produção". Para uso pessoal, o Google só mostra um aviso de "app não verificado" no login.</div>
+
+<div class="risk"><b>TikTok: auditoria.</b> Sem auditoria, a API só posta em modo privado (<i>conferido na documentação oficial</i>). A opção "salvar numa pasta" funciona desde o primeiro dia, sem depender de ninguém.</div>
+
+<div class="risk"><b>GTX 1050 Ti (arquitetura Pascal).</b> O CUDA 13 não suporta mais placas Pascal, e os drivers mais novos da NVIDIA também estão deixando de suportar. Fique no <b>CUDA 12</b> e num driver compatível; não atualize o driver às cegas. O Ollama (etapa 10) exige driver 570 ou mais novo nessa placa, e a série 580 é a última com suporte a Pascal. Ou seja: use um driver entre <b>570 e 580</b>. <i>Conferido nas notas oficiais do CUDA 13.</i></div>
+
+<div class="risk"><b>GPU com 4 GB.</b> Whisper e FFmpeg disputam a mesma memória de vídeo. Regra: uma tarefa de GPU por vez. Se o <code>medium</code> não couber, o app cai automaticamente para o <code>small</code>. O modo int8 funciona porque a 1050 Ti tem "compute capability" 6.1, o mínimo exigido pelo CTranslate2 (o motor por trás do faster-whisper) para int8 na GPU.</div>
+
+<div class="risk"><b>Direitos autorais.</b> A faixa de música fica fora dos clipes por isso. O áudio e as imagens do LoL podem ser usados em vídeos, inclusive monetizados, pela política de conteúdo da Riot ("Legal Jibber Jabber"). Músicas de terceiros que vazarem para o microfone ou para a faixa do jogo ainda podem gerar reivindicação no YouTube.</div>
+
+<div class="risk"><b>Alinhamento de tempo.</b> A partida começa minutos depois da gravação, e o coletor do LoL usa o tempo de jogo. Os dois precisam ser convertidos para o relógio real e alinhados. Por isso essa parte é obrigatória nos testes.</div>
+
+<div class="risk"><b>PC suspenso de madrugada.</b> Se o Windows suspender o PC no meio do processamento, nada termina. O app impede a suspensão enquanto houver fila (SetThreadExecutionState) e libera quando acabar.</div>
+
+<div class="risk"><b>Espaço em disco.</b> Gravando a 6.000 kbps, 3h de live ocupam cerca de 8 GB, ou uns 240 GB por mês. Defina quantos dias a gravação original fica guardada depois que os clipes forem aprovados.</div>
+
+<h2>5. Pendências</h2>
+<div class="note"><b>Vertical B (zoom na ação).</b> Quando o projeto chegar na etapa 9, o desenvolvimento para e essa parte é revisada com atenção antes de implementar. Ponto de partida sugerido: recorte fixo configurável no centro da tela, já que no LoL o campeão fica no centro com a câmera travada.</div>
+<div class="note"><b>Nome do projeto.</b> "Clipador de lives" é provisório. O nome final entra no README e no repositório do GitHub.</div>
+
+<h2>6. Decisões já tomadas</h2>
+<ul>
+  <li><b>Sinal principal</b>: picos de volume da sua voz (faixa do microfone). Fala e eventos do LoL entram como sinais complementares.</li>
+  <li><b>GPU</b>: faster-whisper <code>medium</code> int8 só na faixa da voz, com filtro de silêncio, e FFmpeg com NVENC, uma tarefa de GPU por vez.</li>
+  <li><b>Frontend</b>: React + TypeScript + Vite + Tailwind.</li>
+  <li><b>Escopo</b>: projeto completo, etapas 0 a 19 do roteiro, uma de cada vez.</li>
+  <li><b>Redes</b>: só YouTube e TikTok nesta fase de testes.</li>
+  <li><b>Engajamento</b>: as métricas dos cortes publicados também ensinam a nota (etapa 17).</li>
+  <li><b>Vídeo longo</b>: adiado. Fica na etapa 19 (futuro).</li>
+  <li><b>Títulos e hashtags</b>: gerados por IA local (etapa 10), aprendendo com as suas edições e com o engajamento.</li>
+  <li><b>Ajuste do corte</b> na revisão, com aprendizado da janela padrão.</li>
+  <li><b>Backup diário</b> do banco, guardando 14 cópias.</li>
+  <li><b>Adiados</b>: app web no celular com notificações e métricas por hora de live (etapa 19). O desligamento segue a regra atual.</li>
+  <li><b>Desligamento</b>: só quando a fila terminar <i>e</i> teclado e mouse estiverem parados há 10 min. Programas abertos não atrapalham. Contagem de 60 s cancelável e modo de teste que só escreve no log.</li>
+</ul>
+
+<div class="foot">Fonte deste PDF: <code>docs/stack.html</code>.</div>
+</body>
+</html>

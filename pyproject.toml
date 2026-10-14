@@ -1,0 +1,40 @@
+[project]
+name = "clipador"
+version = "0.1.0"
+description = "Transforma gravações de live (OBS) em clipes para YouTube e TikTok, com revisão antes de postar."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Vitor Fermontelos", email = "126780811+Fermontelos@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-settings>=2.16.0",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+clipador = "clipador.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.7.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F: erros básicos, I: ordem dos imports, UP: sintaxe moderna,
+# B: bugs comuns, SIM: simplificações.
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

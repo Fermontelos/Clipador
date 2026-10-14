@@ -1,0 +1,18 @@
+# Configuração do Clipador de lives.
+# Copie este arquivo para config.toml e ajuste os valores.
+# O config.toml fica fora do git, porque é específico do seu PC.
+#
+# Qualquer valor também pode ser trocado por variável de ambiente com o prefixo
+# CLIPADOR_ (ex.: CLIPADOR_NIVEL_LOG=DEBUG), que tem prioridade sobre este arquivo.
+
+# Pasta onde o OBS salva as gravações.
+pasta_gravacoes = "C:/Users/SEU_USUARIO/Videos"
+
+# Pasta onde o app guarda banco, logs e clipes (relativa à pasta do projeto).
+pasta_dados = "dados"
+
+# Quantos momentos a revisão mostra por dia (de 1 a 100).
+limite_diario = 15
+
+# Quanto detalhe vai para o log: DEBUG, INFO, WARNING ou ERROR.
+nivel_log = "INFO"

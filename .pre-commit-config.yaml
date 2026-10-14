@@ -1,0 +1,23 @@
+# Roda antes de cada commit. Para ativar: uv run pre-commit install
+#
+# Os ganchos são "locais": usam o ruff e o pytest do próprio projeto (versões travadas
+# no uv.lock), em vez de baixar outra cópia do ruff só para o pre-commit.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (lint)
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format (formatação)
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: pytest
+        name: pytest (testes)
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false
+        always_run: true
