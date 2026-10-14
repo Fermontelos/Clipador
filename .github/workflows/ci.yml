@@ -10,10 +10,11 @@ jobs:
   testes:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
+      # O setup-uv não publica a etiqueta "v10" flutuante, por isso a versão exata.
       - name: Instalar o uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.3.0
 
       - name: Instalar dependências (exatamente as do uv.lock)
         run: uv sync --locked
