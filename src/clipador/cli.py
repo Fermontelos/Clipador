@@ -47,6 +47,31 @@ def _carregar_ou_sair(arquivo: Path) -> Config:
     return cfg
 
 
+def _pasta_dados_da_demo(arquivo: Path) -> Path:
+    """Pasta de dados para a demo, que funciona mesmo sem ``config.toml``.
+
+    Quem acabou de clonar o repositório (um recrutador, por exemplo) ainda não tem
+    ``config.toml``. Nesse caso a demo usa ``dados/`` ao lado de onde o config ficaria.
+    Um ``config.toml`` que existe mas é inválido continua dando o erro de sempre.
+    """
+    if arquivo.is_file():
+        return _carregar_ou_sair(arquivo).pasta_dados
+    pasta_dados = arquivo.resolve().parent / "dados"
+    configurar_logs(pasta_dados)
+    typer.echo(f"Sem {arquivo.name}: a demo usa a pasta padrão {pasta_dados}.")
+    return pasta_dados
+
+
+def _resumir_erro(erro: str | None, limite: int = 150) -> str:
+    """Primeira linha do erro, encurtada: a mensagem inteira fica no banco e no log."""
+    primeira = (erro or "").strip().splitlines()[0] if (erro or "").strip() else "(sem mensagem)"
+    return primeira if len(primeira) <= limite else primeira[: limite - 1] + "…"
+
+
+def _restantes(mostradas: int, total: int) -> str:
+    return f" (mostrando {mostradas} de {total})" if total > mostradas else ""
+
+
 def _hora_local(momento: datetime) -> str:
     """Horário do banco (UTC) convertido para o fuso do PC."""
     return momento.astimezone().strftime("%d/%m %H:%M")
@@ -97,14 +122,14 @@ OpcaoDemo = Annotated[
 @app.command()
 def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> None:
     """Mostra a fila de tarefas: quantas há em cada situação, as próximas e os erros."""
-    cfg = _carregar_ou_sair(arquivo)
     if demo:
-        pasta = pasta_da_demo(cfg.pasta_dados)
+        pasta = pasta_da_demo(_pasta_dados_da_demo(arquivo))
         caminho_banco, pasta_backups = pasta / "clipador.db", pasta / "backups"
         if not caminho_banco.is_file():
             typer.echo("A demo ainda não existe. Rode 'clipador demo' primeiro.", err=True)
             raise typer.Exit(code=1)
     else:
+        cfg = _carregar_ou_sair(arquivo)
         caminho_banco, pasta_backups = cfg.caminho_banco, cfg.pasta_backups_efetiva
     engine = abrir_banco(caminho_banco, pasta_backups)
     try:
@@ -120,13 +145,16 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
     )
     typer.echo(f"Fila: {contagens}")
 
+    total = resumo.por_status
     if resumo.em_andamento:
-        typer.echo("Em andamento:")
+        mostradas = len(resumo.em_andamento)
+        typer.echo(f"Em andamento{_restantes(mostradas, total[StatusTarefa.EM_ANDAMENTO])}:")
         for tarefa in resumo.em_andamento:
             typer.echo(f"  {_descrever(tarefa)} · desde {_hora_local(tarefa.atualizada_em)}")
 
     if resumo.proximas:
-        typer.echo("Próximas:")
+        mostradas = len(resumo.proximas)
+        typer.echo(f"Próximas{_restantes(mostradas, total[StatusTarefa.PENDENTE])}:")
         for tarefa in resumo.proximas:
             typer.echo(
                 f"  {_descrever(tarefa)} · a partir de {_hora_local(tarefa.executar_a_partir_de)}"
@@ -135,10 +163,12 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
         typer.echo("Nenhuma tarefa pendente.")
 
     if resumo.com_erro:
-        typer.echo("Com erro:")
+        mostradas = len(resumo.com_erro)
+        typer.echo(f"Com erro{_restantes(mostradas, total[StatusTarefa.ERRO])}:")
         for tarefa in resumo.com_erro:
             typer.echo(
-                f"  {_descrever(tarefa)} · {tarefa.tentativas} tentativas · {tarefa.ultimo_erro}"
+                f"  {_descrever(tarefa)} · {tarefa.tentativas} tentativas · "
+                f"{_resumir_erro(tarefa.ultimo_erro)}"
             )
     backups = listar_backups(pasta_backups)
     ultimo = backups[-1].name if backups else "nenhum ainda"
@@ -171,10 +201,10 @@ def demo(
     ] = False,
 ) -> None:
     """Cria uma live falsa de 3 minutos para testar e demonstrar o app (não precisa de GPU)."""
-    cfg = _carregar_ou_sair(arquivo)
+    pasta_dados = _pasta_dados_da_demo(arquivo)
     typer.echo("Preparando a demo (a primeira vez leva uns 20 segundos)...")
     try:
-        resultado = preparar_demo(cfg.pasta_dados, do_zero=do_zero)
+        resultado = preparar_demo(pasta_dados, do_zero=do_zero)
     except ffmpeg.FFmpegNaoEncontradoError as erro:
         typer.echo(f"Erro: {erro}", err=True)
         raise typer.Exit(code=1) from erro

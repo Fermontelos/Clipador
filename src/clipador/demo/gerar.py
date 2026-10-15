@@ -113,7 +113,8 @@ def gerar_gravacao(destino: Path, duracao_s: float, picos: tuple[Pico, ...]) -> 
     destino.parent.mkdir(parents=True, exist_ok=True)
     temporario = destino.with_name(destino.stem + ".parcial.mkv")
     try:
-        ffmpeg.rodar(comando_gerar(temporario, duracao_s, picos))
+        # Limite folgado (a demo leva ~15 s): só para não ficar presa se o FFmpeg travar.
+        ffmpeg.rodar(comando_gerar(temporario, duracao_s, picos), tempo_limite_s=300)
     except Exception:
         temporario.unlink(missing_ok=True)  # não deixa o arquivo pela metade para trás
         raise
@@ -162,15 +163,24 @@ def _popular_banco(sessao, arquivo: Path) -> bool:
             modelo="demo (transcrição pronta)",
         )
     )
-    for evento in roteiro.EVENTOS_LOL:
+    for numero, evento in enumerate(roteiro.EVENTOS_LOL):
+        tempo_jogo_s = evento.gravacao_s - roteiro.PARTIDA_COMECA_S
         sessao.add(
             EventoJogo(
                 tipo=evento.tipo,
                 horario_real=(roteiro.INICIO + timedelta(seconds=evento.gravacao_s)).astimezone(
                     UTC
                 ),
-                tempo_jogo_s=evento.gravacao_s - roteiro.PARTIDA_COMECA_S,
-                dados={**evento.dados, "demo": True},
+                tempo_jogo_s=tempo_jogo_s,
+                # EventID, EventName e EventTime vêm em todo evento da API real; a etapa 7
+                # usa o EventID para não duplicar e o EventTime para alinhar o tempo.
+                dados={
+                    "EventID": numero,
+                    "EventName": evento.tipo,
+                    "EventTime": tempo_jogo_s,
+                    **evento.dados,
+                    "demo": True,
+                },
             )
         )
     # A mesma 1ª tarefa que o monitor de pasta (etapa 4) cria para uma gravação real.

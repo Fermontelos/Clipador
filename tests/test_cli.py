@@ -91,3 +91,28 @@ def test_status_mostra_tarefa_em_andamento(config_valida, tmp_path):
     resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
     assert "Em andamento:" in resultado.output
     assert "#1 publicar" in resultado.output
+
+
+def test_status_avisa_quando_a_lista_foi_cortada(config_valida, tmp_path):
+    engine = abrir_banco(tmp_path / "dados" / "clipador.db")
+    with nova_sessao(engine) as sessao:
+        for _ in range(12):
+            fila.adicionar(sessao, TipoTarefa.PUBLICAR)
+    engine.dispose()
+
+    resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
+    assert "Próximas (mostrando 10 de 12):" in resultado.output
+
+
+def test_status_mostra_so_a_primeira_linha_de_um_erro_longo(config_valida, tmp_path):
+    engine = abrir_banco(tmp_path / "dados" / "clipador.db")
+    with nova_sessao(engine) as sessao:
+        fila.adicionar(sessao, TipoTarefa.PUBLICAR)
+        tarefa = fila.pegar_proxima(sessao)
+        tarefa.tentativas = 2
+        fila.falhar(sessao, tarefa, "primeira linha do erro\n" + "detalhe\n" * 50)
+    engine.dispose()
+
+    resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
+    assert "primeira linha do erro" in resultado.output
+    assert "detalhe" not in resultado.output

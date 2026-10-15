@@ -32,14 +32,28 @@ def localizar(programa: str = "ffmpeg") -> str:
     return caminho
 
 
-def rodar(argumentos: list[str]) -> None:
-    """Roda o ``ffmpeg`` com os argumentos dados (sem o nome do programa)."""
+def rodar(argumentos: list[str], tempo_limite_s: float | None = None) -> None:
+    """Roda o ``ffmpeg`` com os argumentos dados (sem o nome do programa).
+
+    ``tempo_limite_s``: se o FFmpeg passar disso, é encerrado e vira ``FFmpegFalhouError``.
+    Importante de madrugada (etapas 5 e 9): sem limite, um FFmpeg travado pararia a fila.
+    """
     comando = [localizar("ffmpeg"), "-hide_banner", "-nostdin", "-loglevel", "error", *argumentos]
     # errors="replace": uma mensagem com caracteres fora do UTF-8 (comum no Windows em
     # português) não pode derrubar o app; o pior caso é aparecer um "�" na mensagem.
-    resultado = subprocess.run(
-        comando, capture_output=True, text=True, encoding="utf-8", errors="replace"
-    )
+    try:
+        resultado = subprocess.run(
+            comando,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=tempo_limite_s,
+        )
+    except subprocess.TimeoutExpired as erro:
+        raise FFmpegFalhouError(
+            f"O FFmpeg passou do limite de {tempo_limite_s} s e foi encerrado."
+        ) from erro
     if resultado.returncode != 0:
         raise FFmpegFalhouError(
             f"O FFmpeg falhou (código {resultado.returncode}): {resultado.stderr.strip()}"

@@ -236,7 +236,7 @@ def test_mover_a_pasta_do_projeto_nao_duplica_a_demo(tmp_path, demo_curta):
 def test_falha_do_ffmpeg_nao_deixa_arquivo_pela_metade(tmp_path, monkeypatch):
     destino = tmp_path / "x.mkv"
 
-    def ffmpeg_que_falha(argumentos):
+    def ffmpeg_que_falha(argumentos, tempo_limite_s=None):
         Path(argumentos[-1]).write_bytes(b"metade")  # escreveu um pedaço e falhou
         raise ffmpeg.FFmpegFalhouError("falhou")
 
@@ -247,11 +247,61 @@ def test_falha_do_ffmpeg_nao_deixa_arquivo_pela_metade(tmp_path, monkeypatch):
 
 
 @precisa_ffmpeg
+def test_ffmpeg_travado_e_encerrado_pelo_limite_de_tempo():
+    # Uma entrada de áudio sem fim: sem limite de tempo, este comando nunca terminaria.
+    sem_fim = ["-f", "lavfi", "-i", "anullsrc", "-f", "null", "-"]
+    with pytest.raises(ffmpeg.FFmpegFalhouError, match="limite de 1 s"):
+        ffmpeg.rodar(sem_fim, tempo_limite_s=1)
+
+
+@precisa_ffmpeg
+def test_eventos_da_demo_tem_os_campos_da_api_real(tmp_path, demo_curta):
+    from sqlmodel import select
+
+    from clipador.banco.conexao import abrir_banco, nova_sessao
+    from clipador.banco.modelos import EventoJogo
+
+    resultado = gerar.preparar_demo(tmp_path / "dados")
+    engine = abrir_banco(resultado.banco)
+    try:
+        with nova_sessao(engine) as sessao:
+            eventos = sessao.exec(select(EventoJogo)).all()
+    finally:
+        engine.dispose()
+    ids = [e.dados["EventID"] for e in eventos]
+    assert len(ids) == len(set(ids)), "EventID não pode repetir"
+    for evento in eventos:
+        assert evento.dados["EventName"] == evento.tipo
+        assert evento.dados["EventTime"] == evento.tempo_jogo_s
+
+
+@precisa_ffmpeg
 def test_inspecionar_arquivo_que_nao_e_video_da_erro_claro(tmp_path):
     falso = tmp_path / "falso.mkv"
     falso.write_bytes(b"isto nao e um video")
     with pytest.raises(ffmpeg.FFmpegFalhouError):
         ffmpeg.inspecionar(falso)
+
+
+@precisa_ffmpeg
+def test_demo_funciona_sem_config_toml(tmp_path, demo_curta, monkeypatch):
+    # Quem acabou de clonar ainda não tem config.toml.
+    monkeypatch.chdir(tmp_path)
+    resultado = runner.invoke(app, ["demo"])
+    assert resultado.exit_code == 0, resultado.output
+    assert "a demo usa a pasta padrão" in resultado.output
+    assert (tmp_path / "dados" / "demo" / "clipador.db").is_file()
+
+    status = runner.invoke(app, ["status", "--demo"])
+    assert status.exit_code == 0, status.output
+    assert "#1 extrair_audio" in status.output
+
+
+def test_demo_com_config_invalido_continua_dando_erro(escrever_config):
+    caminho = escrever_config('pasta_gravacoes = "C:/g"\nlimite_diario = -1\n')
+    resultado = runner.invoke(app, ["demo", "--arquivo", str(caminho)])
+    assert resultado.exit_code == 1
+    assert "limite_diario" in resultado.output
 
 
 # ------------------------------------------------------------------ demo real (lento)

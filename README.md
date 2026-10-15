@@ -23,10 +23,13 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 
 ## Experimente em 1 minuto (modo demo)
 
-Não precisa de placa de vídeo, nem de contas no YouTube ou no TikTok. Só do
-[uv](https://docs.astral.sh/uv/) e do FFmpeg (`winget install Gyan.FFmpeg`).
+Não precisa de placa de vídeo, de contas no YouTube ou no TikTok, nem de configurar nada.
+Só do Git, do [uv](https://docs.astral.sh/uv/) e do FFmpeg (`winget install Gyan.FFmpeg`).
+No PowerShell:
 
 ```powershell
+git clone https://github.com/Fermontelos/Clipador.git
+cd Clipador
 uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
 uv run clipador status --demo  # mostra a fila da demo
 ```
@@ -55,8 +58,8 @@ tarefa que falha é tentada até 3 vezes antes de virar erro.
 
 ## Como rodar
 
-Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg. O uv instala o Python 3.12
-se precisar.
+Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg
+(`winget install Gyan.FFmpeg`). O uv instala o Python 3.12 se precisar.
 
 No PowerShell:
 
@@ -90,7 +93,7 @@ uv run pytest -m "not lento"  # testes rápidos (o pre-commit roda estes)
 uv run pytest              # todos, inclusive a demo real de 3 min (a CI roda estes)
 uv run ruff check          # lint
 uv run ruff format         # formatação
-uv run pre-commit install  # roda os três acima antes de cada commit
+uv run pre-commit install  # passa a rodar lint, formatação e testes rápidos a cada commit
 ```
 
 Depois de mudar uma tabela em `src/clipador/banco/modelos.py`, gere a migração do banco:
@@ -106,9 +109,11 @@ A CI (GitHub Actions) roda lint, formatação e testes em Windows a cada push.
 ```
 src/clipador/   código do app (config, logs, CLI; cada etapa acrescenta módulos)
   banco/        tabelas, fila, backup e migrações (Alembic)
+  demo/         roteiro e gerador da live falsa
+  ffmpeg.py     chamadas ao FFmpeg e ao ffprobe
 tests/          testes automatizados
 docs/           roteiro em PDF e decisões técnicas (docs/adr/)
-dados/          banco, logs e clipes (fora do git, criado pelo app)
+dados/          banco, logs, clipes e a demo (fora do git, criado pelo app)
 ```
 
 ## Decisões técnicas
