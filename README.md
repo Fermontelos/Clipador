@@ -96,7 +96,7 @@ uv run ruff format         # formatação
 uv run pre-commit install  # passa a rodar lint, formatação e testes rápidos a cada commit
 ```
 
-Depois de mudar uma tabela em `src/clipador/banco/modelos.py`, gere a migração do banco:
+Depois de mudar uma tabela em `backend/src/clipador/banco/modelos.py`, gere a migração do banco:
 
 ```bash
 uv run alembic revision --autogenerate -m "o que mudou"
@@ -106,20 +106,38 @@ A CI (GitHub Actions) roda lint, formatação e testes em Windows a cada push.
 
 ## Estrutura
 
+O projeto é dividido em quatro partes, com uma direção de dependência só
+([ADR 0003](docs/adr/0003-backend-api-integracoes-frontend.md)):
+
 ```
-src/clipador/   código do app (config, logs, CLI; cada etapa acrescenta módulos)
-  banco/        tabelas, fila, backup e migrações (Alembic)
-  demo/         roteiro e gerador da live falsa
-  ffmpeg.py     chamadas ao FFmpeg e ao ffprobe
-tests/          testes automatizados
+frontend ──(HTTP)──> api ──> backend ──> integracoes ──> YouTube / TikTok / LoL
+```
+
+```
+backend/        pipeline, banco, fila, demo e a linha de comando (pacote clipador)
+  src/clipador/
+    banco/      tabelas, fila, backup e migrações (Alembic)
+    demo/       roteiro e gerador da live falsa
+    ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
+  tests/
+api/            API local da revisão, FastAPI (etapa 12)
+integracoes/    YouTube, TikTok e LoL (etapas 7, 15-17): único código que lê as chaves
+frontend/       interface de revisão, React (etapa 13): nunca guarda chaves
+tests/          testes de arquitetura (as regras entre as partes)
 docs/           roteiro em PDF e decisões técnicas (docs/adr/)
 dados/          banco, logs, clipes e a demo (fora do git, criado pelo app)
 ```
+
+As três partes Python formam um workspace do uv: cada uma tem o próprio `pyproject.toml`,
+mas todas são instaladas juntas por `uv sync` e testadas juntas por `uv run pytest`, sempre
+a partir da raiz. As regras de segurança (por exemplo, a API nunca importar as integrações)
+são conferidas automaticamente em `tests/test_arquitetura.py`.
 
 ## Decisões técnicas
 
 - [ADR 0001: Python + SQLite + FastAPI](docs/adr/0001-python-sqlite-fastapi.md)
 - [ADR 0002: SQLite e não PostgreSQL](docs/adr/0002-sqlite-e-nao-postgres.md)
+- [ADR 0003: backend, API, integrações e frontend separados](docs/adr/0003-backend-api-integracoes-frontend.md)
 
 ## Licença
 

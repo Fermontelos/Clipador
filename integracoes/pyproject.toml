@@ -1,0 +1,16 @@
+[project]
+name = "clipador-integracoes"
+version = "0.1.0"
+description = "Integrações do Clipador com YouTube, TikTok e LoL. Único código que lê as chaves."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Vitor Fermontelos", email = "126780811+Fermontelos@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+# Sem dependência do resto do app: as integrações não conhecem banco, fila nem API.
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"

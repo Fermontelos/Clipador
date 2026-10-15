@@ -2,6 +2,20 @@ version = 1
 revision = 5
 requires-python = ">=3.12"
 
+[manifest]
+members = [
+    "clipador",
+    "clipador-api",
+    "clipador-integracoes",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "pre-commit", specifier = ">=4.7.0" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "ruff", specifier = ">=0.17.0" },
+]
+
 [[package]]
 name = "alembic"
 version = "1.20.0"
@@ -46,35 +60,39 @@ wheels = [
 [[package]]
 name = "clipador"
 version = "0.1.0"
-source = { editable = "." }
+source = { editable = "backend" }
 dependencies = [
     { name = "alembic" },
+    { name = "clipador-integracoes" },
     { name = "pydantic-settings" },
     { name = "sqlmodel" },
     { name = "typer" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.20.0" },
+    { name = "clipador-integracoes", editable = "integracoes" },
     { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "sqlmodel", specifier = ">=0.0.48" },
     { name = "typer", specifier = ">=0.27.3" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "pre-commit", specifier = ">=4.7.0" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "ruff", specifier = ">=0.17.0" },
+[[package]]
+name = "clipador-api"
+version = "0.1.0"
+source = { editable = "api" }
+dependencies = [
+    { name = "clipador" },
 ]
+
+[package.metadata]
+requires-dist = [{ name = "clipador", editable = "backend" }]
+
+[[package]]
+name = "clipador-integracoes"
+version = "0.1.0"
+source = { editable = "integracoes" }
 
 [[package]]
 name = "colorama"

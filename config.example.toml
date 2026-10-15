@@ -2,9 +2,10 @@
 # Copie este arquivo para config.toml e ajuste os valores.
 # O config.toml fica fora do git, porque é específico do seu PC.
 #
-# Qualquer valor também pode vir do arquivo .env (na mesma pasta deste arquivo) ou de
-# uma variável de ambiente, sempre com o prefixo CLIPADOR_ (ex.: CLIPADOR_NIVEL_LOG=DEBUG).
-# Prioridade: variável de ambiente > .env > este arquivo.
+# Qualquer valor também pode vir de uma variável de ambiente com o prefixo CLIPADOR_
+# (ex.: CLIPADOR_NIVEL_LOG=DEBUG), que tem prioridade sobre este arquivo.
+# Chaves e tokens (YouTube, TikTok) NÃO ficam aqui: ficam no .env, que só as
+# integrações leem (veja o .env.example).
 
 # Pasta onde o OBS salva as gravações.
 pasta_gravacoes = "C:/Users/SEU_USUARIO/Videos"

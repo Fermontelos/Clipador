@@ -1,12 +1,12 @@
 """Configuração do app.
 
-Os valores vêm de três lugares, nesta ordem de prioridade:
+Os valores vêm de dois lugares, nesta ordem de prioridade:
 
 1. variáveis de ambiente com o prefixo ``CLIPADOR_`` (ex.: ``CLIPADOR_NIVEL_LOG=DEBUG``);
-2. o arquivo ``.env`` ao lado do ``config.toml``, para chaves e segredos;
-3. o arquivo ``config.toml``.
+2. o arquivo ``config.toml`` (fora do git).
 
-Os dois arquivos ficam fora do git. Tudo é validado pelo pydantic: um valor errado gera
+O backend **não lê o ``.env``**: ele guarda chaves e tokens, e só o pacote
+``integracoes`` pode lê-lo (ADR 0003). Tudo é validado pelo pydantic: um valor errado gera
 um erro claro logo na abertura, e não no meio do processamento da madrugada.
 
 Caminhos relativos (ex.: ``pasta_dados = "dados"``) são sempre contados a partir da pasta
@@ -17,12 +17,11 @@ Agendador de Tarefas do Windows (etapa 4) costuma iniciar programas em
 
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import (
     BaseSettings,
-    DotEnvSettingsSource,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
     TomlConfigSettingsSource,
@@ -31,32 +30,13 @@ from pydantic_settings import (
 CAMINHO_PADRAO = Path("config.toml")
 PREFIXO = "CLIPADOR_"
 
-# Quais arquivos ler. Ficam em ContextVars para que carregar_config() possa escolher
-# os arquivos sem mudar a classe (útil nos testes).
+# Qual TOML ler. Fica numa ContextVar para que carregar_config() possa escolher o arquivo
+# sem mudar a classe (útil nos testes).
 _arquivo_toml: ContextVar[Path] = ContextVar("arquivo_toml", default=CAMINHO_PADRAO)
-_arquivo_env: ContextVar[Path] = ContextVar("arquivo_env", default=Path(".env"))
 
 
 class ConfigNaoEncontradaError(FileNotFoundError):
     """O arquivo de configuração não existe."""
-
-
-class _DotEnvDoApp(DotEnvSettingsSource):
-    """Lê o ``.env`` ignorando as linhas de outros programas.
-
-    Uma chave sem o prefixo ``CLIPADOR_`` é ignorada. Uma chave com o prefixo que não
-    existe na ``Config`` segue adiante e vira erro, porque provavelmente foi digitada
-    errado.
-    """
-
-    def __call__(self) -> dict[str, Any]:
-        dados = super().__call__()
-        campos = self.settings_cls.model_fields
-        return {
-            chave: valor
-            for chave, valor in dados.items()
-            if chave in campos or chave.startswith(PREFIXO.lower())
-        }
 
 
 class Config(BaseSettings):
@@ -108,20 +88,17 @@ class Config(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        # Ordem de prioridade: argumentos diretos > variáveis de ambiente > .env > config.toml.
+        # Ordem de prioridade: argumentos diretos > variáveis de ambiente > config.toml.
+        # O .env (chaves) fica de fora de propósito: só as integrações o leem.
         return (
             init_settings,
             env_settings,
-            _DotEnvDoApp(settings_cls, env_file=_arquivo_env.get(), env_file_encoding="utf-8"),
             TomlConfigSettingsSource(settings_cls, toml_file=_arquivo_toml.get()),
         )
 
 
-def carregar_config(caminho: Path = CAMINHO_PADRAO, arquivo_env: Path | None = None) -> Config:
+def carregar_config(caminho: Path = CAMINHO_PADRAO) -> Config:
     """Lê e valida a configuração.
-
-    Por padrão, o ``.env`` lido é o que fica na mesma pasta do ``config.toml``; se ele
-    não existir, é simplesmente ignorado.
 
     Levanta ``ConfigNaoEncontradaError`` se o ``config.toml`` não existir e
     ``pydantic.ValidationError`` se algum valor for inválido.
@@ -132,14 +109,10 @@ def carregar_config(caminho: Path = CAMINHO_PADRAO, arquivo_env: Path | None = N
             "Copie o config.example.toml para config.toml e ajuste os valores."
         )
     pasta_do_config = caminho.resolve().parent
-    if arquivo_env is None:
-        arquivo_env = pasta_do_config / ".env"
     token_toml = _arquivo_toml.set(caminho)
-    token_env = _arquivo_env.set(arquivo_env)
     try:
         cfg = Config()
     finally:
-        _arquivo_env.reset(token_env)
         _arquivo_toml.reset(token_toml)
     return _resolver_caminhos(cfg, pasta_do_config)
 

@@ -21,8 +21,9 @@ jobs:
       - name: Instalar o FFmpeg
         run: choco install ffmpeg-full -y --no-progress
 
+      # --all-packages: instala as três partes Python do workspace (integracoes, backend, api).
       - name: Instalar dependências (exatamente as do uv.lock)
-        run: uv sync --locked
+        run: uv sync --locked --all-packages
 
       - name: Lint
         run: uv run ruff check

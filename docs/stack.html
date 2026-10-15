@@ -261,33 +261,42 @@
 <div class="etapa"><div class="etapa-h"><span>Etapa 1</span>Esqueleto do projeto</div><table>
 <tr><td class="k">Objetivo</td><td>Criar a estrutura do repositório e as ferramentas de qualidade antes de qualquer funcionalidade. Assim, todo código novo já nasce com lint, testes e CI.</td></tr>
 <tr><td class="k">Instalar</td><td>O projeto é criado com <code>uv init --package clipador</code> (estrutura <code>src/</code>) e o Python fixado em 3.12 (<code>.python-version</code>). Depois, via <code>uv add</code>: pydantic-settings e Typer. Ferramentas de desenvolvimento (<code>uv add --dev</code>): ruff, pytest e pre-commit.</td></tr>
-<tr><td class="k">Código</td><td>Estrutura de pastas (cada pasta de <code>src</code> é preenchida na etapa indicada):
-<pre>clipador/
-├─ src/clipador/
-│  ├─ config.py · logs.py · cli.py      (etapa 1)
-│  ├─ banco/        modelos e fila      (etapa 2)
-│  ├─ demo/         dados de exemplo    (etapa 3)
-│  ├─ sistema/      serviço, energia    (etapas 4 e 11)
-│  ├─ ingestao/     monitor e áudio     (etapas 4 e 5)
-│  ├─ transcricao/  faster-whisper      (etapa 6)
-│  ├─ jogo/         coletor do LoL      (etapa 7)
-│  ├─ detectores/   plugins e nota      (etapa 8)
-│  ├─ cortes/       FFmpeg              (etapa 9)
-│  ├─ titulos/      IA local (Ollama)   (etapa 10)
-│  ├─ web/          API FastAPI         (etapa 12)
-│  ├─ aprendizado/  métricas e pesos    (etapas 14 e 17)
-│  ├─ engajamento/  métricas das redes  (etapa 17)
-│  └─ publicacao/   YouTube e TikTok    (etapas 15 e 16)
-├─ frontend/        React + Vite        (etapa 13)
-├─ tests/
-├─ dados/           fora do git: banco, logs, clipes, exportações
+<tr><td class="k">Código</td><td>Estrutura de pastas em <b>quatro partes</b>, com uma direção de dependência só (ADR 0003): <code>frontend ──(HTTP)──&gt; api ──&gt; backend ──&gt; integracoes ──&gt; YouTube / TikTok / LoL</code>. Cada pasta é preenchida na etapa indicada:
+<pre>Clipador/
+├─ integracoes/        único código que lê as chaves (.env)
+│  └─ src/clipador_integracoes/
+│     ├─ lol.py        cliente da Live Client Data API  (etapa 7)
+│     ├─ youtube.py    upload e métricas do YouTube     (etapas 15 e 17)
+│     └─ tiktok.py     rascunho, post e métricas        (etapas 16 e 17)
+├─ backend/            usa as integrações; nunca lê as chaves
+│  ├─ src/clipador/
+│  │  ├─ config.py · logs.py · cli.py      (etapa 1)
+│  │  ├─ banco/        modelos e fila      (etapa 2)
+│  │  ├─ demo/ · ffmpeg.py                 (etapa 3)
+│  │  ├─ sistema/      serviço, energia    (etapas 4 e 11)
+│  │  ├─ ingestao/     monitor e áudio     (etapas 4 e 5)
+│  │  ├─ transcricao/  faster-whisper      (etapa 6)
+│  │  ├─ jogo/         coleta e alinhamento (etapa 7)
+│  │  ├─ detectores/   plugins e nota      (etapa 8)
+│  │  ├─ cortes/       FFmpeg              (etapa 9)
+│  │  ├─ titulos/      IA local (Ollama)   (etapa 10)
+│  │  ├─ aprendizado/  métricas e pesos    (etapas 14 e 17)
+│  │  └─ publicacao/   tarefas de publicar (etapas 15 a 17)
+│  └─ tests/
+├─ api/                usa o backend; nunca as integrações direto
+│  └─ src/clipador_api/  FastAPI          (etapa 12)
+├─ frontend/           React + Vite        (etapa 13); nunca guarda chaves
+├─ tests/              testes de arquitetura (regras entre as partes)
+├─ dados/              fora do git: banco, logs, clipes, demo
 ├─ docs/adr/
 ├─ .github/workflows/ci.yml
 ├─ config.example.toml · .env.example
-├─ pyproject.toml · .pre-commit-config.yaml
-└─ README.md · LICENSE</pre>
+├─ pyproject.toml      workspace do uv (liga as 3 partes Python)
+└─ README.md · LICENSE · .pre-commit-config.yaml</pre>
 <ul>
-  <li><code>config.py</code>: lê <code>config.toml</code> (pastas, faixas do OBS, pesos, limite diário, desligamento e o que as próximas etapas acrescentarem) e <code>.env</code> (chaves), e valida tudo com pydantic.</li>
+  <li><b>Workspace do uv</b>: <code>integracoes/</code>, <code>backend/</code> e <code>api/</code> têm cada uma o próprio <code>pyproject.toml</code> e as próprias dependências, mas são instaladas juntas (<code>uv sync</code>) num único ambiente, com um único <code>uv.lock</code>. O frontend fica fora, com o próprio <code>package.json</code>.</li>
+  <li><b>Teste de arquitetura</b> (<code>tests/test_arquitetura.py</code>): lê o código de cada parte e falha se alguém quebrar as regras (ex.: a API importar as integrações, ou o backend ler o <code>.env</code>).</li>
+  <li><code>config.py</code>: lê o <code>config.toml</code> (pastas, faixas do OBS, pesos, limite diário, desligamento e o que as próximas etapas acrescentarem) e variáveis de ambiente <code>CLIPADOR_*</code>, e valida tudo com pydantic. <b>Não lê o <code>.env</code></b>: ele guarda as chaves, e só as integrações o leem.</li>
   <li><code>logs.py</code>: log em arquivo rotativo em <code>dados/logs/</code>.</li>
   <li><code>cli.py</code>: comando <code>clipador</code> com o subcomando <code>clipador versao</code>.</li>
   <li><code>.gitignore</code> com <code>config.toml</code>, <code>.env</code>, <code>dados/</code> e os arquivos de vídeo.</li>

@@ -5,13 +5,12 @@ from pydantic import ValidationError
 
 from clipador.config import ConfigNaoEncontradaError, carregar_config
 
-RAIZ_DO_PROJETO = Path(__file__).resolve().parent.parent
+# tests/ fica em backend/tests, e o config.example.toml na raiz do repositório.
+RAIZ_DO_PROJETO = Path(__file__).resolve().parents[2]
 
 
-def test_config_de_exemplo_carrega_sem_erro(tmp_path):
-    # arquivo_env aponta para um arquivo que não existe, para o teste não ler um .env
-    # real que esteja na raiz do projeto.
-    cfg = carregar_config(RAIZ_DO_PROJETO / "config.example.toml", arquivo_env=tmp_path / "sem.env")
+def test_config_de_exemplo_carrega_sem_erro():
+    cfg = carregar_config(RAIZ_DO_PROJETO / "config.example.toml")
     assert cfg.limite_diario == 15
     assert cfg.nivel_log == "INFO"
     # Caminho relativo vira absoluto, contado a partir da pasta do config.
@@ -62,34 +61,10 @@ def test_variavel_de_ambiente_tem_prioridade_sobre_o_arquivo(escrever_config, mo
     assert cfg.limite_diario == 20
 
 
-def test_env_ao_lado_do_config_tem_prioridade_sobre_o_toml(escrever_config, tmp_path):
+def test_backend_nao_le_o_env(escrever_config, tmp_path):
+    # O .env guarda chaves; só as integrações podem lê-lo (ADR 0003).
     (tmp_path / ".env").write_text("CLIPADOR_NIVEL_LOG=DEBUG\n", encoding="utf-8")
     cfg = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\nnivel_log = "INFO"\n'))
-    assert cfg.nivel_log == "DEBUG"
-
-
-def test_variavel_de_ambiente_tem_prioridade_sobre_o_env(escrever_config, tmp_path, monkeypatch):
-    (tmp_path / ".env").write_text("CLIPADOR_LIMITE_DIARIO=30\n", encoding="utf-8")
-    monkeypatch.setenv("CLIPADOR_LIMITE_DIARIO", "40")
-    cfg = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n'))
-    assert cfg.limite_diario == 40
-
-
-def test_env_ignora_linhas_de_outros_programas(escrever_config, tmp_path):
-    (tmp_path / ".env").write_text("OUTRO_PROGRAMA_CHAVE=123\n", encoding="utf-8")
-    cfg = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n'))
-    assert cfg.limite_diario == 15
-
-
-def test_env_com_chave_do_app_digitada_errado_e_rejeitado(escrever_config, tmp_path):
-    (tmp_path / ".env").write_text("CLIPADOR_NIVEL_LOGG=DEBUG\n", encoding="utf-8")
-    with pytest.raises(ValidationError):
-        carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n'))
-
-
-def test_sem_env_a_config_carrega_normalmente(escrever_config, tmp_path):
-    assert not (tmp_path / ".env").exists()
-    cfg = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n'))
     assert cfg.nivel_log == "INFO"
 
 

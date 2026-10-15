@@ -1,26 +1,15 @@
-[project]
-name = "clipador"
-version = "0.1.0"
-description = "Transforma gravações de live (OBS) em clipes para YouTube e TikTok, com revisão antes de postar."
-readme = "README.md"
-license = "MIT"
-authors = [
-    { name = "Vitor Fermontelos", email = "126780811+Fermontelos@users.noreply.github.com" }
-]
-requires-python = ">=3.12"
-dependencies = [
-    "alembic>=1.20.0",
-    "pydantic-settings>=2.16.0",
-    "sqlmodel>=0.0.48",
-    "typer>=0.27.3",
-]
+# Raiz do projeto: um "workspace" do uv que liga as três partes Python num ambiente só.
+# Cada parte tem o próprio pyproject.toml, com as próprias dependências:
+#
+#   integracoes/  YouTube, TikTok e LoL. Único código que lê as chaves do .env.
+#   backend/      pipeline, banco, fila, demo e a linha de comando (usa integracoes).
+#   api/          servidor FastAPI da revisão (usa backend; nunca integracoes direto).
+#
+# O frontend (React) fica fora do workspace: tem o próprio package.json (etapa 13).
+# As regras de dependência entre as partes são conferidas em tests/test_arquitetura.py.
 
-[project.scripts]
-clipador = "clipador.cli:main"
-
-[build-system]
-requires = ["uv_build>=0.13.1,<0.14.0"]
-build-backend = "uv_build"
+[tool.uv.workspace]
+members = ["integracoes", "backend", "api"]
 
 [dependency-groups]
 dev = [
@@ -32,6 +21,8 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Onde mora o código do projeto (para o ruff separar os nossos imports dos de fora).
+src = ["integracoes/src", "backend/src", "api/src"]
 
 [tool.ruff.lint]
 # E/F: erros básicos, I: ordem dos imports, UP: sintaxe moderna,
@@ -39,7 +30,10 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "integracoes/tests", "backend/tests", "api/tests"]
+# Cada parte tem a sua pasta tests/; o modo importlib evita conflito entre arquivos de
+# teste com o mesmo nome em pastas diferentes.
+addopts = "--import-mode=importlib"
 markers = [
     "lento: testes demorados (ex.: a demo real de 3 min); o pre-commit pula, a CI roda",
 ]
