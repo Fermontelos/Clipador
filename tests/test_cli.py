@@ -3,7 +3,7 @@ from typer.testing import CliRunner
 from clipador import __version__
 from clipador.banco import fila
 from clipador.banco.conexao import abrir_banco, nova_sessao
-from clipador.banco.modelos import Gravacao, Tarefa, TipoTarefa, agora
+from clipador.banco.modelos import Gravacao, TipoTarefa, agora
 from clipador.cli import app
 
 runner = CliRunner()
@@ -44,28 +44,27 @@ def test_status_cria_o_banco_e_mostra_fila_vazia(config_valida, tmp_path):
 
 
 def test_status_mostra_uma_fila_de_teste(config_valida, tmp_path):
-    # Prepara uma fila: 1 pendente, 1 feita e 1 com erro.
+    # Prepara uma fila com 1 feita, 1 com erro e 1 pendente.
     engine = abrir_banco(tmp_path / "dados" / "clipador.db")
     with nova_sessao(engine) as sessao:
         gravacao = Gravacao(arquivo="live.mkv", inicio=agora())
         sessao.add(gravacao)
         sessao.commit()
         sessao.refresh(gravacao)
-        fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)
-        fila.concluir(sessao, fila.pegar_proxima(sessao))  # cria "transcrever"
-        fila.adicionar(sessao, TipoTarefa.PUBLICAR)
-        tarefa = sessao.get(Tarefa, 3)
+        fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)  # #1
+        fila.concluir(sessao, fila.pegar_proxima(sessao))  # #1 feita, cria #2 "transcrever"
+        fila.adicionar(sessao, TipoTarefa.PUBLICAR)  # #3
+        tarefa = fila.pegar_proxima(sessao)  # a mais antiga das pendentes: #2
+        assert tarefa.id == 2
         tarefa.tentativas = 2
-        fila.falhar(sessao, tarefa, "sem internet")
+        fila.falhar(sessao, tarefa, "sem internet")  # 3ª falha: #2 vira erro
     engine.dispose()
 
     resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
     assert resultado.exit_code == 0, resultado.output
-    assert "pendente: 1" in resultado.output
-    assert "feita: 1" in resultado.output
-    assert "erro: 1" in resultado.output
-    assert "#2 transcrever (gravação 1)" in resultado.output
-    assert "sem internet" in resultado.output
+    assert "pendente: 1 | em andamento: 0 | feita: 1 | erro: 1" in resultado.output
+    assert "#3 publicar · a partir de" in resultado.output
+    assert "#2 transcrever (gravação 1) · 3 tentativas · sem internet" in resultado.output
 
 
 def test_backup_pelo_comando(config_valida, tmp_path):

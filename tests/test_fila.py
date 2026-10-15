@@ -3,6 +3,7 @@
 import contextlib
 from datetime import timedelta
 
+import pytest
 from sqlmodel import Session, select
 
 from clipador.banco import fila
@@ -172,3 +173,20 @@ def test_resumo_lista_as_em_andamento(sessao, gravacao):
     fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)
     tarefa = fila.pegar_proxima(sessao)
     assert [t.id for t in fila.resumo(sessao).em_andamento] == [tarefa.id]
+
+
+def test_concluir_duas_vezes_e_recusado(sessao, gravacao):
+    fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)
+    tarefa = fila.pegar_proxima(sessao)
+    fila.concluir(sessao, tarefa)
+    with pytest.raises(fila.EstadoInvalidoError):
+        fila.concluir(sessao, tarefa)
+    # A próxima da cadeia continua existindo uma vez só.
+    tipos = [t.tipo for t in sessao.exec(select(Tarefa)).all()]
+    assert tipos.count(TipoTarefa.TRANSCREVER) == 1
+
+
+def test_falhar_tarefa_que_nao_esta_em_andamento_e_recusado(sessao):
+    tarefa = fila.adicionar(sessao, TipoTarefa.PUBLICAR)
+    with pytest.raises(fila.EstadoInvalidoError):
+        fila.falhar(sessao, tarefa, "qualquer")

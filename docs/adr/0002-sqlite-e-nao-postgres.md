@@ -23,8 +23,14 @@ Usar **SQLite**, com:
 - **`busy_timeout` de 5 s**, para uma escrita esperar a outra em vez de falhar;
 - **chaves estrangeiras ligadas** (`PRAGMA foreign_keys=ON`), que no SQLite vêm desligadas;
 - **Alembic** para as migrações, em modo *batch*, porque o SQLite não altera colunas com
-  `ALTER TABLE`;
-- **backup diário** pela API de backup do SQLite, guardando as 14 cópias mais recentes.
+  `ALTER TABLE`. O modo batch recria a tabela, o que falha com as chaves estrangeiras
+  ligadas quando outra tabela a referencia (testado). Por isso a migração roda com as
+  chaves desligadas, confere tudo com `PRAGMA foreign_key_check` e religa;
+- **backup automático antes de migrar** um banco que já existe: o driver do SQLite grava
+  algumas alterações de tabela fora da transação, então uma migração que falhe no meio
+  nem sempre é desfeita por inteiro;
+- **backup diário** pela API de backup do SQLite, guardando as 14 cópias mais recentes,
+  cada uma como um arquivo único (modo `DELETE`, sem arquivos `-wal` ao lado).
 
 ## Alternativas consideradas
 

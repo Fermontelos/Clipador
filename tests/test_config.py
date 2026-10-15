@@ -14,7 +14,8 @@ def test_config_de_exemplo_carrega_sem_erro(tmp_path):
     cfg = carregar_config(RAIZ_DO_PROJETO / "config.example.toml", arquivo_env=tmp_path / "sem.env")
     assert cfg.limite_diario == 15
     assert cfg.nivel_log == "INFO"
-    assert cfg.pasta_dados == Path("dados")
+    # Caminho relativo vira absoluto, contado a partir da pasta do config.
+    assert cfg.pasta_dados == RAIZ_DO_PROJETO / "dados"
 
 
 def test_valores_padrao_quando_o_campo_nao_aparece(escrever_config):
@@ -90,3 +91,33 @@ def test_sem_env_a_config_carrega_normalmente(escrever_config, tmp_path):
     assert not (tmp_path / ".env").exists()
     cfg = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n'))
     assert cfg.nivel_log == "INFO"
+
+
+def test_caminhos_relativos_partem_da_pasta_do_config(tmp_path, monkeypatch):
+    # O comando roda de outra pasta (como o Agendador de Tarefas, que usa System32)...
+    pasta_config = tmp_path / "projeto"
+    pasta_config.mkdir()
+    outra_pasta = tmp_path / "outro_lugar"
+    outra_pasta.mkdir()
+    monkeypatch.chdir(outra_pasta)
+    caminho = pasta_config / "config.toml"
+    caminho.write_text(
+        'pasta_gravacoes = "gravacoes"\npasta_dados = "dados"\npasta_backups = "bkp"\n',
+        encoding="utf-8",
+    )
+
+    cfg = carregar_config(caminho)
+
+    # ...e mesmo assim os caminhos apontam para a pasta do config.
+    assert cfg.pasta_dados == pasta_config / "dados"
+    assert cfg.pasta_gravacoes == pasta_config / "gravacoes"
+    assert cfg.pasta_backups == pasta_config / "bkp"
+    assert cfg.caminho_banco == pasta_config / "dados" / "clipador.db"
+
+
+def test_caminho_absoluto_continua_igual(escrever_config, tmp_path):
+    absoluto = (tmp_path / "em_outro_disco").as_posix()
+    cfg = carregar_config(
+        escrever_config(f'pasta_gravacoes = "C:/g"\npasta_dados = "{absoluto}"\n')
+    )
+    assert cfg.pasta_dados == tmp_path / "em_outro_disco"

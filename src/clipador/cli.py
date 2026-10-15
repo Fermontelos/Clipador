@@ -76,6 +76,8 @@ def config(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
 
     typer.echo(f"Configuração válida ({arquivo}):")
     for campo, valor in cfg.model_dump().items():
+        if valor is None:
+            valor = "(não definido: usa o padrão)"
         typer.echo(f"  {campo} = {valor}")
     typer.echo(f"Banco: {cfg.caminho_banco}")
     typer.echo(f"Backups: {cfg.pasta_backups_efetiva}")
@@ -88,7 +90,7 @@ def config(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
 def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     """Mostra a fila de tarefas: quantas há em cada situação, as próximas e os erros."""
     cfg = _carregar_ou_sair(arquivo)
-    engine = abrir_banco(cfg.caminho_banco)
+    engine = abrir_banco(cfg.caminho_banco, cfg.pasta_backups_efetiva)
     try:
         with nova_sessao(engine) as sessao:
             resumo = fila.resumo(sessao)

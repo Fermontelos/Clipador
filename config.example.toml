@@ -9,7 +9,8 @@
 # Pasta onde o OBS salva as gravações.
 pasta_gravacoes = "C:/Users/SEU_USUARIO/Videos"
 
-# Pasta onde o app guarda banco, logs e clipes (relativa à pasta do projeto).
+# Pasta onde o app guarda banco, logs e clipes. Um caminho relativo, como este, é
+# contado a partir da pasta deste arquivo.
 pasta_dados = "dados"
 
 # Quantos momentos a revisão mostra por dia (de 1 a 100).

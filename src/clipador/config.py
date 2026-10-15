@@ -8,6 +8,11 @@ Os valores vêm de três lugares, nesta ordem de prioridade:
 
 Os dois arquivos ficam fora do git. Tudo é validado pelo pydantic: um valor errado gera
 um erro claro logo na abertura, e não no meio do processamento da madrugada.
+
+Caminhos relativos (ex.: ``pasta_dados = "dados"``) são sempre contados a partir da pasta
+do ``config.toml``, e não da pasta onde o comando foi executado. Isso importa porque o
+Agendador de Tarefas do Windows (etapa 4) costuma iniciar programas em
+``C:\\Windows\\System32``: sem isso, o banco iria parar lá.
 """
 
 from contextvars import ContextVar
@@ -126,12 +131,24 @@ def carregar_config(caminho: Path = CAMINHO_PADRAO, arquivo_env: Path | None = N
             f"Arquivo de configuração não encontrado: {caminho}. "
             "Copie o config.example.toml para config.toml e ajuste os valores."
         )
+    pasta_do_config = caminho.resolve().parent
     if arquivo_env is None:
-        arquivo_env = caminho.parent / ".env"
+        arquivo_env = pasta_do_config / ".env"
     token_toml = _arquivo_toml.set(caminho)
     token_env = _arquivo_env.set(arquivo_env)
     try:
-        return Config()
+        cfg = Config()
     finally:
         _arquivo_env.reset(token_env)
         _arquivo_toml.reset(token_toml)
+    return _resolver_caminhos(cfg, pasta_do_config)
+
+
+def _resolver_caminhos(cfg: Config, base: Path) -> Config:
+    """Troca os caminhos relativos por absolutos, contados a partir de ``base``."""
+    absolutos = {}
+    for nome in ("pasta_gravacoes", "pasta_dados", "pasta_backups"):
+        valor: Path | None = getattr(cfg, nome)
+        if valor is not None and not valor.is_absolute():
+            absolutos[nome] = base / valor
+    return cfg.model_copy(update=absolutos)

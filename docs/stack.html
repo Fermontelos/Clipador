@@ -325,7 +325,7 @@
     </ul></li>
   <li><code>banco/fila.py</code>: pega a próxima tarefa pendente e a marca como "em andamento". Se o app cair, tarefas "em andamento" voltam para "pendente" na próxima abertura. Uma tarefa que falha é tentada de novo até 3 vezes; depois vira "erro" com a mensagem guardada.</li>
   <li><b>SQLite em modo WAL</b>: o serviço da madrugada e a interface web acessam o banco ao mesmo tempo sem travar um ao outro.</li>
-  <li><b>Alembic</b> para migrações: quando uma etapa futura muda uma tabela, o banco existente é atualizado sem perder dados.</li>
+  <li><b>Alembic</b> para migrações: quando uma etapa futura muda uma tabela, o banco existente é atualizado sem perder dados. A migração roda com as chaves estrangeiras desligadas (o SQLite recria a tabela, e isso falharia com elas ligadas), confere tudo com <code>PRAGMA foreign_key_check</code> e, num banco que já existia, faz um backup antes.</li>
   <li><b>Backup do banco</b> (<code>banco/backup.py</code>): o banco é o "caderno" do app, com aprovações, métricas, hashtags, títulos e pesos aprendidos. Ele é pequeno, mas não dá para recriar. O app faz uma cópia por dia usando a função de backup do próprio SQLite, que é segura mesmo com o banco em uso, e guarda as últimas 14 numa pasta do config. O ideal é outro disco ou uma pasta sincronizada com o Google Drive. Comando manual: <code>clipador backup</code>.</li>
   <li>CLI: <code>clipador status</code> mostra a fila e os erros.</li>
 </ul></td></tr>

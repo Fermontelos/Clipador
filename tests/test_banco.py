@@ -3,14 +3,32 @@
 from datetime import UTC, datetime
 
 import pytest
+import sqlalchemy as sa
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, select
 
-from clipador.banco.conexao import abrir_banco, migrar, nova_sessao
-from clipador.banco.modelos import Gravacao, StatusTarefa, Tarefa, TipoTarefa
+from clipador.banco import conexao as modulo_conexao
+from clipador.banco.conexao import (
+    ChaveEstrangeiraQuebradaError,
+    abrir_banco,
+    ha_migracao_pendente,
+    migrar,
+    nova_sessao,
+    sem_chaves_estrangeiras,
+)
+from clipador.banco.modelos import (
+    Clipe,
+    FormatoClipe,
+    Gravacao,
+    Momento,
+    StatusTarefa,
+    Tarefa,
+    TipoTarefa,
+)
 
 TABELAS = {
     "gravacao",
@@ -92,3 +110,69 @@ def test_valores_fixos_voltam_como_enum(sessao, gravacao):
     tarefa = sessao.exec(select(Tarefa)).one()
     assert tarefa.tipo is TipoTarefa.EXTRAIR_AUDIO
     assert tarefa.status is StatusTarefa.PENDENTE
+
+
+def test_migracao_futura_pode_alterar_tabela_referenciada(engine, sessao, gravacao):
+    # "momento" é referenciada por "clipe". Alterar uma tabela assim no SQLite exige
+    # recriá-la (modo batch), o que falharia com as chaves estrangeiras ligadas.
+    momento = Momento(gravacao_id=gravacao.id, inicio_s=1, fim_s=20)
+    sessao.add(momento)
+    sessao.commit()
+    sessao.refresh(momento)
+    sessao.add(Clipe(momento_id=momento.id, formato=FormatoClipe.HORIZONTAL, arquivo="c.mp4"))
+    sessao.commit()
+
+    with sem_chaves_estrangeiras(engine) as conexao:
+        operacoes = Operations(MigrationContext.configure(conexao))
+        with operacoes.batch_alter_table("momento", recreate="always") as tabela:
+            tabela.add_column(sa.Column("coluna_nova", sa.Integer(), nullable=True))
+
+    with engine.connect() as conexao:
+        assert conexao.exec_driver_sql("SELECT COUNT(*) FROM clipe").scalar() == 1
+        assert conexao.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+
+
+def test_migracao_que_deixa_registro_orfao_e_desfeita(engine):
+    with (
+        pytest.raises(ChaveEstrangeiraQuebradaError),
+        sem_chaves_estrangeiras(engine) as conexao,
+    ):
+        conexao.exec_driver_sql(
+            "INSERT INTO clipe (momento_id, formato, arquivo) VALUES (999, 'HORIZONTAL', 'x')"
+        )
+    with engine.connect() as conexao:
+        assert conexao.exec_driver_sql("SELECT COUNT(*) FROM clipe").scalar() == 0
+        assert conexao.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+
+
+def test_banco_novo_nao_tem_migracao_pendente(engine):
+    assert ha_migracao_pendente(engine) is False
+
+
+def test_banco_sem_versao_tem_migracao_pendente(engine):
+    with engine.begin() as conexao:
+        conexao.exec_driver_sql("DELETE FROM alembic_version")
+    assert ha_migracao_pendente(engine) is True
+
+
+def test_faz_backup_antes_de_migrar_banco_existente(caminho_banco, tmp_path, monkeypatch):
+    abrir_banco(caminho_banco).dispose()  # o banco já existe
+    pasta = tmp_path / "backups"
+    monkeypatch.setattr(modulo_conexao, "ha_migracao_pendente", lambda engine: True)
+
+    abrir_banco(caminho_banco, pasta).dispose()
+
+    assert len(list(pasta.glob("clipador-*.db"))) == 1
+
+
+def test_banco_novo_nao_gera_backup(caminho_banco, tmp_path):
+    pasta = tmp_path / "backups"
+    abrir_banco(caminho_banco, pasta).dispose()
+    assert not pasta.exists()
+
+
+def test_banco_atualizado_nao_gera_backup(caminho_banco, tmp_path):
+    pasta = tmp_path / "backups"
+    abrir_banco(caminho_banco, pasta).dispose()
+    abrir_banco(caminho_banco, pasta).dispose()  # já está na versão mais nova
+    assert not pasta.exists()

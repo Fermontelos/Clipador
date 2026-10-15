@@ -10,6 +10,14 @@ para bater com o relógio que você vê. Ex.: ``clipador-2026-10-15_180121.db``.
 A cópia usa a API de backup do próprio SQLite (``sqlite3.Connection.backup``), que é
 segura mesmo com o banco em uso: copiar o arquivo direto, com o Windows Explorer, pode
 pegar o banco no meio de uma gravação e gerar uma cópia corrompida.
+
+Como restaurar um backup (com o app e o serviço fechados):
+
+1. Renomeie o ``dados/clipador.db`` atual (ex.: para ``clipador-quebrado.db``).
+2. Apague ``dados/clipador.db-wal`` e ``dados/clipador.db-shm``, se existirem. Eles são
+   do banco antigo; deixá-los ao lado do backup pode corromper o banco restaurado.
+3. Copie o backup escolhido para ``dados/clipador.db``.
+4. Rode ``clipador status`` para conferir.
 """
 
 import logging
@@ -48,6 +56,10 @@ def fazer_backup(
     copia = sqlite3.connect(destino)
     try:
         origem.backup(copia)
+        # O banco original usa o modo WAL, e a cópia herdaria isso (abrir a cópia criaria
+        # arquivos -wal e -shm ao lado). No modo DELETE ela vira um arquivo único,
+        # fácil de guardar e de restaurar.
+        copia.execute("PRAGMA journal_mode=DELETE")
     finally:
         copia.close()
         origem.close()

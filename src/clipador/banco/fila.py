@@ -19,7 +19,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from sqlmodel import Session, col, select, update
+from sqlmodel import Session, col, func, select, update
 
 from clipador.banco.modelos import StatusTarefa, Tarefa, TipoTarefa, agora
 
@@ -91,6 +91,18 @@ def pegar_proxima(sessao: Session, momento: datetime | None = None) -> Tarefa | 
     return None
 
 
+class EstadoInvalidoError(ValueError):
+    """A tarefa não está "em andamento" (ex.: concluir duas vezes por engano)."""
+
+
+def _exigir_em_andamento(tarefa: Tarefa, acao: str) -> None:
+    if tarefa.status is not StatusTarefa.EM_ANDAMENTO:
+        raise EstadoInvalidoError(
+            f"Não dá para {acao} a tarefa {tarefa.id}: ela está '{tarefa.status.value}', "
+            "e só tarefas em andamento podem ser concluídas ou falhar."
+        )
+
+
 def concluir(sessao: Session, tarefa: Tarefa) -> Tarefa | None:
     """Marca a tarefa como feita e cria a próxima da cadeia, se houver.
 
@@ -98,8 +110,10 @@ def concluir(sessao: Session, tarefa: Tarefa) -> Tarefa | None:
     acontecem ou nenhuma. Gravar separado poderia deixar a tarefa "feita" sem a próxima,
     e a gravação pararia no meio da pipeline sem erro nenhum.
 
-    Devolve a tarefa nova criada (ou ``None``).
+    Devolve a tarefa nova criada (ou ``None``). Levanta ``EstadoInvalidoError`` se a
+    tarefa não estiver em andamento: concluir duas vezes criaria a próxima em dobro.
     """
+    _exigir_em_andamento(tarefa, "concluir")
     tarefa.status = StatusTarefa.FEITA
     tarefa.ultimo_erro = None
     tarefa.atualizada_em = agora()
@@ -120,7 +134,11 @@ def concluir(sessao: Session, tarefa: Tarefa) -> Tarefa | None:
 
 
 def falhar(sessao: Session, tarefa: Tarefa, erro: str) -> Tarefa:
-    """Registra uma falha. Volta para a fila ou, na 3ª falha, vira "erro"."""
+    """Registra uma falha. Volta para a fila ou, na 3ª falha, vira "erro".
+
+    Levanta ``EstadoInvalidoError`` se a tarefa não estiver em andamento.
+    """
+    _exigir_em_andamento(tarefa, "marcar como falha")
     tarefa.tentativas += 1
     tarefa.ultimo_erro = erro
     tarefa.atualizada_em = agora()
@@ -183,8 +201,9 @@ class ResumoFila:
 def resumo(sessao: Session, limite: int = 10) -> ResumoFila:
     """Contagem por status, as em andamento, as próximas pendentes e as que deram erro."""
     resumo_fila = ResumoFila()
-    for status in sessao.exec(select(Tarefa.status)).all():
-        resumo_fila.por_status[status] += 1
+    contagens = sessao.exec(select(Tarefa.status, func.count()).group_by(col(Tarefa.status))).all()
+    for status, quantidade in contagens:
+        resumo_fila.por_status[status] = quantidade
     resumo_fila.em_andamento = list(
         sessao.exec(
             select(Tarefa)

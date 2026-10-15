@@ -86,3 +86,15 @@ def test_backup_do_dia_usa_a_data_do_relogio_do_pc(engine, caminho_banco, tmp_pa
     assert backup_do_dia(caminho_banco, pasta, momento=noite) is not None
     assert backup_do_dia(caminho_banco, pasta, momento=noite.replace(hour=23, minute=30)) is None
     assert listar_backups(pasta)[0].name.startswith(f"clipador-{noite:%Y-%m-%d}_22")
+
+
+def test_backup_e_um_arquivo_unico(engine, caminho_banco, gravacao, tmp_path):
+    copia = fazer_backup(caminho_banco, tmp_path / "backups")
+    conexao = sqlite3.connect(copia)
+    try:
+        assert conexao.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+        conexao.execute("SELECT COUNT(*) FROM gravacao").fetchone()
+    finally:
+        conexao.close()
+    # Abrir a cópia não cria arquivos -wal e -shm ao lado dela.
+    assert sorted(p.name for p in copia.parent.iterdir()) == [copia.name]

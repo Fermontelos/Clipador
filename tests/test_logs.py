@@ -28,3 +28,10 @@ def test_chamar_duas_vezes_nao_duplica_as_linhas(tmp_path):
 
     assert len(logging.getLogger(NOME_LOGGER).handlers) == 1
     assert arquivo.read_text(encoding="utf-8").count("linha unica") == 1
+
+
+def test_cada_processo_pode_ter_o_seu_arquivo(tmp_path):
+    arquivo = configurar_logs(tmp_path, "INFO", nome_arquivo="servico.log")
+    logging.getLogger("clipador.teste").info("linha do servico")
+    assert arquivo == tmp_path / "logs" / "servico.log"
+    assert "linha do servico" in arquivo.read_text(encoding="utf-8")
