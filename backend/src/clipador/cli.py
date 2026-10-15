@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from clipador import __version__, ffmpeg
 from clipador.banco import fila
 from clipador.banco.backup import fazer_backup, listar_backups
-from clipador.banco.conexao import abrir_banco, nova_sessao
+from clipador.banco.conexao import BancoMaisNovoQueOCodigoError, abrir_banco, nova_sessao
 from clipador.banco.modelos import StatusTarefa, Tarefa
 from clipador.config import (
     CAMINHO_PADRAO,
@@ -142,7 +142,11 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
     else:
         cfg = _carregar_ou_sair(arquivo)
         caminho_banco, pasta_backups = cfg.caminho_banco, cfg.pasta_backups_efetiva
-    engine = abrir_banco(caminho_banco, pasta_backups)
+    try:
+        engine = abrir_banco(caminho_banco, pasta_backups)
+    except BancoMaisNovoQueOCodigoError as erro:
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
     try:
         with nova_sessao(engine) as sessao:
             resumo = fila.resumo(sessao)
@@ -152,7 +156,14 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
     typer.echo(f"Banco: {caminho_banco}")
     if not demo:
         rodando = "rodando agora" if servico_esta_rodando(cfg.pasta_dados) else "parado"
-        no_login = "sim" if inicializacao.comando_instalado() else "não"
+        cadastrado = inicializacao.comando_instalado()
+        if cadastrado is None:
+            no_login = "não"
+        elif str(arquivo.resolve()).lower() in cadastrado.lower():
+            no_login = "sim"
+        else:
+            # Ex.: a pasta do projeto foi movida ou renomeada depois de instalar.
+            no_login = "aponta para outro config.toml (rode 'clipador instalar-servico' de novo)"
         typer.echo(f"Serviço: {rodando} · abre sozinho no login: {no_login}")
     contagens = " | ".join(
         f"{situacao.value.replace('_', ' ')}: {resumo.por_status[situacao]}"
@@ -274,7 +285,7 @@ def iniciar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     parar = threading.Event()
     try:
         Servico(cfg).rodar(parar)
-    except ServicoJaRodandoError as erro:
+    except (ServicoJaRodandoError, BancoMaisNovoQueOCodigoError) as erro:
         _avisar_sem_janela(arquivo, str(erro))
         typer.echo(f"Erro: {erro}", err=True)
         raise typer.Exit(code=1) from erro

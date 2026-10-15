@@ -99,11 +99,28 @@ def _config_alembic() -> ConfigAlembic:
     return config
 
 
+class BancoMaisNovoQueOCodigoError(RuntimeError):
+    """O banco foi atualizado por uma versão mais nova do app do que a que está rodando."""
+
+
 def ha_migracao_pendente(engine: Engine) -> bool:
-    """O banco está numa versão mais velha que a do código?"""
-    versao_mais_nova = ScriptDirectory.from_config(_config_alembic()).get_current_head()
+    """O banco está numa versão mais velha que a do código?
+
+    Levanta ``BancoMaisNovoQueOCodigoError`` se o banco estiver numa versão que este
+    código não conhece (ex.: você testou uma etapa futura e voltou o código para trás).
+    """
+    scripts = ScriptDirectory.from_config(_config_alembic())
+    versao_mais_nova = scripts.get_current_head()
     with engine.connect() as conexao:
         versao_do_banco = MigrationContext.configure(conexao).get_current_revision()
+    if versao_do_banco is not None:
+        conhecidas = {revisao.revision for revisao in scripts.walk_revisions()}
+        if versao_do_banco not in conhecidas:
+            raise BancoMaisNovoQueOCodigoError(
+                f"O banco está na versão '{versao_do_banco}', que este código não conhece: "
+                "ele foi atualizado por uma versão mais nova do app. Atualize o código "
+                "(git pull) ou restaure um backup de antes da atualização."
+            )
     return versao_do_banco != versao_mais_nova
 
 

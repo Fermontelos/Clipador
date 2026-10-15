@@ -123,6 +123,17 @@ def test_gravacao_em_andamento_pausa_a_fila(cfg, servico_factory):
     assert executadas == []  # ...mas nada é processado durante a live
 
 
+def test_tempo_de_gravacao_parada_vem_do_config(escrever_config, tmp_path):
+    cfg = carregar_config(
+        escrever_config(
+            f'pasta_gravacoes = "{(tmp_path / "g").as_posix()}"\n'
+            f'pasta_dados = "{(tmp_path / "d").as_posix()}"\n'
+            "minutos_gravacao_parada = 15\n"
+        )
+    )
+    assert Servico(cfg, executores={}).monitor.estavel_apos == timedelta(minutes=15)
+
+
 def test_tarefa_sem_executor_fica_esperando_em_vez_de_falhar(cfg, servico_factory):
     gravacao_no_disco(cfg, "2026-10-14 18-00-00.mkv", timedelta(hours=1))
     servico = servico_factory({})  # nenhum executor ainda

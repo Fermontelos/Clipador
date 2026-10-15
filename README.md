@@ -54,7 +54,9 @@ separados: os seus dados reais não são tocados.
   arquivo do OBS fica 2 minutos sem mudar), coloca a gravação na fila e processa. Durante
   a live, a fila fica pausada para não pesar no PC, e enquanto processa o PC não suspende.
   Por segurança, só entram vídeos com o nome no padrão do OBS (data e hora); outros vídeos
-  da mesma pasta são ignorados (`so_nomes_do_obs` no `config.toml`).
+  da mesma pasta são ignorados (`so_nomes_do_obs` no `config.toml`), assim como os clipes do
+  Buffer de Replay. Se você usa o "Pausar gravação" do OBS por mais de 2 minutos, aumente
+  `minutos_gravacao_parada`, senão a live entra na fila pela metade.
 - `clipador instalar-servico`: faz o serviço abrir sozinho, sem janela, quando você entra
   no Windows (`clipador remover-servico` desfaz). Não precisa de administrador
   ([ADR 0004](docs/adr/0004-abrir-no-login-pela-chave-run.md)).
@@ -124,9 +126,11 @@ frontend ──(HTTP)──> api ──> backend ──> integracoes ──> You
 ```
 
 ```
-backend/        pipeline, banco, fila, demo e a linha de comando (pacote clipador)
+backend/        pipeline, banco, fila, serviço, demo e a linha de comando (pacote clipador)
   src/clipador/
     banco/      tabelas, fila, backup e migrações (Alembic)
+    ingestao/   monitor da pasta do OBS e horário de início pelo nome do arquivo
+    sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
   tests/
@@ -135,7 +139,7 @@ integracoes/    YouTube, TikTok e LoL (etapas 7, 15-17): único código que lê 
 frontend/       interface de revisão, React (etapa 13): nunca guarda chaves
 tests/          testes de arquitetura (as regras entre as partes)
 docs/           roteiro em PDF e decisões técnicas (docs/adr/)
-dados/          banco, logs, clipes e a demo (fora do git, criado pelo app)
+dados/          banco, backups, logs, clipes e a demo (fora do git, criado pelo app)
 ```
 
 As três partes Python formam um workspace do uv: cada uma tem o próprio `pyproject.toml`,

@@ -11,6 +11,11 @@
 # na fila os vídeos que encontrar aqui.
 pasta_gravacoes = "C:/Users/SEU_USUARIO/Videos"
 
+# Minutos sem o arquivo da gravação mudar para considerar que a live terminou.
+# Atenção: se você usa o "Pausar gravação" do OBS por mais tempo que isso (num intervalo,
+# por exemplo), aumente este valor; senão a live entra na fila pela metade.
+minutos_gravacao_parada = 2
+
 # Só processar vídeos com o nome no padrão do OBS (data e hora, ex.: "2026-10-14 20-00-00.mkv").
 # Protege contra processar outros vídeos da pasta. Mude para false se você renomeia as lives.
 so_nomes_do_obs = true

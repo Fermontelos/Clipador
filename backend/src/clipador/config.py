@@ -78,6 +78,15 @@ class Config(BaseSettings):
         default="INFO",
         description="Quanto detalhe vai para o log.",
     )
+    minutos_gravacao_parada: float = Field(
+        default=2,
+        gt=0,
+        le=120,
+        description=(
+            "Minutos sem o arquivo mudar para considerar que a live terminou. Se você usa "
+            "o 'Pausar gravação' do OBS por mais tempo que isso, aumente este valor."
+        ),
+    )
     so_nomes_do_obs: bool = Field(
         default=True,
         description=(

@@ -62,6 +62,7 @@ def test_so_videos_contam_como_gravacao():
     assert not eh_gravacao(Path("thumb.png"))
     assert not eh_gravacao(Path("video.parcial.mkv"))  # arquivo temporário
     assert not eh_gravacao(Path(".escondido.mkv"))
+    assert not eh_gravacao(Path("Replay 2026-10-14 20-31-07.mkv"))  # buffer de replay do OBS
 
 
 def test_mkv_e_mp4_da_mesma_live_contam_uma_vez_so(pasta):

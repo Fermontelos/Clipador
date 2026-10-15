@@ -205,3 +205,14 @@ def test_aberturas_ao_mesmo_tempo_de_um_banco_novo_nao_quebram(tmp_path):
         assert set(inspect(engine).get_table_names()) >= TABELAS
     finally:
         engine.dispose()
+
+
+def test_banco_de_uma_versao_mais_nova_do_app_da_erro_claro(caminho_banco):
+    from clipador.banco.conexao import BancoMaisNovoQueOCodigoError
+
+    engine = abrir_banco(caminho_banco)
+    with engine.begin() as conexao:
+        conexao.exec_driver_sql("UPDATE alembic_version SET version_num = '9999'")
+    engine.dispose()
+    with pytest.raises(BancoMaisNovoQueOCodigoError, match="git pull"):
+        abrir_banco(caminho_banco)

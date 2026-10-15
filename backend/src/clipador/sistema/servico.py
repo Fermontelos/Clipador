@@ -73,7 +73,9 @@ class Servico:
         self.cfg = cfg
         self.executores = EXECUTORES if executores is None else executores
         self.monitor = monitor or MonitorDeGravacoes(
-            cfg.pasta_gravacoes, so_nomes_do_obs=cfg.so_nomes_do_obs
+            cfg.pasta_gravacoes,
+            estavel_apos=timedelta(minutes=cfg.minutos_gravacao_parada),
+            so_nomes_do_obs=cfg.so_nomes_do_obs,
         )
         self.energia = energia or ManterAcordado()
         self.relogio = relogio

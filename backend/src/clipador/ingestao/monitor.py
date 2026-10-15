@@ -5,6 +5,11 @@ Então uma gravação é considerada **pronta** quando o tamanho e a data de mod
 ficam parados por 2 minutos. Enquanto isso não acontece, ela está **em andamento** e o
 serviço não processa nada, para não disputar CPU e GPU com a live.
 
+O tempo de 2 minutos é configurável (``minutos_gravacao_parada``): quem usa o "Pausar
+gravação" do OBS por mais tempo que isso precisa aumentá-lo, senão a live entra na fila
+pela metade. Se o OBS dividir a live em vários arquivos ("dividir gravação
+automaticamente"), cada arquivo vira uma gravação separada.
+
 Na primeira vez que vê um arquivo, o monitor usa a data de modificação dele como ponto
 de partida. Assim:
 
@@ -62,11 +67,16 @@ class ResultadoVerificacao:
 
 
 def eh_gravacao(arquivo: Path) -> bool:
-    """É um vídeo de gravação? Ignora outros arquivos e arquivos temporários."""
+    """É um vídeo de gravação de live? Ignora outros arquivos, temporários e replays.
+
+    O "Buffer de Replay" do OBS salva clipes curtos na mesma pasta, com nomes como
+    "Replay 2026-10-14 20-00-00.mkv": eles já são clipes, não lives inteiras.
+    """
     nome = arquivo.name.lower()
     return (
         arquivo.suffix.lower() in EXTENSOES_VIDEO
         and not nome.startswith(".")
+        and not nome.startswith("replay")
         and ".parcial." not in nome
     )
 

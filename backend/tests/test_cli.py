@@ -126,9 +126,20 @@ def test_status_mostra_so_a_primeira_linha_de_um_erro_longo(config_valida, tmp_p
 def test_status_mostra_se_o_servico_roda_e_se_abre_no_login(config_valida, monkeypatch):
     from clipador.sistema import inicializacao
 
-    monkeypatch.setattr(inicializacao, "comando_instalado", lambda: "pythonw ...")
+    cadastrado = f'pythonw -m clipador iniciar --arquivo "{config_valida.resolve()}"'
+    monkeypatch.setattr(inicializacao, "comando_instalado", lambda: cadastrado)
     resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
     assert "Serviço: parado · abre sozinho no login: sim" in resultado.output
+
+
+def test_status_avisa_se_o_login_aponta_para_outro_config(config_valida, monkeypatch):
+    # Ex.: a pasta do projeto foi movida depois de rodar "instalar-servico".
+    from clipador.sistema import inicializacao
+
+    antigo = 'pythonw -m clipador iniciar --arquivo "C:/pasta-antiga/config.toml"'
+    monkeypatch.setattr(inicializacao, "comando_instalado", lambda: antigo)
+    resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
+    assert "aponta para outro config.toml" in resultado.output
 
 
 def test_instalar_servico_cadastra_o_comando(config_valida, monkeypatch):
@@ -198,3 +209,14 @@ def test_iniciar_sem_janela_grava_o_erro_num_arquivo(tmp_path, monkeypatch):
     _avisar_sem_janela(tmp_path / "config.toml", "configuração com problema")
     texto = (tmp_path / "clipador-servico-erro.txt").read_text(encoding="utf-8")
     assert "configuração com problema" in texto
+
+
+def test_status_com_banco_mais_novo_mostra_mensagem_clara(config_valida, tmp_path):
+    engine = abrir_banco(tmp_path / "dados" / "clipador.db")
+    with engine.begin() as conexao:
+        conexao.exec_driver_sql("UPDATE alembic_version SET version_num = '9999'")
+    engine.dispose()
+    resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "git pull" in resultado.output
+    assert "Traceback" not in resultado.output
