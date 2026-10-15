@@ -339,7 +339,9 @@
 <tr><td class="k">Código</td><td><ul>
   <li><code>demo/gerar.py</code>: usa o FFmpeg para criar um MKV de 3 minutos com imagem de teste e as mesmas 4 faixas do OBS, feitas de sons sintéticos (ruído e tons). A faixa de voz tem picos de volume em horários conhecidos.</li>
   <li>Junto com o vídeo: eventos falsos do LoL, uma transcrição pronta e títulos prontos. Por isso a demo <b>pula o Whisper e a IA de títulos e não precisa de GPU</b>: roda em qualquer notebook, inclusive o da entrevista.</li>
-  <li>CLI: <code>clipador demo</code> usa uma pasta e um banco separados (<code>dados/demo/</code>) e roda tudo neles, sem tocar nos dados reais.</li>
+  <li>CLI: <code>clipador demo</code> usa uma pasta e um banco separados (<code>dados/demo/</code>) e roda tudo neles, sem tocar nos dados reais. <code>--do-zero</code> apaga e recria; <code>clipador status --demo</code> mostra a fila da demo.</li>
+  <li><b>Escolhas medidas para ficar rápida</b> (cerca de 15 s): o vídeo é um fundo liso com o tempo da gravação escrito no centro (o padrão de teste <code>testsrc</code> levava 28 s, e assim se vê em que segundo está cada pico), e o áudio sai em Opus (o AAC levava 24 s para as 4 faixas). Uma gravação real do OBS vem em AAC, mas o FFmpeg lê os dois.</li>
+  <li>A CI instala o FFmpeg pelo Chocolatey (<code>ffmpeg-full</code>, a mesma build do PC; a imagem Windows do GitHub não traz o FFmpeg). A demo real de 3 minutos é um teste marcado como <code>lento</code>: roda na CI, não no pre-commit.</li>
 </ul></td></tr>
 <tr><td class="k">Funcionalidade</td><td>Qualquer pessoa clona o repositório, roda <code>clipador demo</code> e vê o app funcionando. Basta ter Python (via uv) e FFmpeg; não precisa de GPU, Ollama nem contas no YouTube ou TikTok.</td></tr>
 <tr><td class="k">Testes</td><td>A gravação demo tem 4 faixas e a duração certa. Os picos ficam nos horários esperados. Rodar a demo duas vezes não duplica nada.</td></tr>

@@ -40,3 +40,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "lento: testes demorados (ex.: a demo real de 3 min); o pre-commit pula, a CI roda",
+]

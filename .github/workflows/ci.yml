@@ -16,6 +16,11 @@ jobs:
       - name: Instalar o uv
         uses: astral-sh/setup-uv@v10.3.0
 
+      # A imagem Windows do GitHub não traz o FFmpeg, mas traz o Chocolatey. "ffmpeg-full"
+      # é a mesma build "full" do gyan.dev usada no PC (tem o Opus e o drawtext da demo).
+      - name: Instalar o FFmpeg
+        run: choco install ffmpeg-full -y --no-progress
+
       - name: Instalar dependências (exatamente as do uv.lock)
         run: uv sync --locked
 
@@ -25,5 +30,5 @@ jobs:
       - name: Formatação
         run: uv run ruff format --check
 
-      - name: Testes
+      - name: Testes (inclusive os lentos)
         run: uv run pytest

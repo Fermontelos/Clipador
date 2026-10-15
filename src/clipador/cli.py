@@ -8,12 +8,14 @@ from typing import Annotated
 import typer
 from pydantic import ValidationError
 
-from clipador import __version__
+from clipador import __version__, ffmpeg
 from clipador.banco import fila
 from clipador.banco.backup import fazer_backup, listar_backups
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import StatusTarefa, Tarefa
 from clipador.config import CAMINHO_PADRAO, Config, ConfigNaoEncontradaError, carregar_config
+from clipador.demo import roteiro
+from clipador.demo.gerar import pasta_da_demo, preparar_demo
 from clipador.logs import configurar_logs
 
 app = typer.Typer(
@@ -86,18 +88,32 @@ def config(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
         typer.echo(f"Aviso: a pasta de gravações {cfg.pasta_gravacoes} ainda não existe.", err=True)
 
 
+OpcaoDemo = Annotated[
+    bool,
+    typer.Option("--demo", help="Usa o banco da demo (dados/demo/) em vez do real."),
+]
+
+
 @app.command()
-def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> None:
     """Mostra a fila de tarefas: quantas há em cada situação, as próximas e os erros."""
     cfg = _carregar_ou_sair(arquivo)
-    engine = abrir_banco(cfg.caminho_banco, cfg.pasta_backups_efetiva)
+    if demo:
+        pasta = pasta_da_demo(cfg.pasta_dados)
+        caminho_banco, pasta_backups = pasta / "clipador.db", pasta / "backups"
+        if not caminho_banco.is_file():
+            typer.echo("A demo ainda não existe. Rode 'clipador demo' primeiro.", err=True)
+            raise typer.Exit(code=1)
+    else:
+        caminho_banco, pasta_backups = cfg.caminho_banco, cfg.pasta_backups_efetiva
+    engine = abrir_banco(caminho_banco, pasta_backups)
     try:
         with nova_sessao(engine) as sessao:
             resumo = fila.resumo(sessao)
     finally:
         engine.dispose()
 
-    typer.echo(f"Banco: {cfg.caminho_banco}")
+    typer.echo(f"Banco: {caminho_banco}")
     contagens = " | ".join(
         f"{situacao.value.replace('_', ' ')}: {resumo.por_status[situacao]}"
         for situacao in StatusTarefa
@@ -124,7 +140,7 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
             typer.echo(
                 f"  {_descrever(tarefa)} · {tarefa.tentativas} tentativas · {tarefa.ultimo_erro}"
             )
-    backups = listar_backups(cfg.pasta_backups_efetiva)
+    backups = listar_backups(pasta_backups)
     ultimo = backups[-1].name if backups else "nenhum ainda"
     typer.echo(f"Backups: {len(backups)} (último: {ultimo})")
 
@@ -141,6 +157,49 @@ def backup(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     total = len(listar_backups(cfg.pasta_backups_efetiva))
     typer.echo(f"Backup criado: {destino}")
     typer.echo(f"Backups guardados: {total}")
+
+
+def _mmss(segundos: float) -> str:
+    return f"{int(segundos) // 60}:{int(segundos) % 60:02d}"
+
+
+@app.command()
+def demo(
+    arquivo: OpcaoArquivo = CAMINHO_PADRAO,
+    do_zero: Annotated[
+        bool, typer.Option("--do-zero", help="Apaga a demo anterior e cria tudo de novo.")
+    ] = False,
+) -> None:
+    """Cria uma live falsa de 3 minutos para testar e demonstrar o app (não precisa de GPU)."""
+    cfg = _carregar_ou_sair(arquivo)
+    typer.echo("Preparando a demo (a primeira vez leva uns 20 segundos)...")
+    try:
+        resultado = preparar_demo(cfg.pasta_dados, do_zero=do_zero)
+    except ffmpeg.FFmpegNaoEncontradoError as erro:
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
+    except ffmpeg.FFmpegFalhouError as erro:
+        typer.echo(f"Erro ao gerar a gravação da demo: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
+
+    info = resultado.info
+    if resultado.video_criado or resultado.banco_preenchido:
+        typer.echo(f"Demo pronta em {resultado.segundos:.1f} s, em {resultado.pasta}")
+    else:
+        typer.echo("A demo já existia: nada foi duplicado. Use --do-zero para recriar.")
+    typer.echo(
+        f"  Gravação: {resultado.arquivo.name} ({_mmss(info.duracao_s)}, "
+        f"{info.largura}x{info.altura}, {info.faixas_audio} faixas: "
+        f"{', '.join(info.titulos_faixas)})"
+    )
+    picos = ", ".join(_mmss(pico.inicio_s) for pico in roteiro.PICOS_VOZ)
+    typer.echo(f"  Picos de voz em: {picos}")
+    c = resultado.contagens
+    typer.echo(
+        f"  Banco da demo: {c['gravacoes']} gravação, {c['eventos']} eventos do LoL, "
+        f"{c['transcricoes']} transcrição pronta, {c['tarefas']} tarefa na fila"
+    )
+    typer.echo("Veja a fila da demo com: clipador status --demo")
 
 
 def main() -> None:

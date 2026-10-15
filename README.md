@@ -18,7 +18,24 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 |---|---|---|
 | 1 · Esqueleto | Estrutura, configuração validada, log, CLI, testes e CI | ✅ |
 | 2 · Banco e fila | Banco SQLite, fila retomável e backup diário | ✅ |
-| 3 · Modo demo | Live falsa para testar e demonstrar o app | ⏳ próxima |
+| 3 · Modo demo | Live falsa para testar e demonstrar o app | ✅ |
+| 4 · Monitor de pasta | Pega a gravação sozinho quando a live termina | ⏳ próxima |
+
+## Experimente em 1 minuto (modo demo)
+
+Não precisa de placa de vídeo, nem de contas no YouTube ou no TikTok. Só do
+[uv](https://docs.astral.sh/uv/) e do FFmpeg (`winget install Gyan.FFmpeg`).
+
+```powershell
+uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
+uv run clipador status --demo  # mostra a fila da demo
+```
+
+A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
+picos de voz em horários conhecidos (0:25, 1:10, 1:58 e 2:30), eventos de uma partida de LoL,
+uma transcrição e títulos prontos. O vídeo mostra o tempo da gravação no centro da tela.
+Rodar de novo não duplica nada; `--do-zero` apaga e recria. A demo usa uma pasta e um banco
+separados: os seus dados reais não são tocados.
 
 ## O que já funciona
 
@@ -28,6 +45,7 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
   erro claro.
 - `clipador status`: mostra a fila de tarefas (quantas pendentes, feitas e com erro, as
   próximas e o motivo de cada erro). Na primeira vez, cria o banco.
+- `clipador demo`: cria a live falsa da demo (veja acima).
 - `clipador backup`: faz uma cópia do banco agora. O app guarda as 14 mais recentes.
   Para restaurar uma cópia, veja [como restaurar um backup](#como-restaurar-um-backup).
 
@@ -37,7 +55,7 @@ tarefa que falha é tentada até 3 vezes antes de virar erro.
 
 ## Como rodar
 
-Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/) e Git. O uv instala o Python 3.12
+Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg. O uv instala o Python 3.12
 se precisar.
 
 No PowerShell:
@@ -68,7 +86,8 @@ Com o app fechado:
 ## Desenvolvimento
 
 ```bash
-uv run pytest              # testes
+uv run pytest -m "not lento"  # testes rápidos (o pre-commit roda estes)
+uv run pytest              # todos, inclusive a demo real de 3 min (a CI roda estes)
 uv run ruff check          # lint
 uv run ruff format         # formatação
 uv run pre-commit install  # roda os três acima antes de cada commit

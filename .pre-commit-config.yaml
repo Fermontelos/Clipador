@@ -17,7 +17,7 @@ repos:
         types: [python]
       - id: pytest
         name: pytest (testes)
-        entry: uv run pytest -q
+        entry: uv run pytest -q -m "not lento"
         language: system
         pass_filenames: false
         always_run: true
