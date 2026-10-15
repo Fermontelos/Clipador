@@ -1,6 +1,7 @@
 """Linha de comando do app (``clipador ...``)."""
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -8,7 +9,11 @@ import typer
 from pydantic import ValidationError
 
 from clipador import __version__
-from clipador.config import CAMINHO_PADRAO, ConfigNaoEncontradaError, carregar_config
+from clipador.banco import fila
+from clipador.banco.backup import fazer_backup, listar_backups
+from clipador.banco.conexao import abrir_banco, nova_sessao
+from clipador.banco.modelos import StatusTarefa, Tarefa
+from clipador.config import CAMINHO_PADRAO, Config, ConfigNaoEncontradaError, carregar_config
 from clipador.logs import configurar_logs
 
 app = typer.Typer(
@@ -23,15 +28,8 @@ OpcaoArquivo = Annotated[
 ]
 
 
-@app.command()
-def versao() -> None:
-    """Mostra a versão do app."""
-    typer.echo(f"clipador {__version__}")
-
-
-@app.command()
-def config(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
-    """Confere se a configuração é válida e mostra os valores carregados."""
+def _carregar_ou_sair(arquivo: Path) -> Config:
+    """Carrega a configuração; se houver problema, explica e encerra com código 1."""
     try:
         cfg = carregar_config(arquivo)
     except ConfigNaoEncontradaError as erro:
@@ -43,16 +41,104 @@ def config(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
             campo = ".".join(str(parte) for parte in problema["loc"])
             typer.echo(f"  - {campo}: {problema['msg']}", err=True)
         raise typer.Exit(code=1) from erro
+    configurar_logs(cfg.pasta_dados, cfg.nivel_log)
+    return cfg
 
-    arquivo_log = configurar_logs(cfg.pasta_dados, cfg.nivel_log)
+
+def _hora_local(momento: datetime) -> str:
+    """Horário do banco (UTC) convertido para o fuso do PC."""
+    return momento.astimezone().strftime("%d/%m %H:%M")
+
+
+def _descrever(tarefa: Tarefa) -> str:
+    alvo = []
+    if tarefa.gravacao_id is not None:
+        alvo.append(f"gravação {tarefa.gravacao_id}")
+    if tarefa.momento_id is not None:
+        alvo.append(f"momento {tarefa.momento_id}")
+    if tarefa.publicacao_id is not None:
+        alvo.append(f"publicação {tarefa.publicacao_id}")
+    sufixo = f" ({', '.join(alvo)})" if alvo else ""
+    return f"#{tarefa.id} {tarefa.tipo.value}{sufixo}"
+
+
+@app.command()
+def versao() -> None:
+    """Mostra a versão do app."""
+    typer.echo(f"clipador {__version__}")
+
+
+@app.command()
+def config(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Confere se a configuração é válida e mostra os valores carregados."""
+    cfg = _carregar_ou_sair(arquivo)
     log.info("Configuração válida carregada de %s", arquivo)
 
     typer.echo(f"Configuração válida ({arquivo}):")
     for campo, valor in cfg.model_dump().items():
         typer.echo(f"  {campo} = {valor}")
-    typer.echo(f"Log em: {arquivo_log}")
+    typer.echo(f"Banco: {cfg.caminho_banco}")
+    typer.echo(f"Backups: {cfg.pasta_backups_efetiva}")
+    typer.echo(f"Log em: {cfg.pasta_dados / 'logs' / 'clipador.log'}")
     if not cfg.pasta_gravacoes.is_dir():
         typer.echo(f"Aviso: a pasta de gravações {cfg.pasta_gravacoes} ainda não existe.", err=True)
+
+
+@app.command()
+def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Mostra a fila de tarefas: quantas há em cada situação, as próximas e os erros."""
+    cfg = _carregar_ou_sair(arquivo)
+    engine = abrir_banco(cfg.caminho_banco)
+    try:
+        with nova_sessao(engine) as sessao:
+            resumo = fila.resumo(sessao)
+    finally:
+        engine.dispose()
+
+    typer.echo(f"Banco: {cfg.caminho_banco}")
+    contagens = " | ".join(
+        f"{situacao.value.replace('_', ' ')}: {resumo.por_status[situacao]}"
+        for situacao in StatusTarefa
+    )
+    typer.echo(f"Fila: {contagens}")
+
+    if resumo.em_andamento:
+        typer.echo("Em andamento:")
+        for tarefa in resumo.em_andamento:
+            typer.echo(f"  {_descrever(tarefa)} · desde {_hora_local(tarefa.atualizada_em)}")
+
+    if resumo.proximas:
+        typer.echo("Próximas:")
+        for tarefa in resumo.proximas:
+            typer.echo(
+                f"  {_descrever(tarefa)} · a partir de {_hora_local(tarefa.executar_a_partir_de)}"
+            )
+    else:
+        typer.echo("Nenhuma tarefa pendente.")
+
+    if resumo.com_erro:
+        typer.echo("Com erro:")
+        for tarefa in resumo.com_erro:
+            typer.echo(
+                f"  {_descrever(tarefa)} · {tarefa.tentativas} tentativas · {tarefa.ultimo_erro}"
+            )
+    backups = listar_backups(cfg.pasta_backups_efetiva)
+    ultimo = backups[-1].name if backups else "nenhum ainda"
+    typer.echo(f"Backups: {len(backups)} (último: {ultimo})")
+
+
+@app.command()
+def backup(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Faz agora uma cópia do banco (as 14 mais recentes são mantidas)."""
+    cfg = _carregar_ou_sair(arquivo)
+    try:
+        destino = fazer_backup(cfg.caminho_banco, cfg.pasta_backups_efetiva)
+    except FileNotFoundError as erro:
+        typer.echo(f"Erro: {erro}. Rode 'clipador status' uma vez para criar o banco.", err=True)
+        raise typer.Exit(code=1) from erro
+    total = len(listar_backups(cfg.pasta_backups_efetiva))
+    typer.echo(f"Backup criado: {destino}")
+    typer.echo(f"Backups guardados: {total}")
 
 
 def main() -> None:

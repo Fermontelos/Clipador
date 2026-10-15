@@ -17,7 +17,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | Etapa | O que entrega | Situação |
 |---|---|---|
 | 1 · Esqueleto | Estrutura, configuração validada, log, CLI, testes e CI | ✅ |
-| 2 · Banco e fila | Estado do app e fila retomável | ⏳ próxima |
+| 2 · Banco e fila | Banco SQLite, fila retomável e backup diário | ✅ |
+| 3 · Modo demo | Live falsa para testar e demonstrar o app | ⏳ próxima |
 
 ## O que já funciona
 
@@ -25,6 +26,13 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 - `clipador config`: confere se o `config.toml` é válido e mostra os valores carregados.
   Um valor errado (ex.: limite diário negativo, campo com nome digitado errado) gera um
   erro claro.
+- `clipador status`: mostra a fila de tarefas (quantas pendentes, feitas e com erro, as
+  próximas e o motivo de cada erro). Na primeira vez, cria o banco.
+- `clipador backup`: faz uma cópia do banco agora. O app guarda as 14 mais recentes.
+
+Por baixo, o app já tem o banco (SQLite, em modo WAL) e uma **fila retomável**: se o PC
+desligar no meio do processamento, as tarefas voltam para a fila na próxima abertura, e uma
+tarefa que falha é tentada até 3 vezes antes de virar erro.
 
 ## Como rodar
 
@@ -47,6 +55,7 @@ Edite o `config.toml` para apontar `pasta_gravacoes` para a pasta onde o OBS sal
 uv run pytest            # testes
 uv run ruff check        # lint
 uv run ruff format       # formatação
+uv run alembic revision --autogenerate -m "o que mudou"  # migração nova do banco
 uv run pre-commit install  # roda tudo isso antes de cada commit
 ```
 
@@ -56,6 +65,7 @@ A CI (GitHub Actions) roda lint, formatação e testes em Windows a cada push.
 
 ```
 src/clipador/   código do app (config, logs, CLI; cada etapa acrescenta módulos)
+  banco/        tabelas, fila, backup e migrações (Alembic)
 tests/          testes automatizados
 docs/           roteiro em PDF e decisões técnicas (docs/adr/)
 dados/          banco, logs e clipes (fora do git, criado pelo app)
@@ -64,6 +74,7 @@ dados/          banco, logs e clipes (fora do git, criado pelo app)
 ## Decisões técnicas
 
 - [ADR 0001: Python + SQLite + FastAPI](docs/adr/0001-python-sqlite-fastapi.md)
+- [ADR 0002: SQLite e não PostgreSQL](docs/adr/0002-sqlite-e-nao-postgres.md)
 
 ## Licença
 

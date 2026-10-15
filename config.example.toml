@@ -17,3 +17,8 @@ limite_diario = 15
 
 # Quanto detalhe vai para o log: DEBUG, INFO, WARNING ou ERROR.
 nivel_log = "INFO"
+
+# Pasta das cópias diárias do banco (o app guarda as 14 mais recentes).
+# Se ficar comentada, usa <pasta_dados>/backups. O ideal é outro disco ou uma pasta
+# sincronizada com o Google Drive, para o backup sobreviver se este disco falhar.
+# pasta_backups = "D:/Backups/Clipador"

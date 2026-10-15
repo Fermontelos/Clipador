@@ -76,6 +76,23 @@ class Config(BaseSettings):
         default="INFO",
         description="Quanto detalhe vai para o log.",
     )
+    pasta_backups: Path | None = Field(
+        default=None,
+        description=(
+            "Pasta das cópias diárias do banco. Se vazia, usa <pasta_dados>/backups. "
+            "O ideal é outro disco ou uma pasta sincronizada com o Google Drive."
+        ),
+    )
+
+    @property
+    def caminho_banco(self) -> Path:
+        """Arquivo do banco SQLite."""
+        return self.pasta_dados / "clipador.db"
+
+    @property
+    def pasta_backups_efetiva(self) -> Path:
+        """Pasta de backups configurada ou, se não houver, a padrão dentro de pasta_dados."""
+        return self.pasta_backups or self.pasta_dados / "backups"
 
     @classmethod
     def settings_customise_sources(
