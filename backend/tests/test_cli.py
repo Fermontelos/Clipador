@@ -1,3 +1,4 @@
+import pytest
 from typer.testing import CliRunner
 
 from clipador import __version__
@@ -116,3 +117,84 @@ def test_status_mostra_so_a_primeira_linha_de_um_erro_longo(config_valida, tmp_p
     resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
     assert "primeira linha do erro" in resultado.output
     assert "detalhe" not in resultado.output
+
+
+# ------------------------------------------------------------------ serviço (etapa 4)
+# O registro do Windows é sempre simulado aqui: nenhum teste mexe no login de verdade.
+
+
+def test_status_mostra_se_o_servico_roda_e_se_abre_no_login(config_valida, monkeypatch):
+    from clipador.sistema import inicializacao
+
+    monkeypatch.setattr(inicializacao, "comando_instalado", lambda: "pythonw ...")
+    resultado = runner.invoke(app, ["status", "--arquivo", str(config_valida)])
+    assert "Serviço: parado · abre sozinho no login: sim" in resultado.output
+
+
+def test_instalar_servico_cadastra_o_comando(config_valida, monkeypatch):
+    from clipador.sistema import inicializacao
+
+    cadastrados = []
+    monkeypatch.setattr(
+        inicializacao, "instalar", lambda arquivo: cadastrados.append(arquivo) or "CMD"
+    )
+    resultado = runner.invoke(app, ["instalar-servico", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 0, resultado.output
+    assert cadastrados == [config_valida]
+    assert "abrir sozinho no próximo login" in resultado.output
+    assert "clipador remover-servico" in resultado.output
+
+
+def test_instalar_servico_recusa_config_invalida(escrever_config, monkeypatch):
+    from clipador.sistema import inicializacao
+
+    monkeypatch.setattr(inicializacao, "instalar", lambda arquivo: pytest.fail("não podia"))
+    caminho = escrever_config('pasta_gravacoes = "C:/g"\nlimite_diario = -1\n')
+    resultado = runner.invoke(app, ["instalar-servico", "--arquivo", str(caminho)])
+    assert resultado.exit_code == 1
+
+
+def test_remover_servico(monkeypatch):
+    from clipador.sistema import inicializacao
+
+    monkeypatch.setattr(inicializacao, "remover", lambda: True)
+    assert "não abre mais sozinho" in runner.invoke(app, ["remover-servico"]).output
+    monkeypatch.setattr(inicializacao, "remover", lambda: False)
+    assert "não estava cadastrado" in runner.invoke(app, ["remover-servico"]).output
+
+
+def test_iniciar_para_com_ctrl_c(config_valida, monkeypatch):
+    from clipador.sistema.servico import Servico
+
+    def rodar(self, parar, *args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(Servico, "rodar", rodar)
+    resultado = runner.invoke(app, ["iniciar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 0, resultado.output
+    assert "Serviço rodando" in resultado.output
+    assert "Serviço encerrado" in resultado.output
+
+
+def test_iniciar_com_outro_servico_rodando_da_erro_claro(config_valida, monkeypatch):
+    from clipador.sistema.servico import Servico
+    from clipador.sistema.trava import ServicoJaRodandoError
+
+    def rodar(self, parar, *args):
+        raise ServicoJaRodandoError("O serviço do Clipador já está rodando")
+
+    monkeypatch.setattr(Servico, "rodar", rodar)
+    resultado = runner.invoke(app, ["iniciar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "já está rodando" in resultado.output
+
+
+def test_iniciar_sem_janela_grava_o_erro_num_arquivo(tmp_path, monkeypatch):
+    import sys
+
+    monkeypatch.setattr(sys, "stdout", None)  # como no pythonw, aberto pelo login
+    from clipador.cli import _avisar_sem_janela
+
+    _avisar_sem_janela(tmp_path / "config.toml", "configuração com problema")
+    texto = (tmp_path / "clipador-servico-erro.txt").read_text(encoding="utf-8")
+    assert "configuração com problema" in texto

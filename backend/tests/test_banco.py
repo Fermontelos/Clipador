@@ -176,3 +176,32 @@ def test_banco_atualizado_nao_gera_backup(caminho_banco, tmp_path):
     abrir_banco(caminho_banco, pasta).dispose()
     abrir_banco(caminho_banco, pasta).dispose()  # já está na versão mais nova
     assert not pasta.exists()
+
+
+def test_aberturas_ao_mesmo_tempo_de_um_banco_novo_nao_quebram(tmp_path):
+    # Ex.: o serviço abrindo pela 1ª vez enquanto você roda "clipador status".
+    import threading
+
+    caminho = tmp_path / "novo" / "clipador.db"
+    erros = []
+    largada = threading.Barrier(4)
+
+    def abrir():
+        try:
+            largada.wait()  # as quatro começam juntas
+            abrir_banco(caminho).dispose()
+        except Exception as erro:
+            erros.append(erro)
+
+    threads = [threading.Thread(target=abrir) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+
+    assert erros == []
+    engine = abrir_banco(caminho)
+    try:
+        assert set(inspect(engine).get_table_names()) >= TABELAS
+    finally:
+        engine.dispose()

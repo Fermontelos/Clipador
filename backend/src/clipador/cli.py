@@ -1,6 +1,8 @@
 """Linha de comando do app (``clipador ...``)."""
 
 import logging
+import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -13,10 +15,19 @@ from clipador.banco import fila
 from clipador.banco.backup import fazer_backup, listar_backups
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import StatusTarefa, Tarefa
-from clipador.config import CAMINHO_PADRAO, Config, ConfigNaoEncontradaError, carregar_config
+from clipador.config import (
+    CAMINHO_PADRAO,
+    Config,
+    ConfigMalEscritaError,
+    ConfigNaoEncontradaError,
+    carregar_config,
+)
 from clipador.demo import roteiro
 from clipador.demo.gerar import pasta_da_demo, preparar_demo
 from clipador.logs import configurar_logs
+from clipador.sistema import inicializacao
+from clipador.sistema.servico import Servico
+from clipador.sistema.trava import ServicoJaRodandoError, servico_esta_rodando
 
 app = typer.Typer(
     help="Clipador de lives: transforma gravações da live em clipes.",
@@ -34,7 +45,7 @@ def _carregar_ou_sair(arquivo: Path) -> Config:
     """Carrega a configuração; se houver problema, explica e encerra com código 1."""
     try:
         cfg = carregar_config(arquivo)
-    except ConfigNaoEncontradaError as erro:
+    except (ConfigNaoEncontradaError, ConfigMalEscritaError) as erro:
         typer.echo(f"Erro: {erro}", err=True)
         raise typer.Exit(code=1) from erro
     except ValidationError as erro:
@@ -139,6 +150,10 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
         engine.dispose()
 
     typer.echo(f"Banco: {caminho_banco}")
+    if not demo:
+        rodando = "rodando agora" if servico_esta_rodando(cfg.pasta_dados) else "parado"
+        no_login = "sim" if inicializacao.comando_instalado() else "não"
+        typer.echo(f"Serviço: {rodando} · abre sozinho no login: {no_login}")
     contagens = " | ".join(
         f"{situacao.value.replace('_', ' ')}: {resumo.por_status[situacao]}"
         for situacao in StatusTarefa
@@ -230,6 +245,64 @@ def demo(
         f"{c['transcricoes']} transcrição pronta, {c['tarefas']} tarefa na fila"
     )
     typer.echo("Veja a fila da demo com: clipador status --demo")
+
+
+def _avisar_sem_janela(arquivo: Path, mensagem: str) -> None:
+    """Sem janela (pythonw, no login), uma mensagem na tela sumiria: vai para um arquivo."""
+    if sys.stdout is not None:
+        return
+    destino = arquivo.resolve().parent / "clipador-servico-erro.txt"
+    momento = datetime.now().isoformat(timespec="seconds")
+    destino.write_text(f"{momento}\n{mensagem}\n", encoding="utf-8")
+
+
+@app.command()
+def iniciar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Roda o serviço: pega as gravações do OBS sozinho e processa a fila (Ctrl+C para)."""
+    try:
+        cfg = carregar_config(arquivo)
+    except (ConfigNaoEncontradaError, ConfigMalEscritaError, ValidationError) as erro:
+        _avisar_sem_janela(arquivo, f"O serviço não abriu: configuração com problema.\n{erro}")
+        _carregar_ou_sair(arquivo)  # mostra o erro detalhado e encerra
+        raise typer.Exit(code=1) from erro  # (não chega aqui; só por garantia)
+    # Abriu bem: um aviso de erro antigo (de antes de corrigir o config) não vale mais.
+    (arquivo.resolve().parent / "clipador-servico-erro.txt").unlink(missing_ok=True)
+    # O serviço tem o próprio arquivo de log: no Windows, dois processos escrevendo no
+    # mesmo arquivo travam a rotação dele (ver logs.py).
+    arquivo_log = configurar_logs(cfg.pasta_dados, cfg.nivel_log, nome_arquivo="servico.log")
+    typer.echo(f"Serviço rodando. Log em {arquivo_log}. Ctrl+C para parar.")
+    parar = threading.Event()
+    try:
+        Servico(cfg).rodar(parar)
+    except ServicoJaRodandoError as erro:
+        _avisar_sem_janela(arquivo, str(erro))
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
+    except KeyboardInterrupt:
+        parar.set()
+        typer.echo("Serviço encerrado.")
+
+
+@app.command("instalar-servico")
+def instalar_servico(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Faz o serviço abrir sozinho quando você entra no Windows (sem janela)."""
+    cfg = _carregar_ou_sair(arquivo)  # só cadastra uma configuração que funciona
+    comando = inicializacao.instalar(arquivo)
+    log.info("Serviço cadastrado para abrir no login: %s", comando)
+    typer.echo("Pronto: o serviço vai abrir sozinho no próximo login do Windows.")
+    typer.echo(f"  Comando cadastrado: {comando}")
+    typer.echo(f"  Log do serviço: {cfg.pasta_dados / 'logs' / 'servico.log'}")
+    typer.echo("Para abrir agora, sem reiniciar: clipador iniciar")
+    typer.echo("Para desfazer: clipador remover-servico")
+
+
+@app.command("remover-servico")
+def remover_servico() -> None:
+    """Faz o serviço parar de abrir sozinho no login."""
+    if inicializacao.remover():
+        typer.echo("Pronto: o serviço não abre mais sozinho no login.")
+    else:
+        typer.echo("O serviço não estava cadastrado para abrir no login.")
 
 
 def main() -> None:

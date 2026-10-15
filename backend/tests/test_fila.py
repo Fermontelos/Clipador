@@ -190,3 +190,11 @@ def test_falhar_tarefa_que_nao_esta_em_andamento_e_recusado(sessao):
     tarefa = fila.adicionar(sessao, TipoTarefa.PUBLICAR)
     with pytest.raises(fila.EstadoInvalidoError):
         fila.falhar(sessao, tarefa, "qualquer")
+
+
+def test_pegar_so_os_tipos_pedidos(sessao, gravacao):
+    fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)
+    publicar = fila.adicionar(sessao, TipoTarefa.PUBLICAR)
+    assert fila.pegar_proxima(sessao, tipos=set()) is None
+    assert fila.pegar_proxima(sessao, tipos={TipoTarefa.PUBLICAR}).id == publicar.id
+    assert fila.pegar_proxima(sessao, tipos={TipoTarefa.PUBLICAR}) is None

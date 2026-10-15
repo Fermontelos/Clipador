@@ -199,7 +199,7 @@
 <tr><th>Ferramenta</th><th>Por que usar</th></tr>
 <tr><td class="tool">ctypes + SetThreadExecutionState</td><td>Função nativa do Windows que impede o PC de entrar em suspensão no meio do processamento da madrugada. Sem instalar nada.</td></tr>
 <tr><td class="tool">ctypes + GetLastInputInfo</td><td>Função nativa do Windows que diz há quanto tempo o teclado e o mouse estão parados. Usada na regra dos 10 minutos.</td></tr>
-<tr><td class="tool">Agendador de Tarefas do Windows</td><td>Inicia o app sozinho quando você faz login. Assim o coletor do LoL já está rodando quando a partida começa (ele consulta a API a cada poucos segundos e só grava quando há partida) e o monitor de pasta pega a gravação assim que a live termina.</td></tr>
+<tr><td class="tool">Chave "Run" do registro (HKCU)</td><td>Inicia o app sozinho quando você faz login, sem precisar de administrador (o Agendador de Tarefas exige administrador para isso; ADR 0004). Assim o coletor do LoL já está rodando quando a partida começa (ele consulta a API a cada poucos segundos e só grava quando há partida) e o monitor de pasta pega a gravação assim que a live termina.</td></tr>
 <tr><td class="tool">shutdown.exe</td><td>Comando do próprio Windows: <code>shutdown /s /t 60</code> desliga em 60 s e <code>shutdown /a</code> cancela.</td></tr>
 </table>
 
@@ -369,7 +369,8 @@
   <li><b>Enquanto houver uma gravação em andamento</b> (arquivo ainda crescendo), a fila fica parada, para o processamento não disputar CPU e GPU com a live.</li>
   <li>O serviço também roda o <b>backup diário do banco</b> (etapa 2), uma vez por dia, e executa as <b>tarefas agendadas</b> quando chega a hora delas (coleta de métricas, reenvio depois que a cota zerar). Se o PC estava desligado na hora marcada, a tarefa roda assim que ele ligar.</li>
   <li><code>sistema/energia.py</code>: <code>SetThreadExecutionState</code> impede a suspensão do Windows enquanto houver fila e libera quando ela acaba.</li>
-  <li>CLI: <code>clipador iniciar</code>, mais <code>clipador instalar-servico</code>, que cadastra o app no <b>Agendador de Tarefas</b> para abrir no login, sem janela (<code>pythonw</code>), com tudo indo para o log.</li>
+  <li>CLI: <code>clipador iniciar</code>, mais <code>clipador instalar-servico</code>, que cadastra o app para abrir no login pela <b>chave "Run" do registro do seu usuário</b> (o Agendador de Tarefas exigiria administrador; ADR 0004), sem janela (<code>pythonw</code>), com tudo indo para o log.</li>
+<li><b>Feito em 2026-10-15, com estes detalhes:</b> na primeira vez, o monitor usa a data de modificação do arquivo como ponto de partida (uma gravação antiga já entra na varredura ao abrir); se o OBS deixar a mesma live em .mkv e .mp4 (remux), só o .mkv entra; a pausa durante a live fica registrada no log; o serviço só pega tarefas que já sabe executar (as outras esperam a etapa delas, em vez de falhar à toa); uma trava garante um serviço só por vez; o serviço escreve em <code>servico.log</code> (no Windows, dois processos no mesmo log travam a rotação); sem janela, um erro de configuração vai para <code>clipador-servico-erro.txt</code>. <code>clipador remover-servico</code> desfaz a abertura no login. Por segurança, só entram vídeos com o nome no padrão do OBS (o OBS grava em Vídeos por padrão, junto com outros vídeos); <code>so_nomes_do_obs = false</code> desliga isso. O modo HLS do OBS (vários pedaços <code>.ts</code>) não é suportado. Uma tarefa que já começou não é interrompida se uma live começar: as tarefas longas (etapas 6 e 9) devem checar <code>Servico.ha_gravacao_em_andamento</code> entre um bloco e outro.</li>
 </ul></td></tr>
 <tr><td class="k">Funcionalidade</td><td>Terminou a live, a gravação entra na fila sozinha e o processamento começa. O PC não dorme no meio.</td></tr>
 <tr><td class="k">Testes</td><td>Um arquivo ainda crescendo não entra na fila e mantém a fila parada. Um arquivo estável entra uma vez só. Arquivos que não são vídeo são ignorados. A varredura na abertura encontra gravações antigas não processadas. Uma tarefa agendada atrasada roda assim que o serviço abre.</td></tr>
@@ -507,7 +508,7 @@
 <tr><td class="k">Objetivo</td><td>Desligar o PC sozinho depois do processamento, sem atrapalhar se você estiver usando.</td></tr>
 <tr><td class="k">Instalar</td><td>Nada novo. Usa funções do próprio Windows.</td></tr>
 <tr><td class="k">Código</td><td><ul>
-  <li><code>sistema/ociosidade.py</code>: <code>GetLastInputInfo</code> diz há quanto tempo o teclado e o mouse estão parados. Isso só funciona dentro da sua sessão do Windows, e é por isso que o app abre pelo Agendador no login, e não como serviço do sistema.</li>
+  <li><code>sistema/ociosidade.py</code>: <code>GetLastInputInfo</code> diz há quanto tempo o teclado e o mouse estão parados. Isso só funciona dentro da sua sessão do Windows, e é por isso que o app abre pela chave "Run" no login, e não como serviço do sistema.</li>
   <li><code>sistema/desligamento.py</code>: quando a fila acaba, verifica a cada minuto se você está ocioso há 10 min. Programas abertos não impedem.
     <ul>
       <li>Gravação em andamento conta como fila.</li>

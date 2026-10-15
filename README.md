@@ -19,7 +19,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 1 · Esqueleto | Estrutura, configuração validada, log, CLI, testes e CI | ✅ |
 | 2 · Banco e fila | Banco SQLite, fila retomável e backup diário | ✅ |
 | 3 · Modo demo | Live falsa para testar e demonstrar o app | ✅ |
-| 4 · Monitor de pasta | Pega a gravação sozinho quando a live termina | ⏳ próxima |
+| 4 · Monitor de pasta | Pega a gravação sozinho quando a live termina | ✅ |
+| 5 · Áudio da voz | Extrai a faixa da voz de cada gravação | ⏳ próxima |
 
 ## Experimente em 1 minuto (modo demo)
 
@@ -46,8 +47,17 @@ separados: os seus dados reais não são tocados.
 - `clipador config`: confere se o `config.toml` é válido e mostra os valores carregados.
   Um valor errado (ex.: limite diário negativo, campo com nome digitado errado) gera um
   erro claro.
-- `clipador status`: mostra a fila de tarefas (quantas pendentes, feitas e com erro, as
-  próximas e o motivo de cada erro). Na primeira vez, cria o banco.
+- `clipador status`: mostra se o serviço está rodando e a fila de tarefas (quantas
+  pendentes, feitas e com erro, as próximas e o motivo de cada erro). Na primeira vez,
+  cria o banco.
+- `clipador iniciar`: liga o serviço. Ele percebe sozinho quando uma live termina (o
+  arquivo do OBS fica 2 minutos sem mudar), coloca a gravação na fila e processa. Durante
+  a live, a fila fica pausada para não pesar no PC, e enquanto processa o PC não suspende.
+  Por segurança, só entram vídeos com o nome no padrão do OBS (data e hora); outros vídeos
+  da mesma pasta são ignorados (`so_nomes_do_obs` no `config.toml`).
+- `clipador instalar-servico`: faz o serviço abrir sozinho, sem janela, quando você entra
+  no Windows (`clipador remover-servico` desfaz). Não precisa de administrador
+  ([ADR 0004](docs/adr/0004-abrir-no-login-pela-chave-run.md)).
 - `clipador demo`: cria a live falsa da demo (veja acima).
 - `clipador backup`: faz uma cópia do banco agora. O app guarda as 14 mais recentes.
   Para restaurar uma cópia, veja [como restaurar um backup](#como-restaurar-um-backup).
@@ -138,6 +148,7 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 - [ADR 0001: Python + SQLite + FastAPI](docs/adr/0001-python-sqlite-fastapi.md)
 - [ADR 0002: SQLite e não PostgreSQL](docs/adr/0002-sqlite-e-nao-postgres.md)
 - [ADR 0003: backend, API, integrações e frontend separados](docs/adr/0003-backend-api-integracoes-frontend.md)
+- [ADR 0004: abrir no login pela chave "Run"](docs/adr/0004-abrir-no-login-pela-chave-run.md)
 
 ## Licença
 

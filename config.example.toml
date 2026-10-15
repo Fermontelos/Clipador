@@ -7,8 +7,13 @@
 # Chaves e tokens (YouTube, TikTok) NÃO ficam aqui: ficam no .env, que só as
 # integrações leem (veja o .env.example).
 
-# Pasta onde o OBS salva as gravações.
+# Pasta onde o OBS salva as gravações. O ideal é uma pasta só para elas: o serviço coloca
+# na fila os vídeos que encontrar aqui.
 pasta_gravacoes = "C:/Users/SEU_USUARIO/Videos"
+
+# Só processar vídeos com o nome no padrão do OBS (data e hora, ex.: "2026-10-14 20-00-00.mkv").
+# Protege contra processar outros vídeos da pasta. Mude para false se você renomeia as lives.
+so_nomes_do_obs = true
 
 # Pasta onde o app guarda banco, logs e clipes. Um caminho relativo, como este, é
 # contado a partir da pasta deste arquivo.

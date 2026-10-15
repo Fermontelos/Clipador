@@ -16,6 +16,7 @@ Ciclo de vida de uma tarefa::
 
 import logging
 from collections import Counter
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -61,19 +62,30 @@ def adicionar(
     return tarefa
 
 
-def pegar_proxima(sessao: Session, momento: datetime | None = None) -> Tarefa | None:
+def pegar_proxima(
+    sessao: Session,
+    momento: datetime | None = None,
+    tipos: Collection[TipoTarefa] | None = None,
+) -> Tarefa | None:
     """Pega a próxima tarefa que já pode rodar e a marca como "em andamento".
 
     A mais antiga primeiro (pelo horário marcado e, no empate, pela ordem de criação).
+    ``tipos`` limita aos tipos que quem chama sabe executar: o serviço só pega tarefas
+    que tem como fazer, e as outras esperam (em vez de falhar à toa).
     Devolve ``None`` se não houver nada para fazer agora.
     """
     momento = momento or agora()
-    candidatas = sessao.exec(
+    consulta = (
         select(Tarefa.id)
         .where(Tarefa.status == StatusTarefa.PENDENTE)
         .where(Tarefa.executar_a_partir_de <= momento)
         .order_by(col(Tarefa.executar_a_partir_de), col(Tarefa.id))
-    ).all()
+    )
+    if tipos is not None:
+        if not tipos:
+            return None
+        consulta = consulta.where(col(Tarefa.tipo).in_(list(tipos)))
+    candidatas = sessao.exec(consulta).all()
     for tarefa_id in candidatas:
         # Só muda se ainda estiver pendente: se outro processo pegou antes,
         # nenhuma linha é alterada e tentamos a próxima.

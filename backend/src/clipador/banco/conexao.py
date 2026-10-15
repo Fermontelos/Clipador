@@ -15,6 +15,8 @@ migrado (ver ``abrir_banco``).
 """
 
 import logging
+import msvcrt
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib.resources import files
@@ -112,14 +114,50 @@ def abrir_banco(caminho_banco: Path, pasta_backups: Path | None = None) -> Engin
     ``pasta_backups`` (quando informada). O driver do SQLite grava algumas alterações de
     tabela na hora, fora da transação, então uma migração que falhe no meio nem sempre
     é desfeita por inteiro; o backup garante que nada se perde.
+
+    Duas aberturas ao mesmo tempo (ex.: o serviço abrindo e um ``clipador status``) são
+    seguras: a migração acontece dentro de uma trava, e quem chega depois espera e encontra
+    o banco já atualizado. Sem isso, as duas tentariam criar as tabelas de um banco novo
+    ao mesmo tempo ("table ... already exists").
     """
-    ja_existia = caminho_banco.is_file()
-    engine = criar_engine(caminho_banco)
-    if ja_existia and pasta_backups is not None and ha_migracao_pendente(engine):
-        copia = fazer_backup(caminho_banco, pasta_backups)
-        log.warning("Banco vai ser atualizado; backup feito antes em %s", copia)
-    migrar(engine)
+    caminho_banco.parent.mkdir(parents=True, exist_ok=True)
+    with _trava_de_migracao(caminho_banco):
+        ja_existia = caminho_banco.is_file()
+        engine = criar_engine(caminho_banco)
+        try:
+            if ha_migracao_pendente(engine):
+                if ja_existia and pasta_backups is not None:
+                    copia = fazer_backup(caminho_banco, pasta_backups)
+                    log.warning("Banco vai ser atualizado; backup feito antes em %s", copia)
+                migrar(engine)
+        except Exception:
+            engine.dispose()
+            raise
     return engine
+
+
+@contextmanager
+def _trava_de_migracao(caminho_banco: Path, limite_s: float = 60) -> Iterator[None]:
+    """Só um processo migra o banco por vez (trava num arquivo ao lado do banco)."""
+    arquivo = caminho_banco.with_name(caminho_banco.name + ".migracao.lock")
+    with open(arquivo, "a+b") as trava:
+        trava.seek(0)
+        prazo = time.monotonic() + limite_s
+        while True:
+            try:
+                msvcrt.locking(trava.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except OSError:
+                if time.monotonic() > prazo:
+                    raise TimeoutError(
+                        f"Outro processo está migrando o banco há mais de {limite_s} s."
+                    ) from None
+                time.sleep(0.1)
+        try:
+            yield
+        finally:
+            trava.seek(0)
+            msvcrt.locking(trava.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def nova_sessao(engine: Engine) -> Session:

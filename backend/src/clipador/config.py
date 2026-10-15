@@ -10,14 +10,15 @@ O backend **não lê o ``.env``**: ele guarda chaves e tokens, e só o pacote
 um erro claro logo na abertura, e não no meio do processamento da madrugada.
 
 Caminhos relativos (ex.: ``pasta_dados = "dados"``) são sempre contados a partir da pasta
-do ``config.toml``, e não da pasta onde o comando foi executado. Isso importa porque o
-Agendador de Tarefas do Windows (etapa 4) costuma iniciar programas em
+do ``config.toml``, e não da pasta onde o comando foi executado. Isso importa porque os
+programas abertos sozinhos no login (etapa 4, ADR 0004) costumam começar em
 ``C:\\Windows\\System32``: sem isso, o banco iria parar lá.
 """
 
+import tomllib
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field
 from pydantic_settings import (
@@ -37,6 +38,22 @@ _arquivo_toml: ContextVar[Path] = ContextVar("arquivo_toml", default=CAMINHO_PAD
 
 class ConfigNaoEncontradaError(FileNotFoundError):
     """O arquivo de configuração não existe."""
+
+
+class ConfigMalEscritaError(ValueError):
+    """O config.toml tem um erro de sintaxe (ex.: aspas faltando)."""
+
+
+class _TomlDoApp(TomlConfigSettingsSource):
+    """Lê o TOML aceitando o BOM.
+
+    O PowerShell e versões antigas do Bloco de Notas salvam UTF-8 com um BOM (uma marca
+    invisível no começo do arquivo), que o leitor de TOML do Python recusa. "utf-8-sig"
+    ignora essa marca se ela existir.
+    """
+
+    def _read_file(self, file_path) -> dict[str, Any]:
+        return tomllib.loads(Path(file_path).read_text(encoding="utf-8-sig"))
 
 
 class Config(BaseSettings):
@@ -60,6 +77,13 @@ class Config(BaseSettings):
     nivel_log: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="Quanto detalhe vai para o log.",
+    )
+    so_nomes_do_obs: bool = Field(
+        default=True,
+        description=(
+            "Só processar vídeos com o nome no padrão do OBS (data e hora). Protege contra "
+            "processar outros vídeos que estejam na mesma pasta."
+        ),
     )
     pasta_backups: Path | None = Field(
         default=None,
@@ -93,15 +117,16 @@ class Config(BaseSettings):
         return (
             init_settings,
             env_settings,
-            TomlConfigSettingsSource(settings_cls, toml_file=_arquivo_toml.get()),
+            _TomlDoApp(settings_cls, toml_file=_arquivo_toml.get()),
         )
 
 
 def carregar_config(caminho: Path = CAMINHO_PADRAO) -> Config:
     """Lê e valida a configuração.
 
-    Levanta ``ConfigNaoEncontradaError`` se o ``config.toml`` não existir e
-    ``pydantic.ValidationError`` se algum valor for inválido.
+    Levanta ``ConfigNaoEncontradaError`` se o ``config.toml`` não existir,
+    ``ConfigMalEscritaError`` se ele tiver erro de sintaxe e ``pydantic.ValidationError``
+    se algum valor for inválido.
     """
     if not caminho.is_file():
         raise ConfigNaoEncontradaError(
@@ -112,6 +137,11 @@ def carregar_config(caminho: Path = CAMINHO_PADRAO) -> Config:
     token_toml = _arquivo_toml.set(caminho)
     try:
         cfg = Config()
+    except tomllib.TOMLDecodeError as erro:
+        raise ConfigMalEscritaError(
+            f"O arquivo {caminho} tem um erro de escrita: {erro}. "
+            "Confira aspas, sinais de igual e colchetes nessa linha."
+        ) from erro
     finally:
         _arquivo_toml.reset(token_toml)
     return _resolver_caminhos(cfg, pasta_do_config)

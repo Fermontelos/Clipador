@@ -1,7 +1,7 @@
 # Backend
 
 O coração do Clipador: pipeline de processamento, banco de dados (SQLite), fila de
-tarefas retomável, modo demo e a linha de comando (`clipador ...`).
+tarefas retomável, o serviço em segundo plano, modo demo e a linha de comando (`clipador ...`).
 
 - Código: `src/clipador/`
 - Testes: `tests/`
