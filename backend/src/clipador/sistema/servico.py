@@ -17,9 +17,12 @@ Limite importante: uma tarefa que **já começou** não é interrompida se uma l
 no meio dela; só a próxima espera. As tarefas longas (transcrição, etapa 6; cortes, etapa
 9) devem trabalhar em blocos e checar ``Servico.ha_gravacao_em_andamento`` entre eles.
 
-Executores: cada tipo de tarefa tem uma função que sabe executá-la. Eles chegam nas
-próximas etapas (ex.: a etapa 5 registra o ``extrair_audio``). O serviço só pega tarefas
-que tem como executar; as outras ficam pendentes, esperando a etapa delas.
+Executores: cada tipo de tarefa tem uma função que sabe executá-la, registrada em
+``EXECUTORES`` pela etapa dela (a etapa 5 registrou o ``extrair_audio``). O serviço só
+pega tarefas que tem como executar; as outras ficam pendentes, esperando a etapa delas.
+Um executor que levanta ``FalhaDefinitivaError`` manda a tarefa direto para "erro".
+
+Quando uma gravação termina a pipeline, os arquivos temporários dela são apagados.
 """
 
 import logging
@@ -36,8 +39,9 @@ from watchdog.observers import Observer
 from clipador.banco import fila
 from clipador.banco.backup import backup_do_dia
 from clipador.banco.conexao import abrir_banco, nova_sessao
-from clipador.banco.modelos import Tarefa, TipoTarefa, agora
+from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa, TipoTarefa, agora
 from clipador.config import Config
+from clipador.ingestao import audio
 from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
 from clipador.sistema.energia import ManterAcordado
 from clipador.sistema.trava import TravaDoServico
@@ -47,8 +51,10 @@ log = logging.getLogger(__name__)
 INTERVALO = timedelta(seconds=10)
 
 Executor = Callable[[Session, Tarefa, Config], None]
-# Preenchido pelas próximas etapas (ex.: EXECUTORES[TipoTarefa.EXTRAIR_AUDIO] = ...).
-EXECUTORES: dict[TipoTarefa, Executor] = {}
+# Cada etapa acrescenta o seu.
+EXECUTORES: dict[TipoTarefa, Executor] = {
+    TipoTarefa.EXTRAIR_AUDIO: audio.extrair_audio,
+}
 
 
 @dataclass
@@ -154,11 +160,30 @@ class Servico:
                 log.error("Tarefa %s (%s) falhou:\n%s", tarefa.id, tarefa.tipo.value,
                           traceback.format_exc())  # fmt: skip
                 sessao.rollback()  # desfaz o que a tarefa deixou pela metade
-                fila.falhar(sessao, tarefa, f"{type(erro).__name__}: {erro}")
+                fila.falhar(
+                    sessao,
+                    tarefa,
+                    f"{type(erro).__name__}: {erro}",
+                    definitiva=isinstance(erro, fila.FalhaDefinitivaError),
+                )
                 resultado.tarefa_falhou = True
             else:
                 fila.concluir(sessao, tarefa)
+                self._limpar_se_terminou(sessao, tarefa)
         return resultado
+
+    def _limpar_se_terminou(self, sessao: Session, tarefa: Tarefa) -> None:
+        if tarefa.gravacao_id is None:
+            return
+        gravacao = sessao.get(Gravacao, tarefa.gravacao_id)
+        if gravacao is None or gravacao.status is not StatusGravacao.CONCLUIDA:
+            return
+        try:
+            audio.limpar_trabalho(self.cfg, tarefa.gravacao_id)
+        except Exception:
+            # Sobrar um arquivo temporário não é motivo para parar o serviço.
+            log.exception("Não foi possível apagar os temporários da gravação %s.",
+                          tarefa.gravacao_id)  # fmt: skip
 
     def ha_gravacao_em_andamento(self) -> bool:
         """Há uma live acontecendo agora? Para tarefas longas checarem entre um bloco e outro."""

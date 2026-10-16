@@ -20,7 +20,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -32,8 +32,8 @@ CAMINHO_PADRAO = Path("config.toml")
 PREFIXO = "CLIPADOR_"
 
 # Qual TOML ler. Fica numa ContextVar para que carregar_config() possa escolher o arquivo
-# sem mudar a classe (útil nos testes).
-_arquivo_toml: ContextVar[Path] = ContextVar("arquivo_toml", default=CAMINHO_PADRAO)
+# sem mudar a classe (útil nos testes). None = não ler arquivo nenhum (ver config_sem_arquivo).
+_arquivo_toml: ContextVar[Path | None] = ContextVar("arquivo_toml", default=CAMINHO_PADRAO)
 
 
 class ConfigNaoEncontradaError(FileNotFoundError):
@@ -54,6 +54,25 @@ class _TomlDoApp(TomlConfigSettingsSource):
 
     def _read_file(self, file_path) -> dict[str, Any]:
         return tomllib.loads(Path(file_path).read_text(encoding="utf-8-sig"))
+
+
+class Faixas(BaseModel):
+    """Em qual faixa de áudio do OBS está cada fonte (contando a partir de 1, como no OBS).
+
+    A faixa 1 é a mistura completa que vai para a Twitch; o app não a usa.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    voz: int = Field(default=2, ge=1, le=6, description="Faixa só com o microfone.")
+    jogo: int = Field(default=3, ge=1, le=6, description="Faixa só com o som do jogo.")
+    musica: int = Field(default=4, ge=1, le=6, description="Faixa só com a música.")
+
+    @model_validator(mode="after")
+    def _faixas_diferentes(self) -> "Faixas":
+        if len({self.voz, self.jogo, self.musica}) != 3:
+            raise ValueError("voz, jogo e música precisam estar em faixas diferentes")
+        return self
 
 
 class Config(BaseSettings):
@@ -94,6 +113,10 @@ class Config(BaseSettings):
             "processar outros vídeos que estejam na mesma pasta."
         ),
     )
+    faixas: Faixas = Field(
+        default_factory=Faixas,
+        description="Em qual faixa de áudio do OBS está a voz, o jogo e a música.",
+    )
     pasta_backups: Path | None = Field(
         default=None,
         description=(
@@ -106,6 +129,11 @@ class Config(BaseSettings):
     def caminho_banco(self) -> Path:
         """Arquivo do banco SQLite."""
         return self.pasta_dados / "clipador.db"
+
+    @property
+    def pasta_trabalho(self) -> Path:
+        """Arquivos temporários do processamento (ex.: o áudio da voz), um por gravação."""
+        return self.pasta_dados / "trabalho"
 
     @property
     def pasta_backups_efetiva(self) -> Path:
@@ -123,11 +151,10 @@ class Config(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         # Ordem de prioridade: argumentos diretos > variáveis de ambiente > config.toml.
         # O .env (chaves) fica de fora de propósito: só as integrações o leem.
-        return (
-            init_settings,
-            env_settings,
-            _TomlDoApp(settings_cls, toml_file=_arquivo_toml.get()),
-        )
+        arquivo = _arquivo_toml.get()
+        if arquivo is None:
+            return (init_settings, env_settings)
+        return (init_settings, env_settings, _TomlDoApp(settings_cls, toml_file=arquivo))
 
 
 def carregar_config(caminho: Path = CAMINHO_PADRAO) -> Config:
@@ -154,6 +181,19 @@ def carregar_config(caminho: Path = CAMINHO_PADRAO) -> Config:
     finally:
         _arquivo_toml.reset(token_toml)
     return _resolver_caminhos(cfg, pasta_do_config)
+
+
+def config_sem_arquivo(**valores: Any) -> Config:
+    """Configuração só com os valores dados e os padrões, sem ler o ``config.toml``.
+
+    Usada pela demo: ela tem as faixas no padrão e pastas próprias, e não pode herdar,
+    por exemplo, um ``[faixas]`` diferente do seu ``config.toml``.
+    """
+    token_toml = _arquivo_toml.set(None)
+    try:
+        return Config(**valores)
+    finally:
+        _arquivo_toml.reset(token_toml)
 
 
 def _resolver_caminhos(cfg: Config, base: Path) -> Config:

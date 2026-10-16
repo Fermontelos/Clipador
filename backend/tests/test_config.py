@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from clipador.config import ConfigNaoEncontradaError, carregar_config
+from clipador.config import ConfigNaoEncontradaError, carregar_config, config_sem_arquivo
 
 # tests/ fica em backend/tests, e o config.example.toml na raiz do repositório.
 RAIZ_DO_PROJETO = Path(__file__).resolve().parents[2]
@@ -96,3 +96,36 @@ def test_caminho_absoluto_continua_igual(escrever_config, tmp_path):
         escrever_config(f'pasta_gravacoes = "C:/g"\npasta_dados = "{absoluto}"\n')
     )
     assert cfg.pasta_dados == tmp_path / "em_outro_disco"
+
+
+def test_faixas_padrao_do_obs(escrever_config):
+    faixas = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n')).faixas
+    assert (faixas.voz, faixas.jogo, faixas.musica) == (2, 3, 4)
+
+
+def test_faixas_vem_do_config(escrever_config):
+    caminho = escrever_config('pasta_gravacoes = "C:/g"\n[faixas]\nvoz = 3\njogo = 2\n')
+    faixas = carregar_config(caminho).faixas
+    assert (faixas.voz, faixas.jogo, faixas.musica) == (3, 2, 4)
+
+
+@pytest.mark.parametrize(
+    "faixas",
+    ["voz = 2\njogo = 2", "voz = 0", "voz = 7", "microfone = 2"],
+    ids=["repetida", "zero", "acima_de_6", "nome_errado"],
+)
+def test_faixas_invalidas_dao_erro(escrever_config, faixas):
+    with pytest.raises(ValidationError):
+        carregar_config(escrever_config(f'pasta_gravacoes = "C:/g"\n[faixas]\n{faixas}\n'))
+
+
+def test_config_sem_arquivo_ignora_o_config_toml(tmp_path, monkeypatch):
+    # A demo não pode herdar um [faixas] diferente do config.toml de quem a roda.
+    (tmp_path / "config.toml").write_text(
+        'pasta_gravacoes = "C:/g"\nlimite_diario = 7\n[faixas]\nvoz = 4\nmusica = 2\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    cfg = config_sem_arquivo(pasta_gravacoes=tmp_path / "g", pasta_dados=tmp_path / "d")
+    assert cfg.faixas.voz == 2
+    assert cfg.limite_diario == 15

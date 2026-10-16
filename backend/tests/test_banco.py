@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 import sqlalchemy as sa
+from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -216,3 +217,25 @@ def test_banco_de_uma_versao_mais_nova_do_app_da_erro_claro(caminho_banco):
     engine.dispose()
     with pytest.raises(BancoMaisNovoQueOCodigoError, match="git pull"):
         abrir_banco(caminho_banco)
+
+
+def test_migracao_0002_acrescenta_os_dados_do_video_sem_perder_gravacoes(caminho_banco):
+    # Um banco criado antes da etapa 5 (versão 0001), com uma gravação.
+    engine = modulo_conexao.criar_engine(caminho_banco)
+    config = modulo_conexao._config_alembic()
+    with modulo_conexao.sem_chaves_estrangeiras(engine) as conexao:
+        config.attributes["connection"] = conexao
+        command.upgrade(config, "0001")
+        conexao.exec_driver_sql(
+            "INSERT INTO gravacao (arquivo, inicio, duracao_s, status, criada_em) VALUES "
+            "('C:/g/live.mkv', '2026-10-14 23:00:00', 60, 'NOVA', '2026-10-14 23:00:00')"
+        )
+    engine.dispose()
+
+    engine = abrir_banco(caminho_banco)
+    colunas = {coluna["name"] for coluna in inspect(engine).get_columns("gravacao")}
+    assert {"largura", "altura", "fps"} <= colunas
+    with nova_sessao(engine) as sessao:
+        gravacao = sessao.exec(select(Gravacao)).one()
+    engine.dispose()
+    assert (gravacao.arquivo, gravacao.duracao_s, gravacao.largura) == ("C:/g/live.mkv", 60, None)

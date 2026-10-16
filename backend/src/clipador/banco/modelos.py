@@ -90,6 +90,10 @@ class Gravacao(SQLModel, table=True):
     arquivo: str = Field(unique=True, index=True)
     inicio: datetime = Field(description="Horário de início da gravação (UTC).")
     duracao_s: float | None = None
+    # Dados do vídeo, lidos pelo ffprobe na etapa 5 (os cortes da etapa 9 usam).
+    largura: int | None = None
+    altura: int | None = None
+    fps: float | None = None
     status: StatusGravacao = Field(default=StatusGravacao.NOVA, index=True)
     criada_em: datetime = Field(default_factory=agora)
 

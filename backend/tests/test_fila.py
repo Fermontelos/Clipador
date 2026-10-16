@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from clipador.banco import fila
 from clipador.banco.conexao import nova_sessao
-from clipador.banco.modelos import StatusTarefa, Tarefa, TipoTarefa, agora
+from clipador.banco.modelos import StatusGravacao, StatusTarefa, Tarefa, TipoTarefa, agora
 
 
 def test_fila_vazia_nao_devolve_nada(sessao):
@@ -198,3 +198,61 @@ def test_pegar_so_os_tipos_pedidos(sessao, gravacao):
     assert fila.pegar_proxima(sessao, tipos=set()) is None
     assert fila.pegar_proxima(sessao, tipos={TipoTarefa.PUBLICAR}).id == publicar.id
     assert fila.pegar_proxima(sessao, tipos={TipoTarefa.PUBLICAR}) is None
+
+
+def test_falha_definitiva_vira_erro_na_primeira_vez(sessao, gravacao):
+    fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)
+    tarefa = fila.pegar_proxima(sessao)
+    fila.falhar(sessao, tarefa, "sem a faixa da voz", definitiva=True)
+    assert (tarefa.status, tarefa.tentativas) == (StatusTarefa.ERRO, 1)
+
+
+def test_gravacao_vira_erro_quando_uma_tarefa_da_cadeia_desiste(sessao, gravacao):
+    fila.adicionar(sessao, TipoTarefa.TRANSCREVER, gravacao_id=gravacao.id)
+    tarefa = fila.pegar_proxima(sessao)
+    fila.falhar(sessao, tarefa, "x")  # 1ª falha: ainda vai tentar de novo
+    sessao.refresh(gravacao)
+    assert gravacao.status is StatusGravacao.NOVA
+    tarefa.status = StatusTarefa.EM_ANDAMENTO
+    fila.falhar(sessao, tarefa, "x", definitiva=True)
+    sessao.refresh(gravacao)
+    assert gravacao.status is StatusGravacao.ERRO
+
+
+def test_gravacao_conclui_com_a_ultima_tarefa_da_cadeia(sessao, gravacao):
+    fila.adicionar(sessao, TipoTarefa.CORTAR, gravacao_id=gravacao.id)
+    fila.concluir(sessao, fila.pegar_proxima(sessao))  # cria gerar_titulos
+    sessao.refresh(gravacao)
+    assert gravacao.status is StatusGravacao.NOVA
+    fila.concluir(sessao, fila.pegar_proxima(sessao))  # a última da cadeia
+    sessao.refresh(gravacao)
+    assert gravacao.status is StatusGravacao.CONCLUIDA
+
+
+def test_tarefa_fora_da_cadeia_nao_mexe_na_gravacao(sessao, gravacao):
+    # Ex.: "recortar" um clipe de uma gravação já concluída não a reabre nem a conclui.
+    fila.adicionar(sessao, TipoTarefa.RECORTAR, gravacao_id=gravacao.id)
+    fila.falhar(sessao, fila.pegar_proxima(sessao), "x", definitiva=True)
+    sessao.refresh(gravacao)
+    assert gravacao.status is StatusGravacao.NOVA
+
+
+def test_refazer_devolve_a_tarefa_com_erro_zerada(sessao, gravacao):
+    fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)
+    tarefa = fila.pegar_proxima(sessao)
+    fila.falhar(sessao, tarefa, "faixa errada no config", definitiva=True)
+
+    fila.refazer(sessao, tarefa.id)
+
+    sessao.refresh(gravacao)
+    assert (tarefa.status, tarefa.tentativas) == (StatusTarefa.PENDENTE, 0)
+    assert gravacao.status is StatusGravacao.PROCESSANDO
+    assert fila.pegar_proxima(sessao).id == tarefa.id  # já pode rodar
+
+
+def test_refazer_so_aceita_tarefa_com_erro(sessao):
+    pendente = fila.adicionar(sessao, TipoTarefa.PUBLICAR)
+    with pytest.raises(fila.EstadoInvalidoError, match="só tarefas com erro"):
+        fila.refazer(sessao, pendente.id)
+    with pytest.raises(LookupError, match="Não existe a tarefa 999"):
+        fila.refazer(sessao, 999)

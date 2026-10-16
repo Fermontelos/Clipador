@@ -34,3 +34,11 @@ nivel_log = "INFO"
 # Se ficar comentada, usa <pasta_dados>/backups. O ideal é outro disco ou uma pasta
 # sincronizada com o Google Drive, para o backup sobreviver se este disco falhar.
 # pasta_backups = "D:/Backups/Clipador"
+
+# Em qual faixa de áudio do OBS está cada fonte, contando a partir de 1 como no OBS
+# (Configurações > Saída > Gravação > Faixas de áudio). A faixa 1 é a mistura completa
+# que vai para a Twitch; o app não a usa. Esta seção precisa ficar no fim do arquivo.
+[faixas]
+voz = 2
+jogo = 3
+musica = 4

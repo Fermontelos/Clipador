@@ -69,10 +69,27 @@ class InfoMidia:
     largura: int | None
     altura: int | None
     titulos_faixas: tuple[str, ...]
+    fps: float | None = None
 
 
-def inspecionar(arquivo: Path) -> InfoMidia:
-    """Duração, quantidade de faixas de áudio e resolução do vídeo."""
+def _fps(fracao: str | None) -> float | None:
+    """Converte o fps do ffprobe, que vem como fração ("60/1", "30000/1001")."""
+    if not fracao or "/" not in fracao:
+        return None
+    numerador, denominador = fracao.split("/", 1)
+    try:
+        valor = float(numerador) / float(denominador)
+    except (ValueError, ZeroDivisionError):  # "0/0" quando o arquivo não informa
+        return None
+    return round(valor, 3) or None
+
+
+def inspecionar(arquivo: Path, tempo_limite_s: float = 60) -> InfoMidia:
+    """Duração, quantidade de faixas de áudio, resolução e fps do vídeo.
+
+    O ffprobe só lê o cabeçalho e leva menos de 1 s; o limite existe para um arquivo
+    corrompido que o trave não parar a fila da madrugada.
+    """
     comando = [
         localizar("ffprobe"),
         "-v",
@@ -83,9 +100,19 @@ def inspecionar(arquivo: Path) -> InfoMidia:
         "-show_streams",
         str(arquivo),
     ]
-    resultado = subprocess.run(
-        comando, capture_output=True, text=True, encoding="utf-8", errors="replace"
-    )
+    try:
+        resultado = subprocess.run(
+            comando,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=tempo_limite_s,
+        )
+    except subprocess.TimeoutExpired as erro:
+        raise FFmpegFalhouError(
+            f"O ffprobe passou do limite de {tempo_limite_s} s lendo {arquivo} e foi encerrado."
+        ) from erro
     if resultado.returncode != 0:
         raise FFmpegFalhouError(
             f"O ffprobe não conseguiu ler {arquivo}: {resultado.stderr.strip()}"
@@ -102,6 +129,7 @@ def inspecionar(arquivo: Path) -> InfoMidia:
         faixas_audio=len(audios),
         largura=video.get("width"),
         altura=video.get("height"),
+        fps=_fps(video.get("avg_frame_rate")) or _fps(video.get("r_frame_rate")),
         # O MKV às vezes guarda a tag em maiúsculas ("TITLE").
         titulos_faixas=tuple(
             f.get("tags", {}).get("title") or f.get("tags", {}).get("TITLE", "") for f in audios

@@ -4,7 +4,7 @@ Ciclo de vida de uma tarefa::
 
     pendente ──pegar_proxima──> em_andamento ──concluir──> feita (cria a próxima da cadeia)
         ^                            │
-        └──── falhar (tentativas < 3)┘──falhar (3ª falha)──> erro
+        └──── falhar (tentativas < 3)┘──falhar (3ª falha ou definitiva)──> erro
 
 - Tudo fica no banco, então desligar o PC no meio não perde trabalho: ao abrir,
   ``recuperar_interrompidas`` devolve para a fila o que estava "em andamento".
@@ -12,6 +12,10 @@ Ciclo de vida de uma tarefa::
 - Uma tarefa que falha volta para a fila com uma pequena espera (1 min, depois 2 min),
   para um erro passageiro (arquivo ainda travado, internet caindo) não virar erro
   definitivo, e um erro permanente não ficar repetindo sem parar.
+- Um erro que nenhuma nova tentativa resolve (ex.: a gravação não tem a faixa da voz)
+  é levantado como ``FalhaDefinitivaError`` e vai direto para "erro".
+- A situação da gravação acompanha a cadeia, no mesmo commit da tarefa: vira "concluída"
+  quando a última tarefa da cadeia termina e "erro" quando uma tarefa da cadeia desiste.
 """
 
 import logging
@@ -22,7 +26,7 @@ from datetime import datetime, timedelta
 
 from sqlmodel import Session, col, func, select, update
 
-from clipador.banco.modelos import StatusTarefa, Tarefa, TipoTarefa, agora
+from clipador.banco.modelos import Gravacao, StatusGravacao, StatusTarefa, Tarefa, TipoTarefa, agora
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +40,15 @@ PROXIMA_DA_CADEIA: dict[TipoTarefa, TipoTarefa] = {
     TipoTarefa.DETECTAR: TipoTarefa.CORTAR,
     TipoTarefa.CORTAR: TipoTarefa.GERAR_TITULOS,
 }
+TAREFAS_DA_CADEIA = frozenset(PROXIMA_DA_CADEIA) | frozenset(PROXIMA_DA_CADEIA.values())
+
+
+class FalhaDefinitivaError(RuntimeError):
+    """Erro que não adianta tentar de novo: a tarefa vai direto para "erro".
+
+    Os executores levantam este erro quando o problema está na entrada e não num acaso
+    (ex.: gravação sem a faixa da voz). Tentar 3 vezes só atrasaria o aviso.
+    """
 
 
 def adicionar(
@@ -136,6 +149,8 @@ def concluir(sessao: Session, tarefa: Tarefa) -> Tarefa | None:
     if proximo_tipo is not None:
         proxima = Tarefa(tipo=proximo_tipo, gravacao_id=tarefa.gravacao_id)
         sessao.add(proxima)
+    elif tarefa.tipo in TAREFAS_DA_CADEIA:
+        _mudar_gravacao(sessao, tarefa, StatusGravacao.CONCLUIDA)
 
     sessao.commit()
     log.info("Tarefa %s (%s) concluída.", tarefa.id, tarefa.tipo.value)
@@ -145,8 +160,10 @@ def concluir(sessao: Session, tarefa: Tarefa) -> Tarefa | None:
     return proxima
 
 
-def falhar(sessao: Session, tarefa: Tarefa, erro: str) -> Tarefa:
+def falhar(sessao: Session, tarefa: Tarefa, erro: str, definitiva: bool = False) -> Tarefa:
     """Registra uma falha. Volta para a fila ou, na 3ª falha, vira "erro".
+
+    ``definitiva=True`` (ver ``FalhaDefinitivaError``) manda direto para "erro".
 
     Levanta ``EstadoInvalidoError`` se a tarefa não estiver em andamento.
     """
@@ -154,15 +171,25 @@ def falhar(sessao: Session, tarefa: Tarefa, erro: str) -> Tarefa:
     tarefa.tentativas += 1
     tarefa.ultimo_erro = erro
     tarefa.atualizada_em = agora()
-    if tarefa.tentativas >= MAX_TENTATIVAS:
+    if definitiva or tarefa.tentativas >= MAX_TENTATIVAS:
         tarefa.status = StatusTarefa.ERRO
-        log.error(
-            "Tarefa %s (%s) desistiu após %d tentativas: %s",
-            tarefa.id,
-            tarefa.tipo.value,
-            tarefa.tentativas,
-            erro,
-        )
+        if tarefa.tipo in TAREFAS_DA_CADEIA:
+            _mudar_gravacao(sessao, tarefa, StatusGravacao.ERRO)
+        if definitiva:
+            log.error(
+                "Tarefa %s (%s) falhou e não adianta tentar de novo: %s",
+                tarefa.id,
+                tarefa.tipo.value,
+                erro,
+            )
+        else:
+            log.error(
+                "Tarefa %s (%s) desistiu após %d tentativas: %s",
+                tarefa.id,
+                tarefa.tipo.value,
+                tarefa.tentativas,
+                erro,
+            )
     else:
         tarefa.status = StatusTarefa.PENDENTE
         tarefa.executar_a_partir_de = agora() + ESPERA_ENTRE_TENTATIVAS * tarefa.tentativas
@@ -177,6 +204,42 @@ def falhar(sessao: Session, tarefa: Tarefa, erro: str) -> Tarefa:
     sessao.add(tarefa)
     sessao.commit()
     return tarefa
+
+
+def refazer(sessao: Session, tarefa_id: int) -> Tarefa:
+    """Devolve para a fila uma tarefa que deu erro, depois que a causa foi corrigida.
+
+    Ex.: o ``[faixas]`` do ``config.toml`` estava errado. A tarefa volta zerada (3 novas
+    tentativas), e o último erro fica guardado até ela rodar de novo.
+    """
+    tarefa = sessao.get(Tarefa, tarefa_id)
+    if tarefa is None:
+        raise LookupError(f"Não existe a tarefa {tarefa_id}.")
+    if tarefa.status is not StatusTarefa.ERRO:
+        raise EstadoInvalidoError(
+            f"A tarefa {tarefa_id} está '{tarefa.status.value}': só tarefas com erro "
+            "podem ser refeitas."
+        )
+    tarefa.status = StatusTarefa.PENDENTE
+    tarefa.tentativas = 0
+    tarefa.executar_a_partir_de = agora()
+    tarefa.atualizada_em = agora()
+    sessao.add(tarefa)
+    if tarefa.tipo in TAREFAS_DA_CADEIA:
+        _mudar_gravacao(sessao, tarefa, StatusGravacao.PROCESSANDO)
+    sessao.commit()
+    log.info("Tarefa %s (%s) devolvida para a fila.", tarefa.id, tarefa.tipo.value)
+    return tarefa
+
+
+def _mudar_gravacao(sessao: Session, tarefa: Tarefa, status: StatusGravacao) -> None:
+    """Muda a situação da gravação da tarefa (sem commit: vai junto com o da tarefa)."""
+    if tarefa.gravacao_id is None:
+        return
+    gravacao = sessao.get(Gravacao, tarefa.gravacao_id)
+    if gravacao is not None:
+        gravacao.status = status
+        sessao.add(gravacao)
 
 
 def recuperar_interrompidas(sessao: Session) -> int:

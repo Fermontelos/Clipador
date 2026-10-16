@@ -20,7 +20,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 2 · Banco e fila | Banco SQLite, fila retomável e backup diário | ✅ |
 | 3 · Modo demo | Live falsa para testar e demonstrar o app | ✅ |
 | 4 · Monitor de pasta | Pega a gravação sozinho quando a live termina | ✅ |
-| 5 · Áudio da voz | Extrai a faixa da voz de cada gravação | ⏳ próxima |
+| 5 · Áudio da voz | Extrai a faixa da voz de cada gravação | ✅ |
+| 6 · Transcrição | Transforma a fala em texto, palavra por palavra | ⏳ próxima |
 
 ## Experimente em 1 minuto (modo demo)
 
@@ -33,6 +34,7 @@ git clone https://github.com/Fermontelos/Clipador.git
 cd Clipador
 uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
 uv run clipador status --demo  # mostra a fila da demo
+uv run clipador processar --demo  # processa a demo (por enquanto: extrai o áudio da voz)
 ```
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
@@ -57,6 +59,13 @@ separados: os seus dados reais não são tocados.
   da mesma pasta são ignorados (`so_nomes_do_obs` no `config.toml`), assim como os clipes do
   Buffer de Replay. Se você usa o "Pausar gravação" do OBS por mais de 2 minutos, aumente
   `minutos_gravacao_parada`, senão a live entra na fila pela metade.
+- `clipador processar`: processa a fila agora, sem o serviço, e sai quando acabar.
+  Hoje ele extrai o áudio da voz de cada gravação (faixa 2 do OBS) num WAV mono de 16 kHz,
+  o formato que a transcrição usa. Se a gravação não tiver a faixa da voz, ou se ela estiver
+  em silêncio (microfone fora da faixa 2 no OBS), a tarefa para com uma mensagem explicando
+  o que conferir. As faixas de cada fonte ficam em `[faixas]` no `config.toml`.
+- `clipador refazer <número>`: depois de corrigir a causa de um erro (por exemplo, o
+  `[faixas]` errado), devolve a tarefa para a fila. O número é o `#` do `clipador status`.
 - `clipador instalar-servico`: faz o serviço abrir sozinho, sem janela, quando você entra
   no Windows (`clipador remover-servico` desfaz). Não precisa de administrador
   ([ADR 0004](docs/adr/0004-abrir-no-login-pela-chave-run.md)).
@@ -129,7 +138,7 @@ frontend ──(HTTP)──> api ──> backend ──> integracoes ──> You
 backend/        pipeline, banco, fila, serviço, demo e a linha de comando (pacote clipador)
   src/clipador/
     banco/      tabelas, fila, backup e migrações (Alembic)
-    ingestao/   monitor da pasta do OBS e horário de início pelo nome do arquivo
+    ingestao/   monitor da pasta do OBS, horário de início e extração do áudio da voz
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe

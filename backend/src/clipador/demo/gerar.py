@@ -32,6 +32,7 @@ from sqlmodel import func, select
 from clipador import ffmpeg
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import EventoJogo, Gravacao, Tarefa, TipoTarefa, Transcricao
+from clipador.config import Config, config_sem_arquivo
 from clipador.demo import roteiro
 from clipador.demo.roteiro import Pico
 
@@ -50,6 +51,12 @@ COR_FUNDO = "0x1e1e2e"
 
 def pasta_da_demo(pasta_dados: Path) -> Path:
     return pasta_dados / "demo"
+
+
+def config_da_demo(pasta_dados: Path) -> Config:
+    """Configuração para processar a demo: pastas dela e faixas no padrão do OBS."""
+    pasta = pasta_da_demo(pasta_dados)
+    return config_sem_arquivo(pasta_gravacoes=pasta / "gravacoes", pasta_dados=pasta)
 
 
 def _volume_da_voz(picos: tuple[Pico, ...]) -> str:

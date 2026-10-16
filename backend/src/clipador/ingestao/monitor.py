@@ -180,3 +180,11 @@ class AvisoDeMudanca(FileSystemEventHandler):
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         self.evento.set()
+
+
+class SemMonitor:
+    """Não vigia pasta nenhuma. Usado pela demo, que já registra a própria gravação: o
+    vídeo dela acabou de ser criado e, vigiado, pareceria uma live em andamento por 2 min."""
+
+    def verificar(self, agora: datetime) -> ResultadoVerificacao:
+        return ResultadoVerificacao(prontas=[], em_andamento=[])

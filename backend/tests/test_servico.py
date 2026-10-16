@@ -12,7 +12,7 @@ from sqlmodel import select
 from clipador.banco import fila
 from clipador.banco.backup import listar_backups
 from clipador.banco.conexao import abrir_banco, nova_sessao
-from clipador.banco.modelos import Gravacao, StatusTarefa, Tarefa, TipoTarefa, agora
+from clipador.banco.modelos import Gravacao, StatusGravacao, StatusTarefa, Tarefa, TipoTarefa, agora
 from clipador.config import carregar_config
 from clipador.sistema.energia import ManterAcordado
 from clipador.sistema.servico import Servico
@@ -250,3 +250,51 @@ def test_laco_pega_a_gravacao_e_para_quando_pedido(cfg):
     assert not thread.is_alive(), "o serviço não parou quando pedido"
     # Ao parar, liberou a trava: outro serviço pode abrir.
     Servico(cfg, executores={}).iniciar()
+
+
+# ------------------------------------------------------------------ etapa 5
+
+
+def test_extrair_audio_ja_vem_registrado():
+    from clipador.ingestao import audio
+    from clipador.sistema.servico import EXECUTORES
+
+    assert EXECUTORES[TipoTarefa.EXTRAIR_AUDIO] is audio.extrair_audio
+
+
+def test_falha_definitiva_nao_e_tentada_de_novo(cfg, servico_factory):
+    def sem_faixa(sessao, tarefa, cfg):
+        raise fila.FalhaDefinitivaError("sem a faixa 2 (voz)")
+
+    gravacao_no_disco(cfg, "2026-10-14 18-00-00.mkv", timedelta(hours=1))
+    servico = servico_factory({TipoTarefa.EXTRAIR_AUDIO: sem_faixa})
+    servico.iniciar()
+
+    assert servico.passo().tarefa_falhou is True
+    tarefa = tarefas(cfg)[0]
+    assert (tarefa.status, tarefa.tentativas) == (StatusTarefa.ERRO, 1)
+    assert tarefa.ultimo_erro == "FalhaDefinitivaError: sem a faixa 2 (voz)"
+
+
+def test_temporarios_sao_apagados_quando_a_gravacao_termina(cfg, servico_factory):
+    engine = abrir_banco(cfg.caminho_banco)
+    with nova_sessao(engine) as sessao:
+        gravacao = Gravacao(arquivo="C:/g/live.mkv", inicio=agora())
+        sessao.add(gravacao)
+        sessao.commit()
+        fila.adicionar(sessao, TipoTarefa.GERAR_TITULOS, gravacao_id=gravacao.id)
+        id_gravacao = gravacao.id
+    engine.dispose()
+    temporarios = cfg.pasta_trabalho / str(id_gravacao)
+    temporarios.mkdir(parents=True)
+    (temporarios / "voz.wav").write_bytes(b"RIFF")
+    servico = servico_factory({TipoTarefa.GERAR_TITULOS: lambda sessao, tarefa, cfg: None})
+    servico.iniciar()
+
+    servico.passo()  # a última tarefa da cadeia
+
+    assert not temporarios.exists()
+    engine = abrir_banco(cfg.caminho_banco)
+    with nova_sessao(engine) as sessao:
+        assert sessao.get(Gravacao, id_gravacao).status is StatusGravacao.CONCLUIDA
+    engine.dispose()

@@ -23,7 +23,8 @@ from clipador.config import (
     carregar_config,
 )
 from clipador.demo import roteiro
-from clipador.demo.gerar import pasta_da_demo, preparar_demo
+from clipador.demo.gerar import config_da_demo, preparar_demo
+from clipador.ingestao.monitor import SemMonitor
 from clipador.logs import configurar_logs
 from clipador.sistema import inicializacao
 from clipador.sistema.servico import Servico
@@ -71,6 +72,21 @@ def _pasta_dados_da_demo(arquivo: Path) -> Path:
     configurar_logs(pasta_dados)
     typer.echo(f"Sem {arquivo.name}: a demo usa a pasta padrão {pasta_dados}.")
     return pasta_dados
+
+
+def _exigir_demo(cfg: Config) -> None:
+    if not cfg.caminho_banco.is_file():
+        typer.echo("A demo ainda não existe. Rode 'clipador demo' primeiro.", err=True)
+        raise typer.Exit(code=1)
+
+
+def _abrir_ou_sair(cfg: Config):
+    """Abre o banco; um banco de uma versão mais nova do app vira mensagem, não traceback."""
+    try:
+        return abrir_banco(cfg.caminho_banco, cfg.pasta_backups_efetiva)
+    except BancoMaisNovoQueOCodigoError as erro:
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
 
 
 def _resumir_erro(erro: str | None, limite: int = 150) -> str:
@@ -134,19 +150,12 @@ OpcaoDemo = Annotated[
 def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> None:
     """Mostra a fila de tarefas: quantas há em cada situação, as próximas e os erros."""
     if demo:
-        pasta = pasta_da_demo(_pasta_dados_da_demo(arquivo))
-        caminho_banco, pasta_backups = pasta / "clipador.db", pasta / "backups"
-        if not caminho_banco.is_file():
-            typer.echo("A demo ainda não existe. Rode 'clipador demo' primeiro.", err=True)
-            raise typer.Exit(code=1)
+        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
+        _exigir_demo(cfg)
     else:
         cfg = _carregar_ou_sair(arquivo)
-        caminho_banco, pasta_backups = cfg.caminho_banco, cfg.pasta_backups_efetiva
-    try:
-        engine = abrir_banco(caminho_banco, pasta_backups)
-    except BancoMaisNovoQueOCodigoError as erro:
-        typer.echo(f"Erro: {erro}", err=True)
-        raise typer.Exit(code=1) from erro
+    caminho_banco, pasta_backups = cfg.caminho_banco, cfg.pasta_backups_efetiva
+    engine = _abrir_ou_sair(cfg)
     try:
         with nova_sessao(engine) as sessao:
             resumo = fila.resumo(sessao)
@@ -192,10 +201,13 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
         mostradas = len(resumo.com_erro)
         typer.echo(f"Com erro{_restantes(mostradas, total[StatusTarefa.ERRO])}:")
         for tarefa in resumo.com_erro:
+            plural = "" if tarefa.tentativas == 1 else "s"
             typer.echo(
-                f"  {_descrever(tarefa)} · {tarefa.tentativas} tentativas · "
+                f"  {_descrever(tarefa)} · {tarefa.tentativas} tentativa{plural} · "
                 f"{_resumir_erro(tarefa.ultimo_erro)}"
             )
+        opcao_demo = " --demo" if demo else ""
+        typer.echo(f"Corrigiu a causa? Tente de novo com: clipador refazer <número>{opcao_demo}")
     backups = listar_backups(pasta_backups)
     ultimo = backups[-1].name if backups else "nenhum ainda"
     typer.echo(f"Backups: {len(backups)} (último: {ultimo})")
@@ -292,6 +304,77 @@ def iniciar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     except KeyboardInterrupt:
         parar.set()
         typer.echo("Serviço encerrado.")
+
+
+@app.command()
+def processar(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> None:
+    """Processa agora as tarefas da fila, sem o serviço, e sai quando não houver mais."""
+    if demo:
+        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
+        _exigir_demo(cfg)
+        servico = Servico(cfg, monitor=SemMonitor())
+    else:
+        cfg = _carregar_ou_sair(arquivo)
+        servico = Servico(cfg)
+    try:
+        servico.iniciar()
+    except ServicoJaRodandoError as erro:
+        typer.echo(f"{erro} Ele já processa a fila sozinho.", err=True)
+        raise typer.Exit(code=1) from erro
+    except BancoMaisNovoQueOCodigoError as erro:
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
+    feitas = falhas = 0
+    try:
+        while True:
+            resultado = servico.passo()
+            for nome in resultado.gravacoes_novas:
+                typer.echo(f"Gravação nova na fila: {nome}")
+            if resultado.pausado_por_gravacao:
+                typer.echo("Há uma gravação em andamento: a fila espera ela terminar.")
+                break
+            if resultado.tarefa_executada is None:
+                break
+            if resultado.tarefa_falhou:
+                falhas += 1
+                typer.echo(f"  {resultado.tarefa_executada}: falhou (veja 'clipador status')")
+            else:
+                feitas += 1
+                typer.echo(f"  {resultado.tarefa_executada}: feita")
+    finally:
+        servico.encerrar()
+    typer.echo(f"Fim: {feitas} tarefa(s) feita(s), {falhas} com falha.")
+    if falhas:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def refazer(
+    numero: Annotated[int, typer.Argument(help="Número da tarefa (o '#' do clipador status).")],
+    arquivo: OpcaoArquivo = CAMINHO_PADRAO,
+    demo: OpcaoDemo = False,
+) -> None:
+    """Devolve para a fila uma tarefa que deu erro, depois de corrigir a causa."""
+    if demo:
+        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
+        _exigir_demo(cfg)
+    else:
+        cfg = _carregar_ou_sair(arquivo)
+    engine = _abrir_ou_sair(cfg)
+    try:
+        with nova_sessao(engine) as sessao:
+            tarefa = fila.refazer(sessao, numero)
+            descricao = _descrever(tarefa)
+    except (LookupError, fila.EstadoInvalidoError) as erro:
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
+    finally:
+        engine.dispose()
+    typer.echo(f"Tarefa {descricao} de volta na fila.")
+    typer.echo(
+        "O serviço a pega sozinho; para rodar agora: clipador processar"
+        + (" --demo" if demo else "")
+    )
 
 
 @app.command("instalar-servico")
