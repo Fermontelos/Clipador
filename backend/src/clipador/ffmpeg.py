@@ -62,9 +62,14 @@ def rodar(argumentos: list[str], tempo_limite_s: float | None = None) -> None:
 
 @dataclass(frozen=True)
 class InfoMidia:
-    """O que o ffprobe diz sobre um arquivo de vídeo."""
+    """O que o ffprobe diz sobre um arquivo de vídeo.
 
-    duracao_s: float
+    ``duracao_s`` é ``None`` quando o arquivo não informa a duração: é o caso de um MKV
+    cuja gravação foi interrompida (OBS travou, faltou luz). O MKV continua legível, mas
+    a duração só é escrita no cabeçalho quando a gravação termina normalmente.
+    """
+
+    duracao_s: float | None
     faixas_audio: int
     largura: int | None
     altura: int | None
@@ -119,13 +124,11 @@ def inspecionar(arquivo: Path, tempo_limite_s: float = 60) -> InfoMidia:
         )
     dados = json.loads(resultado.stdout)
     duracao = dados.get("format", {}).get("duration")
-    if duracao is None:
-        raise FFmpegFalhouError(f"O ffprobe não encontrou a duração de {arquivo}.")
     fluxos = dados.get("streams", [])
     audios = [f for f in fluxos if f.get("codec_type") == "audio"]
     video = next((f for f in fluxos if f.get("codec_type") == "video"), {})
     return InfoMidia(
-        duracao_s=float(duracao),
+        duracao_s=float(duracao) if duracao is not None else None,
         faixas_audio=len(audios),
         largura=video.get("width"),
         altura=video.get("height"),

@@ -3,6 +3,7 @@
 import logging
 import os
 import shutil
+import subprocess
 import time
 from collections import namedtuple
 from pathlib import Path
@@ -13,7 +14,6 @@ import soundfile
 from typer.testing import CliRunner
 
 from clipador import ffmpeg
-from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.fila import FalhaDefinitivaError
 from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa, TipoTarefa, agora
 from clipador.cli import app
@@ -231,18 +231,15 @@ def test_ffmpeg_que_falha_nao_deixa_wav_pela_metade(cfg, sessao, monkeypatch):
 
 
 @precisa_ffmpeg
-def test_processar_demo_extrai_a_voz(tmp_path):
-    # A demo inteira tem 3 min; aqui o comando roda numa demo já pronta, de 6 s.
+def test_processar_demo_extrai_a_voz(tmp_path, monkeypatch):
+    # A demo de verdade tem 3 min (ver o teste lento abaixo); aqui, o mesmo roteiro em 6 s.
+    monkeypatch.setattr(roteiro, "DURACAO_S", 6)
+    monkeypatch.setattr(roteiro, "PICOS_VOZ", PICO_CURTO)
+    sem_config = str(tmp_path / "config.toml")  # não existe: a demo funciona sem ele
+    assert runner.invoke(app, ["demo", "--arquivo", sem_config]).exit_code == 0
     pasta = gerar.pasta_da_demo(tmp_path / "dados")
-    arquivo = pasta / "gravacoes" / roteiro.NOME_ARQUIVO
-    gerar.gerar_gravacao(arquivo, 6, (Pico(2.0, 3.0),))
-    engine = abrir_banco(pasta / "clipador.db")
-    with nova_sessao(engine) as sessao_demo:
-        assert gerar._popular_banco(sessao_demo, arquivo)
-    engine.dispose()
-    sem_config = tmp_path / "config.toml"  # não existe: a demo funciona sem ele
 
-    saida = runner.invoke(app, ["processar", "--demo", "--arquivo", str(sem_config)])
+    saida = runner.invoke(app, ["processar", "--demo", "--arquivo", sem_config])
 
     assert saida.exit_code == 0, saida.output
     assert "extrair_audio: feita" in saida.output
@@ -319,3 +316,31 @@ def test_erro_refazer_e_processar_pela_linha_de_comando(tmp_path):
     assert saida.exit_code == 0, saida.output
     assert "extrair_audio: feita" in saida.output
     assert runner.invoke(app, ["refazer", "1", "--arquivo", str(caminho)]).exit_code == 1
+
+
+@precisa_ffmpeg
+def test_gravacao_interrompida_sem_duracao_e_aproveitada(cfg, sessao, caplog):
+    # Se o OBS trava ou falta luz, o MKV continua legível, mas fica sem a duração no
+    # cabeçalho (ela só é escrita no fim). Gravar por um "pipe" produz o mesmo arquivo:
+    # o FFmpeg não consegue voltar ao começo para escrever a duração.
+    arquivo = cfg.pasta_gravacoes / "2026-10-14 20-00-00.mkv"
+    arquivo.parent.mkdir(parents=True)
+    with arquivo.open("wb") as saida:
+        subprocess.run(
+            [ffmpeg.localizar(), "-v", "error",
+             "-f", "lavfi", "-i", "color=s=320x240:r=10:d=3",
+             "-f", "lavfi", "-i", f"{SOM}:duration=3",
+             "-f", "lavfi", "-i", f"{SOM}:duration=3",
+             "-map", "0:v", "-map", "1:a", "-map", "2:a",
+             "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "libopus",
+             "-f", "matroska", "-"],
+            stdout=saida, check=True,
+        )  # fmt: skip
+    assert ffmpeg.inspecionar(arquivo).duracao_s is None
+    tarefa = tarefa_para(sessao, arquivo)
+
+    with caplog.at_level(logging.WARNING):
+        audio.extrair_audio(sessao, tarefa, cfg)
+
+    assert sessao.get(Gravacao, tarefa.gravacao_id).duracao_s == pytest.approx(3, abs=0.1)
+    assert "não informa a duração" in caplog.text

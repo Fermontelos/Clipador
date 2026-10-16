@@ -315,3 +315,19 @@ def test_demo_real_de_3_minutos(tmp_path):
     assert abs(resultado.info.duracao_s - roteiro.DURACAO_S) < 1
     assert resultado.info.faixas_audio == 4
     confere_picos(trechos_altos(volumes_da_faixa(resultado.arquivo, faixa=1)), roteiro.PICOS_VOZ)
+
+
+@precisa_ffmpeg
+def test_demo_mostra_so_as_tarefas_pendentes(tmp_path, demo_curta):
+    # Depois de processar, o banco tem 2 tarefas (1 feita e 1 pendente): a mensagem
+    # "na fila" não pode contar a que já foi feita.
+    sem_config = str(tmp_path / "config.toml")
+    runner.invoke(app, ["demo", "--arquivo", sem_config])
+    assert runner.invoke(app, ["processar", "--demo", "--arquivo", sem_config]).exit_code == 0
+
+    saida = runner.invoke(app, ["demo", "--arquivo", sem_config]).output
+
+    assert "1 tarefa(s) na fila" in saida
+    assert "clipador processar --demo" in saida
+    resultado = gerar.preparar_demo(tmp_path / "dados")
+    assert (resultado.contagens["tarefas"], resultado.contagens["tarefas_pendentes"]) == (2, 1)

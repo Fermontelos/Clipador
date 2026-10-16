@@ -64,6 +64,7 @@ separados: os seus dados reais não são tocados.
   o formato que a transcrição usa. Se a gravação não tiver a faixa da voz, ou se ela estiver
   em silêncio (microfone fora da faixa 2 no OBS), a tarefa para com uma mensagem explicando
   o que conferir. As faixas de cada fonte ficam em `[faixas]` no `config.toml`.
+  Uma gravação interrompida (o OBS travou ou faltou luz) também é aproveitada.
 - `clipador refazer <número>`: depois de corrigir a causa de um erro (por exemplo, o
   `[faixas]` errado), devolve a tarefa para a fila. O número é o `#` do `clipador status`.
 - `clipador instalar-servico`: faz o serviço abrir sozinho, sem janela, quando você entra
@@ -93,6 +94,8 @@ uv run clipador config
 ```
 
 Edite o `config.toml` para apontar `pasta_gravacoes` para a pasta onde o OBS salva as lives.
+Se as faixas de áudio do seu OBS não seguirem o padrão (1 = mistura, 2 = voz, 3 = jogo,
+4 = música), ajuste a seção `[faixas]`.
 Caminhos relativos no `config.toml` (como `pasta_dados = "dados"`) são contados a partir da
 pasta do próprio `config.toml`.
 
@@ -148,7 +151,7 @@ integracoes/    YouTube, TikTok e LoL (etapas 7, 15-17): único código que lê 
 frontend/       interface de revisão, React (etapa 13): nunca guarda chaves
 tests/          testes de arquitetura (as regras entre as partes)
 docs/           roteiro em PDF e decisões técnicas (docs/adr/)
-dados/          banco, backups, logs, clipes e a demo (fora do git, criado pelo app)
+dados/          banco, backups, logs, clipes, temporários e a demo (fora do git, criado pelo app)
 ```
 
 As três partes Python formam um workspace do uv: cada uma tem o próprio `pyproject.toml`,

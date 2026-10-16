@@ -31,7 +31,14 @@ from sqlmodel import func, select
 
 from clipador import ffmpeg
 from clipador.banco.conexao import abrir_banco, nova_sessao
-from clipador.banco.modelos import EventoJogo, Gravacao, Tarefa, TipoTarefa, Transcricao
+from clipador.banco.modelos import (
+    EventoJogo,
+    Gravacao,
+    StatusTarefa,
+    Tarefa,
+    TipoTarefa,
+    Transcricao,
+)
 from clipador.config import Config, config_sem_arquivo
 from clipador.demo import roteiro
 from clipador.demo.roteiro import Pico
@@ -137,7 +144,11 @@ def gravacao_valida(arquivo: Path) -> bool:
         info = ffmpeg.inspecionar(arquivo)
     except ffmpeg.FFmpegFalhouError:
         return False
-    return info.faixas_audio == len(TITULOS_FAIXAS) and abs(info.duracao_s - roteiro.DURACAO_S) < 1
+    return (
+        info.faixas_audio == len(TITULOS_FAIXAS)
+        and info.duracao_s is not None
+        and abs(info.duracao_s - roteiro.DURACAO_S) < 1
+    )
 
 
 def _popular_banco(sessao, arquivo: Path) -> bool:
@@ -238,6 +249,11 @@ def preparar_demo(pasta_dados: Path, do_zero: bool = False) -> ResultadoDemo:
                     ("tarefas", Tarefa),
                 )
             }
+            contagens["tarefas_pendentes"] = sessao.exec(
+                select(func.count())
+                .select_from(Tarefa)
+                .where(Tarefa.status == StatusTarefa.PENDENTE)
+            ).one()
     finally:
         engine.dispose()
 

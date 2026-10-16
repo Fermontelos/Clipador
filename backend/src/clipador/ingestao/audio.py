@@ -13,6 +13,10 @@ O WAV fica em ``<pasta_dados>/trabalho/<id da gravação>/voz.wav`` e é apagado
 gravação termina a pipeline (ver ``limpar_trabalho``). Se a gravação der erro, ele fica,
 para dar para investigar e tentar de novo sem extrair outra vez.
 
+Uma gravação interrompida (OBS travou, faltou luz) é exatamente o caso para o qual o OBS
+grava em MKV: o arquivo continua legível, mas fica sem a duração no cabeçalho. Nesse caso
+a duração da gravação passa a ser a do próprio WAV extraído, medida no áudio.
+
 O horário de início da gravação já foi lido do nome do arquivo quando ela entrou na fila
 (``ingestao.nomes``, etapa 4).
 """
@@ -39,6 +43,9 @@ BYTES_POR_SEGUNDO = TAXA_WHISPER * 2  # mono, 16 bits
 PICO_MINIMO = 0.001
 # Diferença aceitável entre a duração do WAV e a do vídeo.
 TOLERANCIA_DURACAO_S = 2.0
+# Limite do FFmpeg quando o arquivo não informa a duração. Extrair a voz de uma live de
+# 3 h leva uns 2 min; 1 h só estoura se ele travar.
+LIMITE_SEM_DURACAO_S = 3600
 
 
 def caminho_da_voz(cfg: Config, gravacao_id: int) -> Path:
@@ -64,9 +71,11 @@ def comando_extrair_voz(arquivo: Path, faixa_voz: int, destino: Path) -> list[st
     ]
 
 
-def tempo_limite_s(duracao_s: float) -> float:
-    """Quanto o FFmpeg pode levar: extrair o áudio é centenas de vezes mais rápido que o
+def tempo_limite_s(duracao_s: float | None) -> float:
+    """Quanto o FFmpeg pode levar: extrair o áudio é cerca de 100 vezes mais rápido que o
     tempo real, então 2 min + 1/5 da duração só estoura se ele travar (3 h -> 38 min)."""
+    if duracao_s is None:
+        return LIMITE_SEM_DURACAO_S
     return 120 + duracao_s / 5
 
 
@@ -86,16 +95,21 @@ def conferir_faixas(info: ffmpeg.InfoMidia, faixas: Faixas, nome: str) -> None:
     ]
     if faltando:
         log.warning(
-            "A gravação '%s' não tem a(s) faixa(s) %s. A voz foi extraída, mas os cortes "
-            "(etapa 9) precisam da faixa do jogo.",
+            "A gravação '%s' não tem a(s) faixa(s) %s. A voz pode ser extraída, mas os "
+            "cortes (etapa 9) precisam da faixa do jogo.",
             nome,
             ", ".join(faltando),
         )
 
 
-def conferir_espaco(pasta: Path, duracao_s: float) -> None:
-    """Erro claro se o disco não tiver espaço para o WAV (com 10% de folga)."""
+def conferir_espaco(pasta: Path, duracao_s: float | None) -> None:
+    """Erro claro se o disco não tiver espaço para o WAV (com 10% de folga).
+
+    Sem a duração (gravação interrompida), não dá para calcular: o FFmpeg avisa se faltar.
+    """
     pasta.mkdir(parents=True, exist_ok=True)
+    if duracao_s is None:
+        return
     necessario = int(duracao_s * BYTES_POR_SEGUNDO * 1.1)
     livre = shutil.disk_usage(pasta).free
     if livre < necessario:
@@ -105,7 +119,7 @@ def conferir_espaco(pasta: Path, duracao_s: float) -> None:
         )
 
 
-def extrair_voz(arquivo: Path, faixa_voz: int, destino: Path, duracao_s: float) -> Path:
+def extrair_voz(arquivo: Path, faixa_voz: int, destino: Path, duracao_s: float | None) -> Path:
     """Extrai a voz para ``destino``. Grava num arquivo temporário e só então renomeia,
     para um WAV pela metade (PC desligou no meio) nunca parecer pronto."""
     destino.parent.mkdir(parents=True, exist_ok=True)
@@ -152,7 +166,14 @@ def extrair_audio(sessao: Session, tarefa: Tarefa, cfg: Config) -> None:
     extrair_voz(arquivo, cfg.faixas.voz, destino, info.duracao_s)
 
     dados_wav = soundfile.info(str(destino))
-    if abs(dados_wav.duration - info.duracao_s) > TOLERANCIA_DURACAO_S:
+    if info.duracao_s is None:
+        log.warning(
+            "A gravação '%s' não informa a duração (o OBS fechou sem terminar a gravação?). "
+            "Usando a duração do áudio da voz: %.1f s.",
+            arquivo.name,
+            dados_wav.duration,
+        )
+    elif abs(dados_wav.duration - info.duracao_s) > TOLERANCIA_DURACAO_S:
         log.warning(
             "O áudio da voz de '%s' tem %.1f s e o vídeo tem %.1f s. Os tempos dos momentos "
             "podem ficar deslocados.",
@@ -167,14 +188,14 @@ def extrair_audio(sessao: Session, tarefa: Tarefa, cfg: Config) -> None:
             "áudio) e se o número da faixa em [faixas] no config.toml está certo."
         )
 
-    gravacao.duracao_s = info.duracao_s
+    gravacao.duracao_s = info.duracao_s if info.duracao_s is not None else dados_wav.duration
     gravacao.largura, gravacao.altura, gravacao.fps = info.largura, info.altura, info.fps
     gravacao.status = StatusGravacao.PROCESSANDO
     sessao.add(gravacao)
     log.info(
         "Voz de '%s' extraída: %.0f min, %s (%.1f MB).",
         arquivo.name,
-        info.duracao_s / 60,
+        gravacao.duracao_s / 60,
         destino,
         destino.stat().st_size / 1e6,
     )

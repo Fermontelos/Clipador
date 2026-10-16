@@ -256,7 +256,7 @@ def demo(
     else:
         typer.echo("A demo já existia: nada foi duplicado. Use --do-zero para recriar.")
     typer.echo(
-        f"  Gravação: {resultado.arquivo.name} ({_mmss(info.duracao_s)}, "
+        f"  Gravação: {resultado.arquivo.name} ({_mmss(info.duracao_s or 0)}, "
         f"{info.largura}x{info.altura}, {info.faixas_audio} faixas: "
         f"{', '.join(info.titulos_faixas)})"
     )
@@ -265,9 +265,9 @@ def demo(
     c = resultado.contagens
     typer.echo(
         f"  Banco da demo: {c['gravacoes']} gravação, {c['eventos']} eventos do LoL, "
-        f"{c['transcricoes']} transcrição pronta, {c['tarefas']} tarefa na fila"
+        f"{c['transcricoes']} transcrição pronta, {c['tarefas_pendentes']} tarefa(s) na fila"
     )
-    typer.echo("Veja a fila da demo com: clipador status --demo")
+    typer.echo("Próximos passos: clipador processar --demo  e  clipador status --demo")
 
 
 def _avisar_sem_janela(arquivo: Path, mensagem: str) -> None:
