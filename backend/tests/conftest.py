@@ -1,9 +1,28 @@
+import contextlib
+import winreg
 from pathlib import Path
 
 import pytest
 
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import Gravacao, agora
+from clipador.sistema import inicializacao
+
+CHAVE_DE_TESTE = r"Software\ClipadorTestes"
+
+
+@pytest.fixture(autouse=True)
+def registro_de_teste(monkeypatch):
+    """Nenhum teste lê ou mexe na abertura no login de verdade.
+
+    Todos usam uma chave de teste do registro que começa **sem existir**, como na máquina
+    da CI do GitHub (onde nem a chave "Run" existe). Ela é apagada no fim do teste.
+    """
+    monkeypatch.setattr(inicializacao, "CHAVE_RUN", CHAVE_DE_TESTE + r"\Run")
+    yield
+    for chave in (CHAVE_DE_TESTE + r"\Run", CHAVE_DE_TESTE):
+        with contextlib.suppress(FileNotFoundError):  # o teste não chegou a criá-la
+            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, chave)
 
 
 @pytest.fixture

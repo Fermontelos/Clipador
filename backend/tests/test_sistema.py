@@ -70,3 +70,22 @@ def test_comando_do_login_usa_pythonw_sem_janela_e_o_config_absoluto(tmp_path, m
     assert "pythonw.exe" in comando
     assert "-m clipador iniciar --arquivo" in comando
     assert f'"{(tmp_path / "config.toml").resolve()}"' in comando
+
+
+# ------------------------------------------------------------------ registro (chave de teste)
+# O conftest troca a chave "Run" por uma chave de teste que começa sem existir.
+
+
+def test_sem_a_chave_run_nada_esta_cadastrado():
+    # Windows recém-instalado ou a máquina da CI: a chave "Run" nem existe.
+    assert inicializacao.comando_instalado() is None
+    assert inicializacao.remover() is False
+
+
+def test_instalar_cria_a_chave_e_remover_desfaz(tmp_path):
+    comando = inicializacao.instalar(tmp_path / "config.toml")
+    assert inicializacao.comando_instalado() == comando
+    assert str((tmp_path / "config.toml").resolve()) in comando
+    assert inicializacao.remover() is True
+    assert inicializacao.comando_instalado() is None
+    assert inicializacao.remover() is False

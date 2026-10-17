@@ -283,11 +283,11 @@ def test_funciona_em_pastas_com_acento(tmp_path, sessao):
 
 
 def test_ffprobe_travado_vira_erro_e_nao_trava_a_fila(tmp_path, monkeypatch):
-    def travado(*args, **kwargs):
-        raise ffmpeg.subprocess.TimeoutExpired(cmd="ffprobe", timeout=kwargs["timeout"])
+    def travado(comando, tempo_limite_s):
+        raise ffmpeg.subprocess.TimeoutExpired(cmd=comando, timeout=tempo_limite_s)
 
     monkeypatch.setattr(ffmpeg, "localizar", lambda programa="ffmpeg": programa)
-    monkeypatch.setattr(ffmpeg.subprocess, "run", travado)
+    monkeypatch.setattr(ffmpeg, "_executar", travado)
     with pytest.raises(ffmpeg.FFmpegFalhouError, match="passou do limite de 60 s"):
         ffmpeg.inspecionar(tmp_path / "corrompido.mkv")
 

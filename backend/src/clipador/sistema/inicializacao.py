@@ -20,6 +20,9 @@ from pathlib import Path
 CHAVE_RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
 NOME = "Clipador"
 
+# A chave "Run" pode não existir (Windows recém-instalado, a máquina da CI do GitHub):
+# ler e remover tratam isso como "não está cadastrado", e instalar cria a chave.
+
 
 def comando_do_servico(arquivo_config: Path) -> str:
     """Linha de comando que o Windows roda no login."""
@@ -32,26 +35,26 @@ def comando_do_servico(arquivo_config: Path) -> str:
 def instalar(arquivo_config: Path) -> str:
     """Cadastra o serviço para abrir no login. Devolve o comando cadastrado."""
     comando = comando_do_servico(arquivo_config)
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, CHAVE_RUN, 0, winreg.KEY_SET_VALUE) as chave:
+    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, CHAVE_RUN, 0, winreg.KEY_SET_VALUE) as chave:
         winreg.SetValueEx(chave, NOME, 0, winreg.REG_SZ, comando)
     return comando
 
 
 def remover() -> bool:
     """Tira o serviço do login. Devolve ``False`` se ele não estava cadastrado."""
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, CHAVE_RUN, 0, winreg.KEY_SET_VALUE) as chave:
-        try:
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, CHAVE_RUN, 0, winreg.KEY_SET_VALUE) as chave:
             winreg.DeleteValue(chave, NOME)
-        except FileNotFoundError:
-            return False
+    except FileNotFoundError:  # sem a chave ou sem o valor
+        return False
     return True
 
 
 def comando_instalado() -> str | None:
     """O comando cadastrado hoje, ou ``None`` se o serviço não abre no login."""
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, CHAVE_RUN) as chave:
-        try:
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, CHAVE_RUN) as chave:
             valor, _tipo = winreg.QueryValueEx(chave, NOME)
-        except FileNotFoundError:
-            return None
+    except FileNotFoundError:  # sem a chave ou sem o valor
+        return None
     return valor

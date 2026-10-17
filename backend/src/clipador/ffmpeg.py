@@ -6,6 +6,7 @@ argumentos montada em Python. Assim dá para testar o comando montado sem rodar 
 usar tudo o que o FFmpeg oferece (filtros, NVENC) sem esperar uma biblioteca suportar.
 """
 
+import contextlib
 import json
 import shutil
 import subprocess
@@ -32,6 +33,57 @@ def localizar(programa: str = "ffmpeg") -> str:
     return caminho
 
 
+@dataclass(frozen=True)
+class _Resultado:
+    codigo: int
+    saida: str
+    erros: str
+
+
+def _executar(comando: list[str], tempo_limite_s: float | None) -> _Resultado:
+    """Roda um programa e devolve o código de saída e o que ele escreveu.
+
+    No limite de tempo, encerra o programa **e os processos que ele abriu**. Isso importa
+    quando o ``ffmpeg.exe`` do PATH é um "shim" (Chocolatey, Scoop): um programa pequeno
+    que abre o FFmpeg verdadeiro como processo filho. O ``subprocess.run`` só encerraria o
+    shim; o FFmpeg verdadeiro continuaria rodando, com a saída aberta, e o Python
+    esperaria por ela para sempre. Foi o que travou a CI (com o FFmpeg do Chocolatey).
+
+    ``stdin`` fica fechado: um programa que tente ler o teclado não fica esperando.
+    """
+    # errors="replace": uma mensagem com caracteres fora do UTF-8 (comum no Windows em
+    # português) não pode derrubar o app; o pior caso é aparecer um "�" na mensagem.
+    processo = subprocess.Popen(
+        comando,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    try:
+        saida, erros = processo.communicate(timeout=tempo_limite_s)
+    except subprocess.TimeoutExpired:
+        _encerrar_com_os_filhos(processo)
+        raise
+    return _Resultado(processo.returncode, saida, erros)
+
+
+def _encerrar_com_os_filhos(processo: subprocess.Popen) -> None:
+    # /T: a árvore toda (o processo e os que ele abriu); /F: à força.
+    subprocess.run(
+        ["taskkill", "/F", "/T", "/PID", str(processo.pid)],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=30,
+    )
+    processo.kill()  # garantia, se o taskkill não tiver conseguido
+    # Se sobrou algum processo segurando a saída, não vale travar esperando por ele.
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        processo.communicate(timeout=10)
+
+
 def rodar(argumentos: list[str], tempo_limite_s: float | None = None) -> None:
     """Roda o ``ffmpeg`` com os argumentos dados (sem o nome do programa).
 
@@ -39,24 +91,15 @@ def rodar(argumentos: list[str], tempo_limite_s: float | None = None) -> None:
     Importante de madrugada (etapas 5 e 9): sem limite, um FFmpeg travado pararia a fila.
     """
     comando = [localizar("ffmpeg"), "-hide_banner", "-nostdin", "-loglevel", "error", *argumentos]
-    # errors="replace": uma mensagem com caracteres fora do UTF-8 (comum no Windows em
-    # português) não pode derrubar o app; o pior caso é aparecer um "�" na mensagem.
     try:
-        resultado = subprocess.run(
-            comando,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=tempo_limite_s,
-        )
+        resultado = _executar(comando, tempo_limite_s)
     except subprocess.TimeoutExpired as erro:
         raise FFmpegFalhouError(
             f"O FFmpeg passou do limite de {tempo_limite_s} s e foi encerrado."
         ) from erro
-    if resultado.returncode != 0:
+    if resultado.codigo != 0:
         raise FFmpegFalhouError(
-            f"O FFmpeg falhou (código {resultado.returncode}): {resultado.stderr.strip()}"
+            f"O FFmpeg falhou (código {resultado.codigo}): {resultado.erros.strip()}"
         )
 
 
@@ -106,23 +149,14 @@ def inspecionar(arquivo: Path, tempo_limite_s: float = 60) -> InfoMidia:
         str(arquivo),
     ]
     try:
-        resultado = subprocess.run(
-            comando,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=tempo_limite_s,
-        )
+        resultado = _executar(comando, tempo_limite_s)
     except subprocess.TimeoutExpired as erro:
         raise FFmpegFalhouError(
             f"O ffprobe passou do limite de {tempo_limite_s} s lendo {arquivo} e foi encerrado."
         ) from erro
-    if resultado.returncode != 0:
-        raise FFmpegFalhouError(
-            f"O ffprobe não conseguiu ler {arquivo}: {resultado.stderr.strip()}"
-        )
-    dados = json.loads(resultado.stdout)
+    if resultado.codigo != 0:
+        raise FFmpegFalhouError(f"O ffprobe não conseguiu ler {arquivo}: {resultado.erros.strip()}")
+    dados = json.loads(resultado.saida)
     duracao = dados.get("format", {}).get("duration")
     fluxos = dados.get("streams", [])
     audios = [f for f in fluxos if f.get("codec_type") == "audio"]

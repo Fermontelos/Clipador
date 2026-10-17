@@ -331,3 +331,29 @@ def test_demo_mostra_so_as_tarefas_pendentes(tmp_path, demo_curta):
     assert "clipador processar --demo" in saida
     resultado = gerar.preparar_demo(tmp_path / "dados")
     assert (resultado.contagens["tarefas"], resultado.contagens["tarefas_pendentes"]) == (2, 1)
+
+
+def _quantos_ffmpeg_rodando() -> int:
+    lista = subprocess.run(
+        ["tasklist", "/FI", "IMAGENAME eq ffmpeg.exe", "/FO", "CSV", "/NH"],
+        capture_output=True, text=True, errors="replace", timeout=30,
+    ).stdout  # fmt: skip
+    return lista.lower().count('"ffmpeg.exe"')
+
+
+@precisa_ffmpeg
+def test_limite_de_tempo_encerra_tambem_o_ffmpeg_aberto_por_um_shim(tmp_path, monkeypatch):
+    # Chocolatey e Scoop instalam um "shim": um ffmpeg.exe pequeno que abre o verdadeiro
+    # como processo filho. Encerrar só o shim deixava o FFmpeg verdadeiro rodando e o
+    # Python esperando a saída dele para sempre (travou a CI por 5 h). Um .bat faz o
+    # mesmo papel do shim aqui.
+    shim = tmp_path / "ffmpeg.bat"
+    shim.write_text(f'@"{ffmpeg.localizar()}" %*\r\n', encoding="utf-8")
+    monkeypatch.setattr(ffmpeg, "localizar", lambda programa="ffmpeg": str(shim))
+    antes = _quantos_ffmpeg_rodando()
+    sem_fim = ["-f", "lavfi", "-i", "anullsrc", "-f", "null", "-"]
+
+    with pytest.raises(ffmpeg.FFmpegFalhouError, match="limite de 1 s"):
+        ffmpeg.rodar(sem_fim, tempo_limite_s=1)
+
+    assert _quantos_ffmpeg_rodando() == antes  # nenhum FFmpeg ficou para trás

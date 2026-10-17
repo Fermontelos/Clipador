@@ -127,6 +127,9 @@ uv run alembic revision --autogenerate -m "o que mudou"
 ```
 
 A CI (GitHub Actions) roda lint, formatação e testes em Windows a cada push.
+Nenhum teste pode passar de 5 minutos (`pytest-timeout`): um teste travado falha mostrando
+onde parou. Os testes nunca mexem na abertura no login de verdade: usam uma chave de teste
+do registro, apagada no fim.
 
 ## Estrutura
 
