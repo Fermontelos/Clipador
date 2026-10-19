@@ -89,7 +89,8 @@ tarefa que falha é tentada até 3 vezes antes de virar erro.
 Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg
 (`winget install Gyan.FFmpeg`). O uv instala o Python 3.12 se precisar. Para transcrever
 na placa de vídeo: uma NVIDIA com driver 570 ou mais novo (as bibliotecas do CUDA 12, ~1 GB,
-vêm com o `uv sync`); sem ela, a transcrição usa o processador, bem mais devagar.
+vêm com o `uv sync`); sem ela, a transcrição usa o processador, bem mais devagar. Num PC
+sem placa NVIDIA, `uv sync --no-group gpu` pula esse download.
 
 No PowerShell:
 

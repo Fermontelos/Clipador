@@ -13,7 +13,7 @@ import soundfile
 from sqlmodel import select
 
 from clipador.banco import fila
-from clipador.banco.fila import Contexto, FalhaDefinitivaError, TarefaPausada
+from clipador.banco.fila import Contexto, TarefaPausada
 from clipador.banco.modelos import Gravacao, StatusTarefa, Tarefa, TipoTarefa, Transcricao, agora
 from clipador.config import ConfigTranscricao, config_sem_arquivo
 from clipador.ingestao.audio import caminho_da_voz
@@ -246,10 +246,23 @@ def test_transcricao_pronta_so_exporta_a_legenda(cfg, sessao, tarefa, monkeypatc
     assert "pronta" in srt
 
 
-def test_sem_o_audio_da_voz_e_falha_definitiva(cfg, sessao, tarefa, falso):
-    caminho_da_voz(cfg, tarefa.gravacao_id).unlink()
-    with pytest.raises(FalhaDefinitivaError, match="clipador refazer"):
-        transcrever.transcrever(sessao, tarefa, cfg)
+def test_sem_o_audio_da_voz_extrai_de_novo(cfg, sessao, tarefa, falso, monkeypatch):
+    # Ex.: alguém apagou dados/trabalho. A tarefa extrair_audio já está "feita" (o
+    # "clipador refazer" não a aceita), então a própria transcrição extrai de novo.
+    wav = caminho_da_voz(cfg, tarefa.gravacao_id)
+    relogio = wav.read_bytes()
+    wav.unlink()
+    extraidas = []
+
+    def extrair_de_novo(sessao_, tarefa_, cfg_, contexto=None):
+        extraidas.append(tarefa_.gravacao_id)
+        wav.write_bytes(relogio)
+
+    monkeypatch.setattr(transcrever.audio, "extrair_audio", extrair_de_novo)
+    transcrever.transcrever(sessao, tarefa, cfg)
+
+    assert extraidas == [tarefa.gravacao_id]
+    assert falas_salvas(transcricao_de(sessao, tarefa)) == FALAS
 
 
 # ------------------------------------------------------------------ pelo serviço
@@ -439,3 +452,22 @@ def test_sem_internet_na_primeira_vez_da_erro_claro(tmp_path, monkeypatch):
     monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_OFFLINE", True)
     with pytest.raises(whisper.ModeloNaoBaixadoError, match="sem internet"):
         whisper.carregar(ConfigTranscricao(), tmp_path / "modelos")
+
+
+def test_todos_os_blocos_salvos_nao_abre_o_whisper(cfg, sessao, tarefa, monkeypatch):
+    # O PC caiu depois de salvar o último bloco e antes de marcar como concluída.
+    sessao.add(
+        Transcricao(gravacao_id=tarefa.gravacao_id, transcrito_ate_s=DURACAO_S, concluida=False)
+    )
+    sessao.commit()
+    monkeypatch.setattr(transcrever, "carregar_transcritor", lambda cfg: pytest.fail("abriu"))
+
+    transcrever.transcrever(sessao, tarefa, cfg)
+
+    assert transcricao_de(sessao, tarefa).concluida
+
+
+def test_cuda_forcado_sem_placa_da_erro_claro(tmp_path, modelo_falso, monkeypatch):
+    monkeypatch.setattr(whisper, "tem_placa_de_video", lambda: False)
+    with pytest.raises(RuntimeError, match="nenhuma placa de vídeo NVIDIA"):
+        whisper.carregar(ConfigTranscricao(dispositivo="cuda"), tmp_path)

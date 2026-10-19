@@ -13,9 +13,11 @@ A cada volta do laço (``passo``):
 Entre uma volta e outra, o laço espera até ``INTERVALO`` ou até o watchdog avisar que
 algo mudou na pasta de gravações.
 
-Limite importante: uma tarefa que **já começou** não é interrompida se uma live começar
-no meio dela; só a próxima espera. As tarefas longas (transcrição, etapa 6; cortes, etapa
-9) devem trabalhar em blocos e checar ``Servico.ha_gravacao_em_andamento`` entre eles.
+Limite importante: o serviço não interrompe uma tarefa que **já começou** se uma live
+começar no meio dela; só a próxima espera. Por isso as tarefas longas (transcrição, etapa
+6; cortes, etapa 9) trabalham em blocos e, entre um e outro, perguntam
+``contexto.deve_pausar()``; se for sim, salvam o que fizeram e levantam
+``fila.TarefaPausada`` (a transcrição já faz isso).
 
 Executores: cada tipo de tarefa tem uma função que sabe executá-la, registrada em
 ``EXECUTORES`` pela etapa dela (a etapa 5 registrou o ``extrair_audio``). O serviço só

@@ -30,6 +30,7 @@ from sqlmodel import Session, select
 from clipador.banco.fila import Contexto, FalhaDefinitivaError, TarefaPausada
 from clipador.banco.modelos import Gravacao, Tarefa, Transcricao
 from clipador.config import Config
+from clipador.ingestao import audio
 from clipador.ingestao.audio import caminho_da_voz
 from clipador.transcricao import legenda, whisper
 from clipador.transcricao.whisper import Segmento, Transcritor
@@ -136,10 +137,9 @@ def transcrever(
     if not transcricao.concluida:
         wav = caminho_da_voz(cfg, gravacao.id)
         if not wav.is_file():
-            raise FalhaDefinitivaError(
-                f"O áudio da voz da gravação {gravacao.id} não existe mais ({wav}). Rode "
-                "'clipador refazer' na tarefa extrair_audio dessa gravação."
-            )
+            # Ex.: a pasta dados/trabalho foi apagada à mão. Extrair de novo leva uns 2 min.
+            log.warning("O áudio da voz de '%s' sumiu; extraindo de novo.", gravacao.arquivo)
+            audio.extrair_audio(sessao, tarefa, cfg)
         _transcrever_em_blocos(sessao, cfg, gravacao, transcricao, wav, contexto)
 
     destino = exportar_legenda(cfg, gravacao, transcricao)
@@ -164,7 +164,12 @@ def _transcrever_em_blocos(
             transcricao.transcrito_ate_s / 60,
         )
     inicio_da_tarefa = time.perf_counter()
-    transcritor = carregar_transcritor(cfg)
+    if total_s - transcricao.transcrito_ate_s <= SOBRA_MINIMA_S:
+        # Todos os blocos já estavam salvos (o PC caiu antes de marcar como concluída):
+        # não vale abrir o Whisper só para isso.
+        transcritor = None
+    else:
+        transcritor = carregar_transcritor(cfg)
     try:
         while total_s - transcricao.transcrito_ate_s > SOBRA_MINIMA_S:
             if contexto.deve_pausar():
@@ -194,7 +199,8 @@ def _transcrever_em_blocos(
                 len(frases),
             )
     finally:
-        transcritor.fechar()
+        if transcritor is not None:
+            transcritor.fechar()
 
     transcricao.concluida = True
     sessao.add(transcricao)

@@ -3,9 +3,11 @@
 Escolhas, e por quê:
 
 - **Modelo ``medium`` em ``int8``**: o melhor que cabe nos 4 GB da GTX 1050 Ti com folga
-  (usa cerca de 1 GB). Medido nesta placa: 91 s de fala transcritos em 7 s, ou seja, uma
-  live de 3 h leva uns 15 min. Se faltar memória (ao carregar ou no meio), troca para o
-  ``modelo_reserva`` (``small``) e continua. Sem placa de vídeo, usa o processador.
+  (medido: cerca de 1,6 GB durante a transcrição, além de ~1 GB que a tela já usa).
+  Velocidade medida nesta placa: só voz, 13 vezes o tempo real (91 s em 7 s); com música e
+  jogo misturados, 3 vezes (26 min em 8,5 min). Uma live de 3 h leva de 15 a 60 min. Se
+  faltar memória (ao carregar ou no meio), troca para o ``modelo_reserva`` (``small``) e
+  continua. Sem placa de vídeo, usa o processador.
 - **Vocabulário como ``hotwords``**: o faster-whisper põe os ``hotwords`` no começo de
   **toda** janela de 30 s. O ``initial_prompt``, que o roteiro previa, só vale para a
   primeira janela quando ``condition_on_previous_text`` está desligado (conferido no
@@ -26,6 +28,7 @@ Windows só as encontra se a pasta delas for registrada antes de carregar o mode
 
 from __future__ import annotations
 
+import functools
 import gc
 import logging
 import os
@@ -82,6 +85,7 @@ class Transcritor(Protocol):
         ...
 
 
+@functools.cache  # uma vez por processo basta
 def preparar_bibliotecas_da_nvidia() -> list[Path]:
     """Mostra ao Windows onde estão as DLLs do CUDA instaladas pelo uv (``nvidia/*/bin``)."""
     pastas = sorted((Path(sys.prefix) / "Lib" / "site-packages" / "nvidia").glob("*/bin"))
@@ -219,6 +223,11 @@ def carregar(cfg: ConfigTranscricao, pasta_modelos: Path) -> TranscritorWhisper:
         dispositivo = "cuda" if tem_placa_de_video() else "cpu"
         if dispositivo == "cpu":
             log.warning("Nenhuma placa de vídeo NVIDIA encontrada: transcrevendo no processador.")
+    elif dispositivo == "cuda" and not tem_placa_de_video():
+        raise RuntimeError(
+            '[transcricao] dispositivo = "cuda" no config.toml, mas nenhuma placa de vídeo '
+            'NVIDIA foi encontrada (confira o driver). Use "auto" para cair no processador.'
+        )
     try:
         return TranscritorWhisper(cfg, pasta_modelos, dispositivo, cfg.modelo)
     except RuntimeError as erro:
