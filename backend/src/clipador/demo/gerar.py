@@ -42,6 +42,7 @@ from clipador.banco.modelos import (
 from clipador.config import Config, config_sem_arquivo
 from clipador.demo import roteiro
 from clipador.demo.roteiro import Pico
+from clipador.jogo import eventos
 
 log = logging.getLogger(__name__)
 
@@ -186,8 +187,15 @@ def _popular_banco(sessao, arquivo: Path) -> bool:
             modelo="demo (transcrição pronta)",
         )
     )
-    for numero, evento in enumerate(roteiro.EVENTOS_LOL):
+    partida_inicio = (roteiro.INICIO + timedelta(seconds=roteiro.PARTIDA_COMECA_S)).astimezone(UTC)
+    for numero, evento in enumerate(roteiro.EVENTOS_LOL, start=1):
         tempo_jogo_s = evento.gravacao_s - roteiro.PARTIDA_COMECA_S
+        dados_da_api = {
+            "EventID": numero,
+            "EventName": evento.tipo,
+            "EventTime": tempo_jogo_s,
+            **evento.dados,
+        }
         sessao.add(
             EventoJogo(
                 tipo=evento.tipo,
@@ -195,15 +203,11 @@ def _popular_banco(sessao, arquivo: Path) -> bool:
                     UTC
                 ),
                 tempo_jogo_s=tempo_jogo_s,
-                # EventID, EventName e EventTime vêm em todo evento da API real; a etapa 7
-                # usa o EventID para não duplicar e o EventTime para alinhar o tempo.
-                dados={
-                    "EventID": numero,
-                    "EventName": evento.tipo,
-                    "EventTime": tempo_jogo_s,
-                    **evento.dados,
-                    "demo": True,
-                },
+                # Os mesmos campos que o coletor (etapa 7) salva de uma partida real.
+                partida_inicio=partida_inicio,
+                event_id=numero,
+                papel=eventos.papel(dados_da_api, roteiro.SEU_RIOT_ID),
+                dados={**dados_da_api, "demo": True},
             )
         )
     # A mesma 1ª tarefa que o monitor de pasta (etapa 4) cria para uma gravação real.

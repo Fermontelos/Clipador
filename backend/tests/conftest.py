@@ -8,6 +8,7 @@ from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import Gravacao, agora
 from clipador.sistema import inicializacao
 from clipador.transcricao import transcrever
+from clipador_integracoes.lol import ClienteLol
 
 CHAVE_DE_TESTE = r"Software\ClipadorTestes"
 
@@ -32,6 +33,15 @@ def sem_whisper_de_verdade(monkeypatch):
     inteira (ex.: ``clipador processar``) recebem este, que só encontra silêncio.
     """
     monkeypatch.setattr(transcrever, "carregar_transcritor", lambda cfg: TranscritorMudo())
+
+
+@pytest.fixture(autouse=True)
+def sem_partida_de_lol(monkeypatch):
+    """Nenhum teste conversa com um LoL de verdade (se você estiver jogando, ele responderia).
+
+    Para o cliente, o jogo está sempre fechado; os testes da etapa 7 usam um jogo falso.
+    """
+    monkeypatch.setattr(ClienteLol, "ler", lambda self, com_nome=False: None)
 
 
 @pytest.fixture(autouse=True)

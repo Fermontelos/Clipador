@@ -22,7 +22,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 4 · Monitor de pasta | Pega a gravação sozinho quando a live termina | ✅ |
 | 5 · Áudio da voz | Extrai a faixa da voz de cada gravação | ✅ |
 | 6 · Transcrição | Transforma a fala em texto, palavra por palavra | ✅ |
-| 7 · Coletor do LoL | Registra os eventos da partida durante a live | ⏳ próxima |
+| 7 · Coletor do LoL | Registra os eventos da partida durante a live | ✅ |
+| 8 · Detectores e nota | Acha os melhores momentos de cada live | ⏳ próxima |
 
 ## Experimente em 1 minuto (modo demo)
 
@@ -36,6 +37,7 @@ cd Clipador
 uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
 uv run clipador status --demo  # mostra a fila da demo
 uv run clipador processar --demo  # processa a demo (áudio da voz e legenda da transcrição)
+uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
 ```
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
@@ -71,6 +73,14 @@ separados: os seus dados reais não são tocados.
   em silêncio (microfone fora da faixa 2 no OBS), a tarefa para com uma mensagem explicando
   o que conferir. As faixas de cada fonte ficam em `[faixas]` no `config.toml`.
   Uma gravação interrompida (o OBS travou ou faltou luz) também é aproveitada.
+- Coletor do LoL: junto com o serviço, consulta o jogo a cada 2 s durante as partidas
+  (a [API local do LoL](https://developer.riotgames.com/docs/lol), em `127.0.0.1:2999`, sem
+  chave) e salva abates, mortes, dragões, barões, torres e o resultado, marcando os que
+  foram seus (abate, morte ou assistência). Depois, cada evento cai no segundo certo da
+  gravação, mesmo que a partida comece depois da gravação ou a live passe da meia-noite.
+- `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de
+  cada um no vídeo (`--gravacao N` escolhe outra; `--demo` mostra os da demo).
+- `clipador coletar-lol`: liga só o coletor, sem o serviço, para testar numa partida.
 - `clipador refazer <número>`: depois de corrigir a causa de um erro (por exemplo, o
   `[faixas]` errado), devolve a tarefa para a fila. O número é o `#` do `clipador status`.
 - `clipador instalar-servico`: faz o serviço abrir sozinho, sem janela, quando você entra
@@ -155,6 +165,7 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     banco/      tabelas, fila, backup e migrações (Alembic)
     ingestao/   monitor da pasta do OBS, horário de início e extração do áudio da voz
     transcricao/ Whisper na placa de vídeo, transcrição em blocos e legenda .srt
+    jogo/       coletor do LoL, eventos seus e alinhamento com o tempo da gravação
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe

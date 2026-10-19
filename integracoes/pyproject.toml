@@ -9,7 +9,9 @@ authors = [
 ]
 requires-python = ">=3.12"
 # Sem dependência do resto do app: as integrações não conhecem banco, fila nem API.
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]

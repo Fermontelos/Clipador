@@ -23,6 +23,7 @@ from clipador.banco.conexao import (
 )
 from clipador.banco.modelos import (
     Clipe,
+    EventoJogo,
     FormatoClipe,
     Gravacao,
     Momento,
@@ -266,3 +267,23 @@ def test_migracao_0003_marca_a_transcricao_da_demo_como_pronta(caminho_banco):
     engine.dispose()
     assert transcricao.concluida and transcricao.transcrito_ate_s == 180
     assert transcricao.segmentos is None or transcricao.segmentos == []
+
+
+def test_migracao_0004_preenche_partida_e_event_id_dos_eventos_antigos(caminho_banco):
+    engine = modulo_conexao.criar_engine(caminho_banco)
+    config = modulo_conexao._config_alembic()
+    with modulo_conexao.sem_chaves_estrangeiras(engine) as conexao:
+        config.attributes["connection"] = conexao
+        command.upgrade(config, "0003")
+        conexao.exec_driver_sql(
+            "INSERT INTO eventojogo (tipo, horario_real, tempo_jogo_s, dados) VALUES "
+            "('Ace', '2026-01-10 23:00:26.500000', 16.5, '{\"EventID\": 7}')"
+        )
+    engine.dispose()
+
+    engine = abrir_banco(caminho_banco)
+    with nova_sessao(engine) as sessao:
+        evento = sessao.exec(select(EventoJogo)).one()
+    engine.dispose()
+    assert evento.partida_inicio == datetime(2026, 1, 10, 23, 0, 10, tzinfo=UTC)
+    assert (evento.event_id, evento.papel) == (7, None)

@@ -59,3 +59,9 @@ vocabulario = [
 ]
 # A transcrição é salva a cada bloco: se o PC cair, perde no máximo um bloco.
 minutos_por_bloco = 10
+
+# Coletor de eventos do League of Legends (abates, mortes, dragões...). Roda junto com o
+# serviço e consulta o jogo a cada 2 s, só no seu PC (https://127.0.0.1:2999). Fora de
+# partida, só espera.
+[lol]
+coletar = true

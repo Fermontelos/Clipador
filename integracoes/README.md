@@ -10,3 +10,9 @@ Regras de segurança:
 - nunca escreve chaves ou tokens no log.
 
 Concentrar as chaves aqui deixa fácil conferir quem tem acesso a elas: só este pacote.
+
+## O que já existe
+
+- `lol.py` (etapa 7): cliente da Live Client Data API do LoL, a API que o próprio jogo abre
+  em `https://127.0.0.1:2999` durante a partida. Não usa chave. A conexão só é aceita com o
+  certificado da Riot (`certificados/riotgames.pem`, da documentação oficial).

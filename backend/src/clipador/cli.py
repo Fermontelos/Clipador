@@ -3,18 +3,20 @@
 import logging
 import sys
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from pydantic import ValidationError
+from sqlmodel import col, select
 
 from clipador import __version__, ffmpeg
 from clipador.banco import fila
 from clipador.banco.backup import fazer_backup, listar_backups
 from clipador.banco.conexao import BancoMaisNovoQueOCodigoError, abrir_banco, nova_sessao
-from clipador.banco.modelos import StatusTarefa, Tarefa
+from clipador.banco.modelos import Gravacao, StatusTarefa, Tarefa
 from clipador.config import (
     CAMINHO_PADRAO,
     Config,
@@ -25,6 +27,9 @@ from clipador.config import (
 from clipador.demo import roteiro
 from clipador.demo.gerar import config_da_demo, preparar_demo
 from clipador.ingestao.monitor import SemMonitor
+from clipador.jogo import alinhamento
+from clipador.jogo.coletor import INTERVALO_S as INTERVALO_DO_COLETOR_S
+from clipador.jogo.coletor import ColetorLol
 from clipador.logs import configurar_logs
 from clipador.sistema import inicializacao
 from clipador.sistema.servico import Servico
@@ -377,6 +382,82 @@ def refazer(
         "O serviço a pega sozinho; para rodar agora: clipador processar"
         + (" --demo" if demo else "")
     )
+
+
+@app.command("coletar-lol")
+def coletar_lol(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Coleta os eventos do LoL agora, sem o serviço (para testar numa partida). Ctrl+C para."""
+    cfg = _carregar_ou_sair(arquivo)
+    if servico_esta_rodando(cfg.pasta_dados):
+        typer.echo("O serviço está rodando e já coleta os eventos do LoL.", err=True)
+        raise typer.Exit(code=1)
+    engine = _abrir_ou_sair(cfg)
+    coletor = ColetorLol(engine)
+    typer.echo("Esperando uma partida do LoL (consulta a cada 2 s). Ctrl+C para parar.")
+    em_partida = False
+    ultimo_erro = None
+    try:
+        while True:
+            try:
+                novos = coletor.passo()
+            except Exception as erro:
+                # Como no serviço: um erro numa consulta não para a coleta (e aparece uma vez).
+                if repr(erro) != ultimo_erro:
+                    typer.echo(f"Erro numa consulta (continuando): {erro}", err=True)
+                    ultimo_erro = repr(erro)
+                novos = []
+            if coletor.em_partida != em_partida:
+                em_partida = coletor.em_partida
+                typer.echo("Partida detectada." if em_partida else "Partida encerrada.")
+            for evento in novos:
+                seu = f" (seu: {evento.papel.value})" if evento.papel else ""
+                typer.echo(
+                    f"  {_mmss(evento.tempo_jogo_s)} de jogo · {_hora_local(evento.horario_real)}"
+                    f" · {evento.tipo}{seu}"
+                )
+            time.sleep(INTERVALO_DO_COLETOR_S)
+    except KeyboardInterrupt:
+        typer.echo("Coleta encerrada.")
+    finally:
+        coletor.cliente.fechar()
+        engine.dispose()
+
+
+@app.command()
+def eventos(
+    gravacao_id: Annotated[
+        int | None,
+        typer.Option("--gravacao", "-g", help="Número da gravação (padrão: a mais recente)."),
+    ] = None,
+    arquivo: OpcaoArquivo = CAMINHO_PADRAO,
+    demo: OpcaoDemo = False,
+) -> None:
+    """Mostra os eventos do LoL de uma gravação, com o segundo de cada um no vídeo."""
+    if demo:
+        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
+        _exigir_demo(cfg)
+    else:
+        cfg = _carregar_ou_sair(arquivo)
+    engine = _abrir_ou_sair(cfg)
+    try:
+        with nova_sessao(engine) as sessao:
+            consulta = select(Gravacao).order_by(col(Gravacao.inicio).desc())
+            if gravacao_id is not None:
+                consulta = select(Gravacao).where(Gravacao.id == gravacao_id)
+            gravacao = sessao.exec(consulta).first()
+            if gravacao is None:
+                typer.echo("Nenhuma gravação encontrada.", err=True)
+                raise typer.Exit(code=1)
+            lista = alinhamento.eventos_da_gravacao(sessao, gravacao)
+    finally:
+        engine.dispose()
+    typer.echo(f"Gravação {gravacao.id}: {Path(gravacao.arquivo).name}")
+    if not lista:
+        typer.echo("Nenhum evento do LoL durante esta gravação.")
+        return
+    for evento, segundo in lista:
+        seu = f" (seu: {evento.papel.value})" if evento.papel else ""
+        typer.echo(f"  {_mmss(segundo)} no vídeo · {evento.tipo}{seu}")
 
 
 @app.command("instalar-servico")

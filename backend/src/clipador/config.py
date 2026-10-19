@@ -114,6 +114,17 @@ class ConfigTranscricao(BaseModel):
     )
 
 
+class ConfigLol(BaseModel):
+    """Coletor de eventos do League of Legends (etapa 7)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    coletar: bool = Field(
+        default=True,
+        description="Consultar o LoL a cada 2 s durante as partidas e salvar os eventos.",
+    )
+
+
 class Config(BaseSettings):
     """Configurações do app. Cada etapa do roteiro acrescenta as suas."""
 
@@ -159,6 +170,10 @@ class Config(BaseSettings):
     transcricao: ConfigTranscricao = Field(
         default_factory=ConfigTranscricao,
         description="Como transcrever a voz (modelo do Whisper, vocabulário...).",
+    )
+    lol: ConfigLol = Field(
+        default_factory=ConfigLol,
+        description="Coletor de eventos do League of Legends.",
     )
     pasta_backups: Path | None = Field(
         default=None,

@@ -27,6 +27,8 @@ Cada executor recebe um ``fila.Contexto``: as tarefas longas perguntam a ele, en
 outro, se devem pausar (começou uma live) e, se sim, levantam ``fila.TarefaPausada``.
 
 Quando uma gravação termina a pipeline, os arquivos temporários dela são apagados.
+
+Junto com o laço, roda o coletor do LoL (etapa 7, ``jogo.coletor``), numa thread própria.
 """
 
 import logging
@@ -47,6 +49,7 @@ from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa, TipoTarefa,
 from clipador.config import Config
 from clipador.ingestao import audio
 from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
+from clipador.jogo.coletor import iniciar_em_segundo_plano as iniciar_coletor_do_lol
 from clipador.sistema.energia import ManterAcordado
 from clipador.sistema.trava import TravaDoServico
 from clipador.transcricao import transcrever
@@ -220,6 +223,11 @@ class Servico:
             observador = Observer()
             observador.schedule(AvisoDeMudanca(acordar), str(self.cfg.pasta_gravacoes))
             observador.start()
+        # O coletor do LoL roda numa thread própria: uma tarefa da fila pode levar minutos,
+        # e ele precisa consultar o jogo a cada 2 s (etapa 7).
+        coletor = None
+        if self.cfg.lol.coletar:
+            coletor = iniciar_coletor_do_lol(self.engine, parar)
         try:
             while not parar.is_set():
                 try:
@@ -235,6 +243,9 @@ class Servico:
             if observador is not None:
                 observador.stop()
                 observador.join(timeout=5)
+            if coletor is not None:
+                parar.set()  # se o laço saiu por erro, o coletor também precisa parar
+                coletor.join(timeout=5)
             self.encerrar()
 
     @staticmethod

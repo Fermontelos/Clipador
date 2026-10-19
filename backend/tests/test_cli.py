@@ -220,3 +220,18 @@ def test_status_com_banco_mais_novo_mostra_mensagem_clara(config_valida, tmp_pat
     assert resultado.exit_code == 1
     assert "git pull" in resultado.output
     assert "Traceback" not in resultado.output
+
+
+def test_coletar_lol_recusa_se_o_servico_ja_coleta(config_valida, monkeypatch):
+    import clipador.cli as cli
+
+    monkeypatch.setattr(cli, "servico_esta_rodando", lambda pasta: True)
+    resultado = runner.invoke(app, ["coletar-lol", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "já coleta" in resultado.output
+
+
+def test_eventos_sem_gravacao_explica(config_valida):
+    resultado = runner.invoke(app, ["eventos", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "Nenhuma gravação" in resultado.output

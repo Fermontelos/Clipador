@@ -21,6 +21,8 @@ NOME_ARQUIVO = f"{INICIO:%Y-%m-%d %H-%M-%S}.mkv"
 # A partida começa 10 s depois da gravação (o tempo de abrir o jogo).
 PARTIDA_COMECA_S = 10.0
 SEU_NOME = "Fermontelos"
+# Como o jogo devolve o seu nome (Riot ID, com o #TAG); os eventos trazem só SEU_NOME.
+SEU_RIOT_ID = f"{SEU_NOME}#BR1"
 
 
 @dataclass(frozen=True)
@@ -63,8 +65,8 @@ class EventoDemo:
     dados: dict
 
 
+# Só os tipos que o coletor guarda (ver jogo/eventos.py).
 EVENTOS_LOL: tuple[EventoDemo, ...] = (
-    EventoDemo(10.0, "GameStart", {}),
     EventoDemo(26.0, "Multikill", {"KillerName": SEU_NOME, "KillStreak": 5}),
     EventoDemo(26.5, "Ace", {"Acer": SEU_NOME, "AcingTeam": "ORDER"}),
     EventoDemo(71.0, "ChampionKill", {"KillerName": "Inimigo", "VictimName": SEU_NOME}),

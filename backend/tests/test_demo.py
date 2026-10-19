@@ -357,3 +357,19 @@ def test_limite_de_tempo_encerra_tambem_o_ffmpeg_aberto_por_um_shim(tmp_path, mo
         ffmpeg.rodar(sem_fim, tempo_limite_s=1)
 
     assert _quantos_ffmpeg_rodando() == antes  # nenhum FFmpeg ficou para trás
+
+
+@pytest.mark.lento
+@precisa_ffmpeg
+def test_eventos_da_demo_no_segundo_certo_do_video(tmp_path):
+    # A demo inteira (3 min): na curta, de 12 s, os eventos cairiam fora do vídeo.
+    sem_config = str(tmp_path / "config.toml")
+    runner.invoke(app, ["demo", "--arquivo", sem_config])
+
+    saida = runner.invoke(app, ["eventos", "--demo", "--arquivo", sem_config])
+
+    assert saida.exit_code == 0, saida.output
+    # O roteiro manda o pentakill aos 26 s da gravação e a morte (o flash errado) aos 71 s.
+    assert "0:26 no vídeo · Multikill (seu: abate)" in saida.output
+    assert "1:11 no vídeo · ChampionKill (seu: morte)" in saida.output
+    assert "1:35 no vídeo · TurretKilled\n" in saida.output  # de um aliado: não é seu

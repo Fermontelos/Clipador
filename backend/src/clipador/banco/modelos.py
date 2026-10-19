@@ -135,13 +135,37 @@ class Transcricao(SQLModel, table=True):
     criada_em: datetime = Field(default_factory=agora)
 
 
+class PapelNoEvento(StrEnum):
+    """O que você fez num evento do LoL (ver ``clipador.jogo.eventos``)."""
+
+    ABATE = "abate"  # você matou (ou derrubou a torre, o dragão...)
+    MORTE = "morte"  # você morreu
+    ASSISTENCIA = "assistencia"  # você ajudou
+
+
 class EventoJogo(SQLModel, table=True):
-    """Evento de partida do LoL salvo pelo coletor durante a live (etapa 7)."""
+    """Evento de partida do LoL salvo pelo coletor durante a live (etapa 7).
+
+    Os eventos são salvos durante a live, antes de a gravação entrar no banco: por isso
+    guardam o horário real (UTC), e não o segundo na gravação. O segundo na gravação é
+    calculado depois (``clipador.jogo.alinhamento.eventos_da_gravacao``).
+    """
+
+    # O EventID recomeça do zero a cada partida: o par (partida, EventID) é que é único.
+    __table_args__ = (
+        UniqueConstraint("partida_inicio", "event_id", name="uq_eventojogo_partida_evento"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     tipo: str = Field(index=True)
+    # Quando o evento aconteceu no relógio real: partida_inicio + tempo_jogo_s.
     horario_real: datetime = Field(index=True)
     tempo_jogo_s: float
+    # Quando a partida começou no relógio real (identifica a partida).
+    partida_inicio: datetime = Field(index=True)
+    event_id: int
+    # O que você fez neste evento; vazio = não foi seu.
+    papel: PapelNoEvento | None = None
     dados: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
