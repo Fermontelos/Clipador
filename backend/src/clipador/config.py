@@ -125,6 +125,87 @@ class ConfigLol(BaseModel):
     )
 
 
+EXPRESSOES_PADRAO = [
+    "meu deus", "não acredito", "caramba", "nossa", "socorro", "que isso", "como assim",
+    "eu juro", "pelo amor de deus", "mano do céu", "não não não", "olha isso",
+]  # fmt: skip
+
+
+class ConfigDetector(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ligado: bool = Field(default=True, description="Usar este detector.")
+    peso: float = Field(default=1.0, ge=0, le=1, description="Peso do sinal na nota.")
+
+
+class ConfigVolumeVoz(ConfigDetector):
+    """Picos de volume da sua voz (o sinal principal)."""
+
+    peso: float = Field(default=0.5, ge=0, le=1)
+    db_acima_do_normal: float = Field(
+        default=10, gt=0, le=40, description="Quantos dB acima do seu volume normal é um pico."
+    )
+    duracao_minima_s: float = Field(
+        default=1.0, gt=0, le=10, description="Quanto tempo o volume precisa ficar alto."
+    )
+
+
+class ConfigFala(ConfigDetector):
+    """Expressões faladas e fala acelerada, pela transcrição."""
+
+    peso: float = Field(default=0.25, ge=0, le=1)
+    expressoes: list[str] = Field(
+        default_factory=lambda: list(EXPRESSOES_PADRAO),
+        description="Expressões suas que costumam marcar um momento bom.",
+    )
+    fala_acelerada: float = Field(
+        default=1.6,
+        gt=1,
+        le=5,
+        description="Quantas vezes a sua velocidade normal de fala conta como fala acelerada.",
+    )
+
+
+class ConfigLolDetector(ConfigDetector):
+    """Eventos da partida de LoL (abates, objetivos)."""
+
+    peso: float = Field(default=0.25, ge=0, le=1)
+
+
+class ConfigDeteccao(BaseModel):
+    """Como achar os momentos e dar a nota (etapa 8)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_momentos_por_live: int = Field(default=30, ge=1, le=200)
+    nota_minima: float = Field(
+        default=10,
+        ge=0,
+        le=100,
+        description="Momentos com nota abaixo disto são ruído (ex.: só a torre de um aliado).",
+    )
+    segundos_antes: float = Field(
+        default=10, ge=0, le=60, description="O clipe começa este tanto antes do 1º sinal."
+    )
+    segundos_depois: float = Field(
+        default=5, ge=0, le=60, description="O clipe termina este tanto depois do último sinal."
+    )
+    duracao_minima_s: float = Field(default=15, gt=0, le=600)
+    duracao_maxima_s: float = Field(default=60, gt=0, le=600)
+    juntar_ate_s: float = Field(
+        default=8, ge=0, le=60, description="Sinais a menos disto um do outro viram um momento só."
+    )
+    volume_voz: ConfigVolumeVoz = Field(default_factory=ConfigVolumeVoz)
+    fala: ConfigFala = Field(default_factory=ConfigFala)
+    lol: ConfigLolDetector = Field(default_factory=ConfigLolDetector)
+
+    @model_validator(mode="after")
+    def _duracoes_coerentes(self) -> "ConfigDeteccao":
+        if self.duracao_minima_s > self.duracao_maxima_s:
+            raise ValueError("duracao_minima_s não pode ser maior que duracao_maxima_s")
+        return self
+
+
 class Config(BaseSettings):
     """Configurações do app. Cada etapa do roteiro acrescenta as suas."""
 
@@ -174,6 +255,10 @@ class Config(BaseSettings):
     lol: ConfigLol = Field(
         default_factory=ConfigLol,
         description="Coletor de eventos do League of Legends.",
+    )
+    deteccao: ConfigDeteccao = Field(
+        default_factory=ConfigDeteccao,
+        description="Como achar os momentos da live e dar a nota.",
     )
     pasta_backups: Path | None = Field(
         default=None,

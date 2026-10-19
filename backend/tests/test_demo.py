@@ -319,7 +319,7 @@ def test_demo_real_de_3_minutos(tmp_path):
 
 @precisa_ffmpeg
 def test_demo_mostra_so_as_tarefas_pendentes(tmp_path, demo_curta):
-    # Depois de processar, o banco tem 3 tarefas (2 feitas e a próxima pendente): a mensagem
+    # Depois de processar, o banco tem 4 tarefas (3 feitas e a próxima pendente): a mensagem
     # "na fila" não pode contar as que já foram feitas.
     sem_config = str(tmp_path / "config.toml")
     runner.invoke(app, ["demo", "--arquivo", sem_config])
@@ -330,7 +330,7 @@ def test_demo_mostra_so_as_tarefas_pendentes(tmp_path, demo_curta):
     assert "1 tarefa(s) na fila" in saida
     assert "clipador processar --demo" in saida
     resultado = gerar.preparar_demo(tmp_path / "dados")
-    assert (resultado.contagens["tarefas"], resultado.contagens["tarefas_pendentes"]) == (3, 1)
+    assert (resultado.contagens["tarefas"], resultado.contagens["tarefas_pendentes"]) == (4, 1)
 
 
 def _quantos_ffmpeg_rodando() -> int:
@@ -373,3 +373,30 @@ def test_eventos_da_demo_no_segundo_certo_do_video(tmp_path):
     assert "0:26 no vídeo · Multikill (seu: abate)" in saida.output
     assert "1:11 no vídeo · ChampionKill (seu: morte)" in saida.output
     assert "1:35 no vídeo · TurretKilled\n" in saida.output  # de um aliado: não é seu
+
+
+@pytest.mark.lento
+@precisa_ffmpeg
+def test_detectores_acham_os_4_picos_da_demo_e_ignoram_o_ruido(tmp_path):
+    # Teste obrigatório da etapa 8: na demo inteira (3 min), cada um dos 4 picos do roteiro
+    # vira um momento, com os três detectores contribuindo, e nada mais vira momento.
+    sem_config = str(tmp_path / "config.toml")
+    runner.invoke(app, ["demo", "--arquivo", sem_config])
+    assert runner.invoke(app, ["processar", "--demo", "--arquivo", sem_config]).exit_code == 0
+
+    from sqlmodel import select
+
+    from clipador.banco.conexao import abrir_banco, nova_sessao
+    from clipador.banco.modelos import Momento
+
+    engine = abrir_banco(gerar.pasta_da_demo(tmp_path / "dados") / "clipador.db")
+    with nova_sessao(engine) as sessao:
+        momentos = sorted(sessao.exec(select(Momento)).all(), key=lambda m: m.inicio_s)
+    engine.dispose()
+
+    assert len(momentos) == len(roteiro.PICOS_VOZ)
+    for momento, pico in zip(momentos, roteiro.PICOS_VOZ, strict=True):
+        assert momento.inicio_s <= pico.inicio_s and pico.fim_s <= momento.fim_s
+        assert 15 <= momento.fim_s - momento.inicio_s <= 60
+        assert all(forca > 0 for forca in momento.sinais.values()), momento.sinais
+        assert momento.nota >= 80

@@ -16,7 +16,7 @@ from clipador import __version__, ffmpeg
 from clipador.banco import fila
 from clipador.banco.backup import fazer_backup, listar_backups
 from clipador.banco.conexao import BancoMaisNovoQueOCodigoError, abrir_banco, nova_sessao
-from clipador.banco.modelos import Gravacao, StatusTarefa, Tarefa
+from clipador.banco.modelos import Gravacao, Momento, StatusTarefa, Tarefa
 from clipador.config import (
     CAMINHO_PADRAO,
     Config,
@@ -463,6 +463,49 @@ def eventos(
     for evento, segundo in lista:
         seu = f" (seu: {evento.papel.value})" if evento.papel else ""
         typer.echo(f"  {_mmss(segundo)} no vídeo · {evento.tipo}{seu}")
+
+
+@app.command()
+def momentos(
+    gravacao_id: Annotated[
+        int | None,
+        typer.Option("--gravacao", "-g", help="Número da gravação (padrão: a mais recente)."),
+    ] = None,
+    arquivo: OpcaoArquivo = CAMINHO_PADRAO,
+    demo: OpcaoDemo = False,
+) -> None:
+    """Mostra os momentos achados numa gravação, do de maior nota para o de menor."""
+    if demo:
+        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
+        _exigir_demo(cfg)
+    else:
+        cfg = _carregar_ou_sair(arquivo)
+    engine = _abrir_ou_sair(cfg)
+    try:
+        with nova_sessao(engine) as sessao:
+            consulta = select(Gravacao).order_by(col(Gravacao.inicio).desc())
+            if gravacao_id is not None:
+                consulta = select(Gravacao).where(Gravacao.id == gravacao_id)
+            gravacao = sessao.exec(consulta).first()
+            if gravacao is None:
+                typer.echo("Nenhuma gravação encontrada.", err=True)
+                raise typer.Exit(code=1)
+            lista = sessao.exec(
+                select(Momento)
+                .where(Momento.gravacao_id == gravacao.id)
+                .order_by(col(Momento.nota).desc(), col(Momento.inicio_s))
+            ).all()
+    finally:
+        engine.dispose()
+    typer.echo(f"Gravação {gravacao.id}: {Path(gravacao.arquivo).name}")
+    if not lista:
+        typer.echo("Nenhum momento ainda (a detecção roda depois da transcrição).")
+        return
+    for posicao, momento in enumerate(lista, start=1):
+        typer.echo(
+            f"{posicao:3d}. nota {momento.nota:5.1f} · {_mmss(momento.inicio_s)}-"
+            f"{_mmss(momento.fim_s)} ({momento.fim_s - momento.inicio_s:.0f} s) · {momento.motivo}"
+        )
 
 
 @app.command("instalar-servico")

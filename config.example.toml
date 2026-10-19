@@ -65,3 +65,43 @@ minutos_por_bloco = 10
 # partida, só espera.
 [lol]
 coletar = true
+
+# Como achar os melhores momentos e dar a nota (0 a 100). Nota = 100 × média ponderada
+# dos sinais dos detectores ligados (cada sinal vai de 0 a 1).
+[deteccao]
+max_momentos_por_live = 30
+# Momentos com nota abaixo disto são descartados como ruído (ex.: só a torre de um aliado).
+nota_minima = 10
+# Janela do clipe: começa este tanto antes do 1º sinal e termina este tanto depois do último,
+# com duração entre a mínima e a máxima. A etapa 14 ajusta isso pelos seus ajustes de corte.
+segundos_antes = 10
+segundos_depois = 5
+duracao_minima_s = 15
+duracao_maxima_s = 60
+# Sinais a menos disto um do outro viram um momento só.
+juntar_ate_s = 8
+
+# Picos de volume da sua voz: o sinal principal (gritos, risadas altas).
+[deteccao.volume_voz]
+ligado = true
+peso = 0.5
+# Pico = ficar este tanto acima do seu volume normal (a mediana do último minuto de fala)...
+db_acima_do_normal = 10
+# ...por pelo menos este tempo.
+duracao_minima_s = 1.0
+
+# O que você fala (pela transcrição): expressões e fala acelerada.
+[deteccao.fala]
+ligado = true
+peso = 0.25
+expressoes = [
+    "meu deus", "não acredito", "caramba", "nossa", "socorro", "que isso", "como assim",
+    "eu juro", "pelo amor de deus", "mano do céu", "não não não", "olha isso",
+]
+# Quantas vezes a sua velocidade normal de fala conta como fala acelerada.
+fala_acelerada = 1.6
+
+# Eventos da partida de LoL (pentakill > barão > abate...). Os seus valem mais.
+[deteccao.lol]
+ligado = true
+peso = 0.25

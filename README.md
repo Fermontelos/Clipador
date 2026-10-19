@@ -23,7 +23,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 5 · Áudio da voz | Extrai a faixa da voz de cada gravação | ✅ |
 | 6 · Transcrição | Transforma a fala em texto, palavra por palavra | ✅ |
 | 7 · Coletor do LoL | Registra os eventos da partida durante a live | ✅ |
-| 8 · Detectores e nota | Acha os melhores momentos de cada live | ⏳ próxima |
+| 8 · Detectores e nota | Acha os melhores momentos de cada live | ✅ |
+| 9 · Cortes | Gera os clipes horizontais e verticais | ⏳ próxima |
 
 ## Experimente em 1 minuto (modo demo)
 
@@ -38,6 +39,7 @@ uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~1
 uv run clipador status --demo  # mostra a fila da demo
 uv run clipador processar --demo  # processa a demo (áudio da voz e legenda da transcrição)
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
+uv run clipador momentos --demo   # os 4 melhores momentos da demo, com nota e motivo
 ```
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
@@ -79,6 +81,14 @@ separados: os seus dados reais não são tocados.
   resultado, marcando os que foram seus (abate, morte ou assistência). Depois, cada evento
   cai no segundo certo da gravação, mesmo que a partida comece depois da gravação ou a live
   passe da meia-noite. Para desligar: `[lol] coletar = false` no `config.toml`.
+- Detecção dos melhores momentos: depois da transcrição, três detectores (plugins) olham
+  a live: picos de volume da sua voz (o sinal principal: 10 dB acima do seu volume normal
+  por 1 s), expressões e fala acelerada na transcrição ("meu Deus", "não acredito"...) e
+  os eventos do LoL (pentakill > barão > abate; os seus valem mais). Sinais próximos viram
+  um momento, com uma janela de 15 a 60 s e uma nota de 0 a 100 (média ponderada dos
+  sinais; pesos em `[deteccao]` no `config.toml`). Ficam os 30 melhores.
+- `clipador momentos`: lista os momentos da gravação mais recente, da maior nota para a
+  menor, com o trecho e o motivo ("voz alta (+24 dB) + pentakill seu + “não acredito”").
 - `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de
   cada um no vídeo (`--gravacao N` escolhe outra; `--demo` mostra os da demo).
 - `clipador coletar-lol`: liga só o coletor, sem o serviço, para testar numa partida.
@@ -167,6 +177,7 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     ingestao/   monitor da pasta do OBS, horário de início e extração do áudio da voz
     transcricao/ Whisper na placa de vídeo, transcrição em blocos e legenda .srt
     jogo/       coletor do LoL, eventos seus e alinhamento com o tempo da gravação
+    detectores/ detectores de momentos (plugins) e a nota de cada momento
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
