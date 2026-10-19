@@ -42,6 +42,9 @@ AMOSTRAS = 5
 # Duas estimativas do início a menos disto são a mesma partida (ex.: o app reabriu no
 # meio da partida e recalculou o início com uma diferença de milissegundos).
 TOLERANCIA_MESMA_PARTIDA = timedelta(seconds=10)
+# Sem a duração da gravação (a etapa 5 ainda não a mediu), até onde procurar eventos. Sem
+# um limite, eventos das lives dos dias seguintes apareceriam como desta gravação.
+LIMITE_SEM_DURACAO = timedelta(hours=12)
 
 
 def estimar_inicio(amostras: Sequence[tuple[float, float]]) -> datetime:
@@ -68,12 +71,16 @@ def eventos_da_gravacao(sessao: Session, gravacao: Gravacao) -> list[tuple[Event
     """Os eventos que caem dentro da gravação, com o segundo de cada um no vídeo.
 
     Eventos de antes de a gravação começar, ou de depois de ela terminar, ficam de fora.
-    Sem a duração da gravação (ainda não extraída), vale tudo o que vem depois do início.
+    Sem a duração da gravação (ainda não medida), vale até ``LIMITE_SEM_DURACAO`` depois
+    do início.
     """
-    consulta = select(EventoJogo).where(EventoJogo.horario_real >= gravacao.inicio)
     if gravacao.duracao_s is not None:
         fim = gravacao.inicio + timedelta(seconds=gravacao.duracao_s)
-        consulta = consulta.where(EventoJogo.horario_real <= fim)
+    else:
+        fim = gravacao.inicio + LIMITE_SEM_DURACAO
+    consulta = select(EventoJogo).where(
+        EventoJogo.horario_real >= gravacao.inicio, EventoJogo.horario_real <= fim
+    )
     eventos = sessao.exec(consulta.order_by(col(EventoJogo.horario_real))).all()
     return [
         (evento, segundo_na_gravacao(evento.horario_real, gravacao.inicio)) for evento in eventos

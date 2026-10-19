@@ -452,6 +452,11 @@ def eventos(
     finally:
         engine.dispose()
     typer.echo(f"Gravação {gravacao.id}: {Path(gravacao.arquivo).name}")
+    if gravacao.duracao_s is None:
+        typer.echo(
+            "Aviso: a duração desta gravação ainda não foi medida ('clipador processar'); "
+            "mostrando as 12 h seguintes ao início."
+        )
     if not lista:
         typer.echo("Nenhum evento do LoL durante esta gravação.")
         return

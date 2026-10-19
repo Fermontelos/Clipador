@@ -348,12 +348,14 @@ def test_intervalo_de_consulta_e_de_2_segundos():
     assert coletor.INTERVALO_S == 2.0
 
 
-def test_sem_a_duracao_da_gravacao_vale_tudo_depois_do_inicio(engine, sessao, jogo, coleta):
-    # Antes da etapa 5 medir a duração, não há como saber onde a gravação termina.
+def test_sem_a_duracao_da_gravacao_vale_ate_12_horas(engine, sessao, jogo, coleta):
+    # Antes da etapa 5 medir a duração, não há como saber onde a gravação termina; mas um
+    # evento da live do dia seguinte não pode aparecer como desta.
     registro = gravacao(sessao, datetime(2026, 10, 14, 23, 0, tzinfo=UTC), duracao_s=None)
     jogo.comecar(datetime(2026, 10, 14, 22, 59, tzinfo=UTC))
-    jogo.eventos = [evento(1, 30.0), evento(2, 5 * 3600.0)]  # antes do início; 5 h depois
-    avancar(coleta, jogo, 5 * 3600 + 10, passo_s=600)
+    # Antes do início; 5 h depois; 13 h depois (outra live).
+    jogo.eventos = [evento(1, 30.0), evento(2, 5 * 3600.0), evento(3, 13 * 3600.0)]
+    avancar(coleta, jogo, 13 * 3600 + 10, passo_s=600)
     assert segundos(sessao, registro) == [("ChampionKill", 5 * 3600.0 - 60)]
 
 

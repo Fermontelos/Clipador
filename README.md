@@ -75,9 +75,10 @@ separados: os seus dados reais não são tocados.
   Uma gravação interrompida (o OBS travou ou faltou luz) também é aproveitada.
 - Coletor do LoL: junto com o serviço, consulta o jogo a cada 2 s durante as partidas
   (a [API local do LoL](https://developer.riotgames.com/docs/lol), em `127.0.0.1:2999`, sem
-  chave) e salva abates, mortes, dragões, barões, torres e o resultado, marcando os que
-  foram seus (abate, morte ou assistência). Depois, cada evento cai no segundo certo da
-  gravação, mesmo que a partida comece depois da gravação ou a live passe da meia-noite.
+  chave) e salva abates, mortes, dragões, arautos, barões, torres, inibidores e o
+  resultado, marcando os que foram seus (abate, morte ou assistência). Depois, cada evento
+  cai no segundo certo da gravação, mesmo que a partida comece depois da gravação ou a live
+  passe da meia-noite. Para desligar: `[lol] coletar = false` no `config.toml`.
 - `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de
   cada um no vídeo (`--gravacao N` escolhe outra; `--demo` mostra os da demo).
 - `clipador coletar-lol`: liga só o coletor, sem o serviço, para testar numa partida.
