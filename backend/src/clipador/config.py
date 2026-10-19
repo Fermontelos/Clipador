@@ -75,6 +75,45 @@ class Faixas(BaseModel):
         return self
 
 
+# Termos que o Whisper costuma errar numa live de LoL. Vão como "hotwords": uma dica que
+# entra em toda janela de 30 s da transcrição (ver transcricao/whisper.py).
+VOCABULARIO_PADRAO = [
+    "League of Legends", "LoL", "gank", "flash", "ult", "barão", "dragão", "arauto",
+    "pentakill", "first blood", "jungle", "mid", "top", "bot", "suporte", "farm",
+]  # fmt: skip
+
+
+class ConfigTranscricao(BaseModel):
+    """Como transcrever a voz (etapa 6)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    modelo: str = Field(
+        default="medium", description="Modelo do Whisper (tiny, base, small, medium...)."
+    )
+    modelo_reserva: str | None = Field(
+        default="small",
+        description="Modelo menor, usado se faltar memória na placa de vídeo.",
+    )
+    dispositivo: Literal["auto", "cuda", "cpu"] = Field(
+        default="auto",
+        description="auto = placa de vídeo (CUDA) se houver; senão, o processador (lento).",
+    )
+    vocabulario: list[str] = Field(
+        default_factory=lambda: list(VOCABULARIO_PADRAO),
+        description=(
+            "Nomes e gírias que o Whisper deve reconhecer (campeões, termos do jogo, seu nick). "
+            "Só os primeiros ~220 tokens são usados: deixe os que mais aparecem."
+        ),
+    )
+    minutos_por_bloco: float = Field(
+        default=10,
+        ge=1,
+        le=60,
+        description="A transcrição é salva a cada bloco: é o máximo que se perde se o PC cair.",
+    )
+
+
 class Config(BaseSettings):
     """Configurações do app. Cada etapa do roteiro acrescenta as suas."""
 
@@ -117,6 +156,10 @@ class Config(BaseSettings):
         default_factory=Faixas,
         description="Em qual faixa de áudio do OBS está a voz, o jogo e a música.",
     )
+    transcricao: ConfigTranscricao = Field(
+        default_factory=ConfigTranscricao,
+        description="Como transcrever a voz (modelo do Whisper, vocabulário...).",
+    )
     pasta_backups: Path | None = Field(
         default=None,
         description=(
@@ -134,6 +177,16 @@ class Config(BaseSettings):
     def pasta_trabalho(self) -> Path:
         """Arquivos temporários do processamento (ex.: o áudio da voz), um por gravação."""
         return self.pasta_dados / "trabalho"
+
+    @property
+    def pasta_transcricoes(self) -> Path:
+        """Legendas .srt de cada live, para conferir a transcrição."""
+        return self.pasta_dados / "transcricoes"
+
+    @property
+    def pasta_modelos(self) -> Path:
+        """Modelos do Whisper, baixados uma vez na primeira transcrição (~1,5 GB o medium)."""
+        return self.pasta_dados / "modelos"
 
     @property
     def pasta_backups_efetiva(self) -> Path:

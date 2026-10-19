@@ -30,7 +30,7 @@ import soundfile
 from sqlmodel import Session
 
 from clipador import ffmpeg
-from clipador.banco.fila import FalhaDefinitivaError
+from clipador.banco.fila import Contexto, FalhaDefinitivaError
 from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa
 from clipador.config import Config, Faixas
 
@@ -144,10 +144,13 @@ def pico_do_audio(wav: Path, bloco_s: float = 60) -> float:
     return pico
 
 
-def extrair_audio(sessao: Session, tarefa: Tarefa, cfg: Config) -> None:
+def extrair_audio(
+    sessao: Session, tarefa: Tarefa, cfg: Config, contexto: Contexto | None = None
+) -> None:
     """Executor da tarefa ``extrair_audio`` (registrado em ``sistema.servico``).
 
     Não faz commit: o ``fila.concluir`` grava a gravação atualizada junto com a conclusão.
+    Não usa o ``contexto``: leva uns 2 min por live, então não precisa pausar no meio.
     """
     gravacao = sessao.get(Gravacao, tarefa.gravacao_id) if tarefa.gravacao_id else None
     if gravacao is None:

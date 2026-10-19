@@ -115,12 +115,22 @@ class Tarefa(SQLModel, table=True):
 
 
 class Transcricao(SQLModel, table=True):
-    """Transcrição da faixa de voz de uma gravação (etapa 6)."""
+    """Transcrição da faixa de voz de uma gravação (etapa 6).
+
+    É gravada aos poucos, um bloco de alguns minutos por vez: se o PC desligar no meio,
+    a transcrição continua de ``transcrito_ate_s``.
+    """
 
     id: int | None = Field(default=None, primary_key=True)
     gravacao_id: int = Field(foreign_key="gravacao.id", unique=True)
-    # Lista de {"palavra": str, "inicio_s": float, "fim_s": float}.
+    # Lista de {"palavra": str, "inicio_s": float, "fim_s": float}; a transcrição real
+    # também guarda "probabilidade" (0 a 1, a confiança do Whisper na palavra).
     palavras: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    # Lista de {"inicio_s": float, "fim_s": float, "texto": str}: as frases, para a legenda.
+    segmentos: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    # Até onde (em segundos da gravação) a transcrição já está salva.
+    transcrito_ate_s: float = 0.0
+    concluida: bool = False
     modelo: str | None = None
     criada_em: datetime = Field(default_factory=agora)
 

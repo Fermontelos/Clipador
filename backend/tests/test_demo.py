@@ -319,8 +319,8 @@ def test_demo_real_de_3_minutos(tmp_path):
 
 @precisa_ffmpeg
 def test_demo_mostra_so_as_tarefas_pendentes(tmp_path, demo_curta):
-    # Depois de processar, o banco tem 2 tarefas (1 feita e 1 pendente): a mensagem
-    # "na fila" não pode contar a que já foi feita.
+    # Depois de processar, o banco tem 3 tarefas (2 feitas e a próxima pendente): a mensagem
+    # "na fila" não pode contar as que já foram feitas.
     sem_config = str(tmp_path / "config.toml")
     runner.invoke(app, ["demo", "--arquivo", sem_config])
     assert runner.invoke(app, ["processar", "--demo", "--arquivo", sem_config]).exit_code == 0
@@ -330,7 +330,7 @@ def test_demo_mostra_so_as_tarefas_pendentes(tmp_path, demo_curta):
     assert "1 tarefa(s) na fila" in saida
     assert "clipador processar --demo" in saida
     resultado = gerar.preparar_demo(tmp_path / "dados")
-    assert (resultado.contagens["tarefas"], resultado.contagens["tarefas_pendentes"]) == (2, 1)
+    assert (resultado.contagens["tarefas"], resultado.contagens["tarefas_pendentes"]) == (3, 1)
 
 
 def _quantos_ffmpeg_rodando() -> int:

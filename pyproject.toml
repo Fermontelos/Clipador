@@ -18,6 +18,16 @@ dev = [
     "pytest-timeout>=2.4.0",
     "ruff>=0.17.0",
 ]
+# Bibliotecas da NVIDIA para a transcrição na placa de vídeo (etapa 6): cuBLAS e cuDNN da
+# linha CUDA 12, a última que a GTX 1050 Ti (Pascal) suporta. Cerca de 1 GB. O "uv sync"
+# instala por padrão (default-groups); a CI pula com --no-group gpu, porque não tem placa.
+gpu = [
+    "nvidia-cublas-cu12>=12.9.2.10",
+    "nvidia-cudnn-cu12>=9.27.0.42,<10",
+]
+
+[tool.uv]
+default-groups = ["dev", "gpu"]
 
 [tool.ruff]
 line-length = 100

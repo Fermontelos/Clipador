@@ -21,7 +21,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 3 · Modo demo | Live falsa para testar e demonstrar o app | ✅ |
 | 4 · Monitor de pasta | Pega a gravação sozinho quando a live termina | ✅ |
 | 5 · Áudio da voz | Extrai a faixa da voz de cada gravação | ✅ |
-| 6 · Transcrição | Transforma a fala em texto, palavra por palavra | ⏳ próxima |
+| 6 · Transcrição | Transforma a fala em texto, palavra por palavra | ✅ |
+| 7 · Coletor do LoL | Registra os eventos da partida durante a live | ⏳ próxima |
 
 ## Experimente em 1 minuto (modo demo)
 
@@ -34,7 +35,7 @@ git clone https://github.com/Fermontelos/Clipador.git
 cd Clipador
 uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
 uv run clipador status --demo  # mostra a fila da demo
-uv run clipador processar --demo  # processa a demo (por enquanto: extrai o áudio da voz)
+uv run clipador processar --demo  # processa a demo (áudio da voz e legenda da transcrição)
 ```
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
@@ -60,8 +61,13 @@ separados: os seus dados reais não são tocados.
   Buffer de Replay. Se você usa o "Pausar gravação" do OBS por mais de 2 minutos, aumente
   `minutos_gravacao_parada`, senão a live entra na fila pela metade.
 - `clipador processar`: processa a fila agora, sem o serviço, e sai quando acabar.
-  Hoje ele extrai o áudio da voz de cada gravação (faixa 2 do OBS) num WAV mono de 16 kHz,
-  o formato que a transcrição usa. Se a gravação não tiver a faixa da voz, ou se ela estiver
+  Hoje ele extrai o áudio da voz de cada gravação (faixa 2 do OBS) num WAV mono de 16 kHz
+  e transcreve a sua fala com o Whisper na placa de vídeo, palavra por palavra, salvando
+  uma legenda `.srt` em `dados/transcricoes/` para conferir. Uma live de 3 h leva uns
+  15 a 60 min de transcrição; na primeira vez, o modelo (~1,5 GB) é baixado. A transcrição
+  é salva a cada 10 min de áudio: se o PC desligar ou uma live começar, ela continua
+  depois de onde parou. Nomes e gírias que o Whisper deve acertar ficam em
+  `[transcricao] vocabulario` no `config.toml`. Se a gravação não tiver a faixa da voz, ou se ela estiver
   em silêncio (microfone fora da faixa 2 no OBS), a tarefa para com uma mensagem explicando
   o que conferir. As faixas de cada fonte ficam em `[faixas]` no `config.toml`.
   Uma gravação interrompida (o OBS travou ou faltou luz) também é aproveitada.
@@ -81,7 +87,9 @@ tarefa que falha é tentada até 3 vezes antes de virar erro.
 ## Como rodar
 
 Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg
-(`winget install Gyan.FFmpeg`). O uv instala o Python 3.12 se precisar.
+(`winget install Gyan.FFmpeg`). O uv instala o Python 3.12 se precisar. Para transcrever
+na placa de vídeo: uma NVIDIA com driver 570 ou mais novo (as bibliotecas do CUDA 12, ~1 GB,
+vêm com o `uv sync`); sem ela, a transcrição usa o processador, bem mais devagar.
 
 No PowerShell:
 
@@ -145,6 +153,7 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
   src/clipador/
     banco/      tabelas, fila, backup e migrações (Alembic)
     ingestao/   monitor da pasta do OBS, horário de início e extração do áudio da voz
+    transcricao/ Whisper na placa de vídeo, transcrição em blocos e legenda .srt
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe

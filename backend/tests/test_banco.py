@@ -29,6 +29,7 @@ from clipador.banco.modelos import (
     StatusTarefa,
     Tarefa,
     TipoTarefa,
+    Transcricao,
 )
 
 TABELAS = {
@@ -239,3 +240,29 @@ def test_migracao_0002_acrescenta_os_dados_do_video_sem_perder_gravacoes(caminho
         gravacao = sessao.exec(select(Gravacao)).one()
     engine.dispose()
     assert (gravacao.arquivo, gravacao.duracao_s, gravacao.largura) == ("C:/g/live.mkv", 60, None)
+
+
+def test_migracao_0003_marca_a_transcricao_da_demo_como_pronta(caminho_banco):
+    # Antes da etapa 6, só a demo criava transcrições, já prontas: depois da migração elas
+    # ficam concluídas, para a etapa 6 não tentar transcrever o áudio sintético da demo.
+    engine = modulo_conexao.criar_engine(caminho_banco)
+    config = modulo_conexao._config_alembic()
+    with modulo_conexao.sem_chaves_estrangeiras(engine) as conexao:
+        config.attributes["connection"] = conexao
+        command.upgrade(config, "0002")
+        conexao.exec_driver_sql(
+            "INSERT INTO gravacao (arquivo, inicio, duracao_s, status, criada_em) VALUES "
+            "('C:/g/demo.mkv', '2026-10-14 23:00:00', 180, 'NOVA', '2026-10-14 23:00:00')"
+        )
+        conexao.exec_driver_sql(
+            "INSERT INTO transcricao (gravacao_id, palavras, modelo, criada_em) VALUES "
+            "(1, '[]', 'demo', '2026-10-14 23:00:00')"
+        )
+    engine.dispose()
+
+    engine = abrir_banco(caminho_banco)
+    with nova_sessao(engine) as sessao:
+        transcricao = sessao.exec(select(Transcricao)).one()
+    engine.dispose()
+    assert transcricao.concluida and transcricao.transcrito_ate_s == 180
+    assert transcricao.segmentos is None or transcricao.segmentos == []

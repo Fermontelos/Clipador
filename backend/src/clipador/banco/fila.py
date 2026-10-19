@@ -12,6 +12,8 @@ Ciclo de vida de uma tarefa::
 - Uma tarefa que falha volta para a fila com uma pequena espera (1 min, depois 2 min),
   para um erro passageiro (arquivo ainda travado, internet caindo) não virar erro
   definitivo, e um erro permanente não ficar repetindo sem parar.
+- Uma tarefa longa pode parar no meio de propósito (``TarefaPausada``, ex.: começou uma
+  live): ``devolver`` a põe de volta na fila sem contar como tentativa.
 - Um erro que nenhuma nova tentativa resolve (ex.: a gravação não tem a faixa da voz)
   é levantado como ``FalhaDefinitivaError`` e vai direto para "erro".
 - A situação da gravação acompanha a cadeia, no mesmo commit da tarefa: vira "concluída"
@@ -20,7 +22,7 @@ Ciclo de vida de uma tarefa::
 
 import logging
 from collections import Counter
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -41,6 +43,23 @@ PROXIMA_DA_CADEIA: dict[TipoTarefa, TipoTarefa] = {
     TipoTarefa.CORTAR: TipoTarefa.GERAR_TITULOS,
 }
 TAREFAS_DA_CADEIA = frozenset(PROXIMA_DA_CADEIA) | frozenset(PROXIMA_DA_CADEIA.values())
+
+
+@dataclass(frozen=True)
+class Contexto:
+    """O que quem executa a fila (o serviço) oferece a cada executor enquanto ele roda."""
+
+    # Começou uma live? As tarefas longas conferem entre um bloco e outro e, se sim,
+    # levantam ``TarefaPausada``.
+    deve_pausar: Callable[[], bool] = lambda: False
+
+
+class TarefaPausada(Exception):  # noqa: N818 (não é um erro: é uma pausa combinada)
+    """A tarefa parou no meio de propósito e salvou o que já tinha feito.
+
+    Ex.: a transcrição confere entre um bloco e outro se começou uma live; se começou, ela
+    para para não disputar a placa de vídeo com o OBS, e continua depois de onde parou.
+    """
 
 
 class FalhaDefinitivaError(RuntimeError):
@@ -203,6 +222,18 @@ def falhar(sessao: Session, tarefa: Tarefa, erro: str, definitiva: bool = False)
         )
     sessao.add(tarefa)
     sessao.commit()
+    return tarefa
+
+
+def devolver(sessao: Session, tarefa: Tarefa) -> Tarefa:
+    """Põe de volta na fila uma tarefa que pausou (``TarefaPausada``), sem contar tentativa."""
+    _exigir_em_andamento(tarefa, "devolver")
+    tarefa.status = StatusTarefa.PENDENTE
+    tarefa.executar_a_partir_de = agora()
+    tarefa.atualizada_em = agora()
+    sessao.add(tarefa)
+    sessao.commit()
+    log.info("Tarefa %s (%s) pausada; continua depois.", tarefa.id, tarefa.tipo.value)
     return tarefa
 
 

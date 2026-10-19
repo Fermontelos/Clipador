@@ -129,3 +129,22 @@ def test_config_sem_arquivo_ignora_o_config_toml(tmp_path, monkeypatch):
     cfg = config_sem_arquivo(pasta_gravacoes=tmp_path / "g", pasta_dados=tmp_path / "d")
     assert cfg.faixas.voz == 2
     assert cfg.limite_diario == 15
+
+
+def test_transcricao_padrao_e_do_config(escrever_config):
+    padrao = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n')).transcricao
+    assert (padrao.modelo, padrao.modelo_reserva, padrao.dispositivo) == ("medium", "small", "auto")
+    assert "gank" in padrao.vocabulario and padrao.minutos_por_bloco == 10
+    caminho = escrever_config(
+        'pasta_gravacoes = "C:/g"\n[transcricao]\nmodelo = "small"\nvocabulario = ["Yasuo"]\n'
+    )
+    proprio = carregar_config(caminho).transcricao
+    assert (proprio.modelo, proprio.vocabulario) == ("small", ["Yasuo"])
+
+
+@pytest.mark.parametrize(
+    "linha", ['dispositivo = "gpu"', "minutos_por_bloco = 0", 'modelo_grande = "x"']
+)
+def test_transcricao_invalida_da_erro(escrever_config, linha):
+    with pytest.raises(ValidationError):
+        carregar_config(escrever_config(f'pasta_gravacoes = "C:/g"\n[transcricao]\n{linha}\n'))

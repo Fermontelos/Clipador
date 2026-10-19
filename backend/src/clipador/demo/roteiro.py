@@ -99,6 +99,11 @@ TITULOS: tuple[tuple[dict, ...], ...] = (
 )
 
 
+def frases_da_transcricao() -> list[dict]:
+    """As falas como frases, no formato que a etapa 6 salva (usado na legenda)."""
+    return [{"inicio_s": inicio, "fim_s": fim, "texto": texto} for inicio, fim, texto in FALAS]
+
+
 def palavras_da_transcricao() -> list[dict]:
     """As falas quebradas em palavras, com o tempo de cada uma dividido por igual."""
     palavras = []

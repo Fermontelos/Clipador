@@ -42,3 +42,20 @@ nivel_log = "INFO"
 voz = 2
 jogo = 3
 musica = 4
+
+# Transcrição da voz (Whisper). Também precisa ficar depois dos campos soltos do começo.
+[transcricao]
+# "medium" é o melhor que cabe na GTX 1050 Ti (4 GB). Se faltar memória na placa,
+# o app usa o modelo_reserva.
+modelo = "medium"
+modelo_reserva = "small"
+# auto = placa de vídeo se houver; "cpu" força o processador (bem mais lento).
+dispositivo = "auto"
+# Nomes e gírias que o Whisper deve acertar: campeões que você mais joga, seu nick,
+# expressões suas. Só os primeiros ~220 tokens são usados: deixe os mais frequentes.
+vocabulario = [
+    "League of Legends", "LoL", "gank", "flash", "ult", "barão", "dragão", "arauto",
+    "pentakill", "first blood", "jungle", "mid", "top", "bot", "suporte", "farm",
+]
+# A transcrição é salva a cada bloco: se o PC cair, perde no máximo um bloco.
+minutos_por_bloco = 10

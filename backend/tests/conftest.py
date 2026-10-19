@@ -7,8 +7,31 @@ import pytest
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import Gravacao, agora
 from clipador.sistema import inicializacao
+from clipador.transcricao import transcrever
 
 CHAVE_DE_TESTE = r"Software\ClipadorTestes"
+
+
+class TranscritorMudo:
+    """Um Whisper falso que não ouve nada (cada trecho é silêncio)."""
+
+    nome = "mudo (teste)"
+
+    def transcrever(self, audio):
+        return []
+
+    def fechar(self):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def sem_whisper_de_verdade(monkeypatch):
+    """Nenhum teste abre o Whisper de verdade (baixaria 1,5 GB e precisaria da placa de vídeo).
+
+    Os testes da etapa 6 trocam por um transcritor falso com falas; os que rodam a fila
+    inteira (ex.: ``clipador processar``) recebem este, que só encontra silêncio.
+    """
+    monkeypatch.setattr(transcrever, "carregar_transcritor", lambda cfg: TranscritorMudo())
 
 
 @pytest.fixture(autouse=True)

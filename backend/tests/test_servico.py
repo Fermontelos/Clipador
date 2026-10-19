@@ -91,7 +91,7 @@ def test_gravacao_pronta_entra_na_fila_e_e_processada(cfg, servico_factory):
     gravacao_no_disco(cfg, "2026-10-14 20-00-00.mkv", timedelta(hours=1))
     executadas = []
     servico = servico_factory(
-        {TipoTarefa.EXTRAIR_AUDIO: lambda sessao, tarefa, cfg: executadas.append(tarefa.id)}
+        {TipoTarefa.EXTRAIR_AUDIO: lambda sessao, tarefa, *_: executadas.append(tarefa.id)}
     )
     servico.iniciar()
 
@@ -111,7 +111,7 @@ def test_gravacao_em_andamento_pausa_a_fila(cfg, servico_factory):
     gravacao_no_disco(cfg, "2026-10-14 18-00-00.mkv", timedelta(hours=1))
     executadas = []
     servico = servico_factory(
-        {TipoTarefa.EXTRAIR_AUDIO: lambda sessao, tarefa, cfg: executadas.append(tarefa.id)}
+        {TipoTarefa.EXTRAIR_AUDIO: lambda sessao, tarefa, *_: executadas.append(tarefa.id)}
     )
     servico.iniciar()
     gravacao_no_disco(cfg, "2026-10-15 21-00-00.mkv", timedelta(seconds=5))  # a live está rolando
@@ -146,7 +146,7 @@ def test_tarefa_sem_executor_fica_esperando_em_vez_de_falhar(cfg, servico_factor
 
 
 def test_tarefa_que_falha_e_registrada_e_o_servico_continua(cfg, servico_factory):
-    def quebra(sessao, tarefa, cfg):
+    def quebra(sessao, tarefa, cfg, contexto):
         raise RuntimeError("arquivo travado")
 
     gravacao_no_disco(cfg, "2026-10-14 18-00-00.mkv", timedelta(hours=1))
@@ -173,7 +173,7 @@ def test_tarefa_agendada_atrasada_roda_assim_que_o_servico_abre(cfg, servico_fac
     engine.dispose()
     executadas = []
     servico = servico_factory(
-        {TipoTarefa.COLETAR_METRICAS: lambda sessao, tarefa, cfg: executadas.append(tarefa.id)}
+        {TipoTarefa.COLETAR_METRICAS: lambda sessao, tarefa, *_: executadas.append(tarefa.id)}
     )
     servico.iniciar()
 
@@ -197,7 +197,7 @@ def test_pc_fica_acordado_so_enquanto_processa(cfg, servico_factory):
     gravacao_no_disco(cfg, "2026-10-14 18-00-00.mkv", timedelta(hours=1))
     energia = EnergiaFalsa()
     servico = servico_factory(
-        {TipoTarefa.EXTRAIR_AUDIO: lambda sessao, tarefa, cfg: None}, energia=energia
+        {TipoTarefa.EXTRAIR_AUDIO: lambda sessao, tarefa, *_: None}, energia=energia
     )
     servico.iniciar()
 
@@ -263,7 +263,7 @@ def test_extrair_audio_ja_vem_registrado():
 
 
 def test_falha_definitiva_nao_e_tentada_de_novo(cfg, servico_factory):
-    def sem_faixa(sessao, tarefa, cfg):
+    def sem_faixa(sessao, tarefa, cfg, contexto):
         raise fila.FalhaDefinitivaError("sem a faixa 2 (voz)")
 
     gravacao_no_disco(cfg, "2026-10-14 18-00-00.mkv", timedelta(hours=1))
@@ -288,7 +288,7 @@ def test_temporarios_sao_apagados_quando_a_gravacao_termina(cfg, servico_factory
     temporarios = cfg.pasta_trabalho / str(id_gravacao)
     temporarios.mkdir(parents=True)
     (temporarios / "voz.wav").write_bytes(b"RIFF")
-    servico = servico_factory({TipoTarefa.GERAR_TITULOS: lambda sessao, tarefa, cfg: None})
+    servico = servico_factory({TipoTarefa.GERAR_TITULOS: lambda sessao, tarefa, *_: None})
     servico.iniciar()
 
     servico.passo()  # a última tarefa da cadeia

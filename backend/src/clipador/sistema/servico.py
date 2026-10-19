@@ -21,6 +21,8 @@ Executores: cada tipo de tarefa tem uma função que sabe executá-la, registrad
 ``EXECUTORES`` pela etapa dela (a etapa 5 registrou o ``extrair_audio``). O serviço só
 pega tarefas que tem como executar; as outras ficam pendentes, esperando a etapa delas.
 Um executor que levanta ``FalhaDefinitivaError`` manda a tarefa direto para "erro".
+Cada executor recebe um ``fila.Contexto``: as tarefas longas perguntam a ele, entre um bloco e
+outro, se devem pausar (começou uma live) e, se sim, levantam ``fila.TarefaPausada``.
 
 Quando uma gravação termina a pipeline, os arquivos temporários dela são apagados.
 """
@@ -45,15 +47,17 @@ from clipador.ingestao import audio
 from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
 from clipador.sistema.energia import ManterAcordado
 from clipador.sistema.trava import TravaDoServico
+from clipador.transcricao import transcrever
 
 log = logging.getLogger(__name__)
 
 INTERVALO = timedelta(seconds=10)
 
-Executor = Callable[[Session, Tarefa, Config], None]
+Executor = Callable[[Session, Tarefa, Config, fila.Contexto], None]
 # Cada etapa acrescenta o seu.
 EXECUTORES: dict[TipoTarefa, Executor] = {
     TipoTarefa.EXTRAIR_AUDIO: audio.extrair_audio,
+    TipoTarefa.TRANSCREVER: transcrever.transcrever,
 }
 
 
@@ -65,6 +69,7 @@ class ResultadoPasso:
     pausado_por_gravacao: bool = False
     tarefa_executada: str | None = None
     tarefa_falhou: bool = False
+    tarefa_pausada: bool = False
 
 
 class Servico:
@@ -154,8 +159,13 @@ class Servico:
                 return resultado
             self.energia.ativar()
             resultado.tarefa_executada = tarefa.tipo.value
+            contexto = fila.Contexto(deve_pausar=self.ha_gravacao_em_andamento)
             try:
-                self.executores[tarefa.tipo](sessao, tarefa, self.cfg)
+                self.executores[tarefa.tipo](sessao, tarefa, self.cfg, contexto)
+            except fila.TarefaPausada:
+                sessao.rollback()  # o que a tarefa salvou antes de pausar já está gravado
+                fila.devolver(sessao, tarefa)
+                resultado.tarefa_pausada = True
             except Exception as erro:
                 log.error("Tarefa %s (%s) falhou:\n%s", tarefa.id, tarefa.tipo.value,
                           traceback.format_exc())  # fmt: skip

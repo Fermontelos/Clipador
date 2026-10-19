@@ -25,8 +25,10 @@ jobs:
         run: choco install ffmpeg-full -y --no-progress
 
       # --all-packages: instala as três partes Python do workspace (integracoes, backend, api).
+      # --no-group gpu: as bibliotecas da NVIDIA (~1 GB) não servem para nada aqui, porque a
+      # máquina da CI não tem placa de vídeo; os testes usam um Whisper falso.
       - name: Instalar dependências (exatamente as do uv.lock)
-        run: uv sync --locked --all-packages
+        run: uv sync --locked --all-packages --no-group gpu
 
       - name: Lint
         run: uv run ruff check

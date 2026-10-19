@@ -178,6 +178,11 @@ def _popular_banco(sessao, arquivo: Path) -> bool:
         Transcricao(
             gravacao_id=gravacao.id,
             palavras=roteiro.palavras_da_transcricao(),
+            segmentos=roteiro.frases_da_transcricao(),
+            # Já vem pronta: a etapa 6 só exporta a legenda, sem precisar do Whisper (e
+            # da placa de vídeo), para a demo rodar em qualquer PC.
+            transcrito_ate_s=roteiro.DURACAO_S,
+            concluida=True,
             modelo="demo (transcrição pronta)",
         )
     )

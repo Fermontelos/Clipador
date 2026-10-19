@@ -11,6 +11,10 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",
     "clipador-integracoes",
+    "faster-whisper>=1.2.1",
+    # Motor do faster-whisper. A linha 4.x usa CUDA 12 (conferido na DLL da 4.8.3: ela
+    # pede cublas64_12.dll); o CUDA 13 não roda na GTX 1050 Ti. Um teste confere isso.
+    "ctranslate2>=4.8.3,<5",
     "numpy>=2.5.4",
     "pydantic-settings>=2.16.0",
     "soundfile>=0.14.0",

@@ -335,7 +335,9 @@ def processar(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -
                 break
             if resultado.tarefa_executada is None:
                 break
-            if resultado.tarefa_falhou:
+            if resultado.tarefa_pausada:
+                typer.echo(f"  {resultado.tarefa_executada}: pausada (começou uma gravação)")
+            elif resultado.tarefa_falhou:
                 falhas += 1
                 typer.echo(f"  {resultado.tarefa_executada}: falhou (veja 'clipador status')")
             else:
