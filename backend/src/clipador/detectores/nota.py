@@ -1,11 +1,14 @@
 """Junta os sinais dos detectores em momentos e dá a nota de cada um (0 a 100).
 
 1. **Agrupar**: sinais a menos de ``juntar_ate_s`` (8 s) um do outro são o mesmo momento
-   (o grito, o pentakill e o "não acredito" de uma mesma jogada).
+   (o grito, o pentakill e o "não acredito" de uma mesma jogada). Um grupo que não cabe
+   num clipe (ex.: 3 minutos de luta com gritos a cada 5 s) é dividido em pedaços que
+   caibam, para nenhum destaque se perder.
 2. **Janela do clipe**: começa ``segundos_antes`` (10 s) antes do primeiro sinal, para dar
    contexto, e termina ``segundos_depois`` (5 s) depois do último, com duração entre
    ``duracao_minima_s`` (15 s) e ``duracao_maxima_s`` (60 s):
-   - longa demais: fica ancorada no sinal mais forte (com os seus 10 s de contexto antes);
+   - longa demais (um único sinal muito longo, como 70 s de fala acelerada): fica ancorada
+     no sinal mais forte, com os seus 10 s de contexto antes;
    - curta demais: cresce por igual dos dois lados;
    - nunca passa do começo nem do fim da gravação (é deslocada para dentro).
 3. **Sem sobreposição**: duas janelas que se sobrepõem viram um momento só, se a união
@@ -70,6 +73,28 @@ def agrupar(sinais: list[Sinal], juntar_ate_s: float) -> list[list[Sinal]]:
             grupos.append([sinal])
             fim_do_grupo = sinal.fim_s
     return grupos
+
+
+def dividir_longos(grupos: list[list[Sinal]], cfg: ConfigDeteccao) -> list[list[Sinal]]:
+    """Divide os grupos cuja janela passaria da duração máxima em pedaços que caibam.
+
+    Cada sinal entra no pedaço atual se a janela dele (com o contexto antes e depois) ainda
+    couber; senão, começa um pedaço novo.
+    """
+    pedacos: list[list[Sinal]] = []
+    margens = cfg.segundos_antes + cfg.segundos_depois
+    for grupo in grupos:
+        atual: list[Sinal] = []
+        for sinal in grupo:
+            if atual:
+                inicio = min(s.inicio_s for s in atual)
+                fim = max(max(s.fim_s for s in atual), sinal.fim_s)
+                if fim - inicio + margens > cfg.duracao_maxima_s:
+                    pedacos.append(atual)
+                    atual = []
+            atual.append(sinal)
+        pedacos.append(atual)
+    return pedacos
 
 
 def janela(grupo: list[Sinal], cfg: ConfigDeteccao, duracao_total_s: float) -> tuple[float, float]:
@@ -150,7 +175,7 @@ def calcular(
     """Os melhores momentos da gravação, do de maior nota para o de menor."""
     momentos = [
         MomentoCalculado(*janela(grupo, cfg, duracao_total_s), sinais=list(grupo))
-        for grupo in agrupar(sinais, cfg.juntar_ate_s)
+        for grupo in dividir_longos(agrupar(sinais, cfg.juntar_ate_s), cfg)
     ]
     momentos = sem_sobreposicao(momentos, cfg)
     for momento in momentos:

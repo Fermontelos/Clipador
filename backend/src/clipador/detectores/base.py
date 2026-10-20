@@ -2,13 +2,14 @@
 
 Um detector olha **um** aspecto da live (o volume da voz, o que você fala, os eventos do
 jogo) e devolve **sinais**: trechos da gravação com uma força de 0 a 1 e o motivo
-("grito, +18 dB"). Quem junta os sinais em momentos e dá a nota é ``detectores.nota``.
+("voz alta (+18 dB)"). Quem junta os sinais em momentos e dá a nota é ``detectores.nota``.
 
 O roteiro previa ``Detector.detectar(gravacao) -> list[Momento]``; o detector devolve
 sinais, e não momentos, porque um momento bom costuma juntar vários aspectos (um grito
-**e** um pentakill), e é a nota que pesa cada um. Para acrescentar um detector (outro
-jogo, o chat da Twitch), basta uma classe nova com ``nome`` e ``detectar``, registrada em
-``detectores.registro.DETECTORES``, e uma seção no ``[deteccao]`` do config.
+**e** um pentakill), e é a nota que pesa cada um (ADR 0005). Para acrescentar um detector
+(outro jogo, o chat da Twitch), basta uma classe nova com ``nome``, ``disponivel`` e
+``detectar``, registrada em ``detectores.detectar.DETECTORES``, e uma seção no
+``[deteccao]`` do config.
 """
 
 from dataclasses import dataclass, field

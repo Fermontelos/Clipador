@@ -258,11 +258,24 @@ def test_janela_respeita_15_e_60_segundos():
     minimo = nota.calcular([sinal("lol", 500)], TODOS, PESOS, cfg_curta, 3600)[0]
     assert minimo.duracao_s == pytest.approx(15)  # 3 s viraram 15, crescendo dos dois lados
     assert (minimo.inicio_s, minimo.fim_s) == (492, 507)  # [498, 501] + 6 s de cada lado
-    gritos = [sinal("volume_voz", t, 0.6) for t in range(100, 200, 4)]
-    gritos.append(sinal("volume_voz", 150, 1.0))  # o mais forte, no meio
-    longo = nota.calcular(gritos, TODOS, PESOS, CFG, 3600)[0]
-    assert longo.duracao_s == pytest.approx(60)
-    assert longo.inicio_s == pytest.approx(140)  # 10 s antes do mais forte
+    # Um sinal só, longo demais (100 s de fala acelerada): a janela fica ancorada nele.
+    longo = nota.calcular([sinal("fala", 100, 0.6, fim=200)], TODOS, PESOS, CFG, 3600)[0]
+    assert (longo.inicio_s, longo.fim_s) == (90, 150)  # 10 s de contexto e 60 s no total
+
+
+def test_luta_longa_vira_varios_momentos_sem_perder_os_picos():
+    # 3 min de gritos a cada 5 s (um grupo só), com dois picos bem distintos: antes, o grupo
+    # virava um clipe de 60 s em volta do maior pico, e o outro se perdia.
+    gritos = [sinal("volume_voz", t, 0.5) for t in range(100, 280, 5)]
+    gritos += [sinal("volume_voz", 122, 1.0), sinal("volume_voz", 251, 0.9)]
+    momentos = nota.calcular(gritos, TODOS, PESOS, CFG, 3600)
+    assert len(momentos) >= 3
+    assert all(m.duracao_s <= CFG.duracao_maxima_s for m in momentos)
+    for pico in (122, 251):
+        assert any(m.inicio_s <= pico <= m.fim_s for m in momentos), pico
+    ordenados = sorted(momentos, key=lambda m: m.inicio_s)
+    for anterior, seguinte in zip(ordenados, ordenados[1:], strict=False):
+        assert anterior.fim_s <= seguinte.inicio_s
 
 
 def test_janela_nunca_passa_do_comeco_nem_do_fim_da_gravacao():
