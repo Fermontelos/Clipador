@@ -162,7 +162,7 @@
 <table>
 <tr><th>Ferramenta</th><th>Por que usar</th></tr>
 <tr><td class="tool">watchdog</td><td>Avisa quando aparece uma gravação nova na pasta. O app espera o arquivo parar de crescer antes de processar.</td></tr>
-<tr><td class="tool">FFmpeg<small>build com NVENC (ex.: gyan.dev "full")</small></td><td>Padrão da indústria para vídeo: separa faixas, corta, monta os verticais e remove a música. O encoder <code>h264_nvenc</code> usa o chip de vídeo da 1050 Ti e codifica bem mais rápido que a CPU.</td></tr>
+<tr><td class="tool">FFmpeg<small>build com NVENC (ex.: gyan.dev "full")</small></td><td>Padrão da indústria para vídeo: separa faixas, corta, monta os verticais e remove a música. O encoder <code>h264_nvenc</code> usaria o chip de vídeo da 1050 Ti, mas o FFmpeg 9 exige um driver (610+) que a placa não recebe; os cortes saem no processador (libx264), ~14 s para 20 s de vertical em 1080p (ADR 0006, conferido na etapa 9).</td></tr>
 <tr><td class="tool">faster-whisper<small>modelo medium · int8 · CUDA</small></td><td>Mesmo modelo do Whisper, até ~4x mais rápido e com menos memória. Em int8 o <code>medium</code> cabe nos 4 GB. Dá timestamps por palavra, usados no alinhamento e nas legendas. O filtro de silêncio (VAD) evita que ele "invente" frases em trechos sem fala.</td></tr>
 <tr><td class="tool">CUDA 12 + cuDNN 9<small>bibliotecas da NVIDIA</small></td><td>Necessárias para o faster-whisper usar a placa. Instaláveis pelo próprio pip (pacotes <code>nvidia-cublas-cu12</code> e <code>nvidia-cudnn-cu12</code>), sem instalar o CUDA Toolkit inteiro. No Windows, o app pode precisar apontar para a pasta dessas DLLs na inicialização. Precisa ser a versão 12: veja o risco "GTX 1050 Ti" na seção 4.</td></tr>
 <tr><td class="tool">numpy + soundfile</td><td>Calcula o volume da faixa do microfone ao longo do tempo para achar os picos da sua voz, o sinal principal do detector.</td></tr>
@@ -253,7 +253,7 @@
 </ul></td></tr>
 <tr><td class="k">Pronto quando</td><td><ul>
   <li><code>python --version</code> (3.12), <code>uv --version</code>, <code>node --version</code>, <code>git --version</code> e <code>nvidia-smi</code> funcionam num terminal novo, e o <code>nvidia-smi</code> mostra driver entre 570 e 580.</li>
-  <li><code>ffmpeg -hide_banner -encoders | findstr nvenc</code> mostra <code>h264_nvenc</code>.</li>
+  <li><code>ffmpeg -hide_banner -encoders | findstr nvenc</code> mostra <code>h264_nvenc</code>. Atenção: aparecer na lista não garante que funcione; com o FFmpeg 9 e o driver 580, ele falha ao abrir (etapa 9, ADR 0006), e o app corta no processador.</li>
   <li><code>python -m pip install --dry-run requests</code> roda sem erro de certificado.</li>
   <li>Uma gravação de teste de 1 minuto, conferida com <code>ffprobe</code>, tem <b>4 faixas de áudio</b>. A faixa 1 tem o som completo, e a música não aparece nas faixas 2 e 3.</li>
 </ul></td></tr>
@@ -468,7 +468,7 @@
   <li><code>cortes/ffmpeg.py</code>: monta e roda os comandos do FFmpeg, lendo direto do MKV.
     <ul>
       <li><b>Áudio</b>: mistura só as faixas 2 (voz) e 3 (jogo), <b>sem a música</b>, com o volume de cada uma no config. O volume final é normalizado (filtro <code>loudnorm</code>, por volta de -14 LUFS, o padrão de YouTube e TikTok).</li>
-      <li><b>Vídeo</b>: corte com recodificação, preciso ao quadro, em <code>h264_nvenc</code>. Saída em <b>MP4</b> (H.264 + AAC), o formato mais aceito pelas plataformas.</li>
+      <li><b>Vídeo</b>: corte com recodificação, preciso ao quadro, em <code>h264_nvenc</code> (se funcionar; senão, <code>libx264</code> no processador, ver ADR 0006). Saída em <b>MP4</b> (H.264 + AAC), o formato mais aceito pelas plataformas.</li>
     </ul></li>
   <li><code>horizontal.py</code>: clipe 16:9 do momento, na resolução da gravação.</li>
   <li><code>vertical_a.py</code>: 1080×1920. O vídeo inteiro fica no centro, e uma cópia ampliada e desfocada (<code>boxblur</code>) preenche o fundo.</li>
@@ -477,6 +477,7 @@
   <li><b>Thumbnail</b>: um quadro do pico do momento, usada quando um clipe horizontal sobe como vídeo normal no YouTube (etapa 15).</li>
   <li>Quais formatos gerar fica no config. Nome dos arquivos: <code>data_nota_id_formato.mp4</code>, em <code>dados/clipes/</code>.</li>
   <li>As mesmas funções atendem a tarefa <code>recortar</code>, que corta de novo um clipe quando você ajusta o início ou o fim na revisão (etapa 12).</li>
+<li><b>Feito em 2026-10-20 (menos o vertical B), com estes detalhes:</b> <b>NVENC</b>: o FFmpeg 9.0.2 exige a API 13.1 do NVENC (driver 610 ou mais novo), e a GTX 1050 Ti parou no driver 580 (API 13.0); por isso o encoder é escolhido sozinho (<code>[cortes] encoder = "auto"</code>): testa o NVENC uma vez e, sem ele, corta no processador com o libx264 (preset medium, CRF 21). Medido: 20 s de vertical em 1080p em ~14 s (ADR 0006). Arquivos em <code>cortes/</code>: <code>comandos.py</code> (monta os comandos, testados sem o FFmpeg), <code>legenda.py</code> e <code>cortar.py</code> (executores <code>cortar</code> e <code>recortar</code>). Áudio: voz (1,0) + jogo (0,6), sem a música, <code>loudnorm</code> numa passada (medido na demo: -14,2 LUFS); gravação sem a faixa do jogo sai só com a voz. Vertical A: o desfoque do fundo é feito em 270×480 e ampliado (mesma aparência, bem mais rápido). Legenda do clipe: linhas de até 4 palavras ou 28 letras, quebradas nas pausas, a 26% do pé da tela (mais baixo, os botões do TikTok e dos Shorts cobrem); passada ao FFmpeg pelo nome, com ele rodando na pasta da legenda, para evitar os escapes de caminho do Windows dentro do filtro. Thumbnail (JPG de 1280 de largura) no pico do momento: o <code>Momento</code> ganhou <code>pico_s</code>, o centro do sinal que mais pesou na nota (migração 0005). Retomável: cada clipe é salvo no banco assim que fica pronto, e a tarefa pausa entre clipes se começar uma live. Na demo: 8 clipes e 4 thumbnails em ~1 min, corte preciso ao quadro (conferido pelo relógio da demo), sem a música (o tom do jogo 58 vezes mais forte que o da música).</li>
 </ul></td></tr>
 <tr><td class="k">Funcionalidade</td><td>De manhã, a pasta <code>dados/clipes/</code> tem os clipes do dia, nos formatos escolhidos, prontos para revisar.</td></tr>
 <tr><td class="k">Testes</td><td>Os comandos FFmpeg montados batem com o esperado (testados sem rodar o FFmpeg). Na demo, o clipe tem a duração e a resolução certas, áudio sem a faixa de música e abre como MP4 válido. A legenda do clipe começa no tempo zero e bate com a fala.</td></tr>
@@ -729,7 +730,7 @@
 
 <div class="risk"><b>GTX 1050 Ti (arquitetura Pascal).</b> O CUDA 13 não suporta mais placas Pascal, e os drivers mais novos da NVIDIA também estão deixando de suportar. Fique no <b>CUDA 12</b> e num driver compatível; não atualize o driver às cegas. O Ollama (etapa 10) exige driver 570 ou mais novo nessa placa, e a série 580 é a última com suporte a Pascal. Ou seja: use um driver entre <b>570 e 580</b>. <i>Conferido nas notas oficiais do CUDA 13.</i></div>
 
-<div class="risk"><b>GPU com 4 GB.</b> Whisper e FFmpeg disputam a mesma memória de vídeo. Regra: uma tarefa de GPU por vez. Se o <code>medium</code> não couber, o app cai automaticamente para o <code>small</code>. O modo int8 funciona porque a 1050 Ti tem "compute capability" 6.1, o mínimo exigido pelo CTranslate2 (o motor por trás do faster-whisper) para int8 na GPU.</div>
+<div class="risk"><b>GPU com 4 GB.</b> Whisper e FFmpeg disputariam a mesma memória de vídeo (hoje o FFmpeg corta no processador, porque o NVENC não funciona com o driver 580 e o FFmpeg 9: ADR 0006). Regra: uma tarefa de GPU por vez. Se o <code>medium</code> não couber, o app cai automaticamente para o <code>small</code>. O modo int8 funciona porque a 1050 Ti tem "compute capability" 6.1, o mínimo exigido pelo CTranslate2 (o motor por trás do faster-whisper) para int8 na GPU.</div>
 
 <div class="risk"><b>Direitos autorais.</b> A faixa de música fica fora dos clipes por isso. O áudio e as imagens do LoL podem ser usados em vídeos, inclusive monetizados, pela política de conteúdo da Riot ("Legal Jibber Jabber"). Músicas de terceiros que vazarem para o microfone ou para a faixa do jogo ainda podem gerar reivindicação no YouTube.</div>
 
@@ -746,7 +747,7 @@
 <h2>6. Decisões já tomadas</h2>
 <ul>
   <li><b>Sinal principal</b>: picos de volume da sua voz (faixa do microfone). Fala e eventos do LoL entram como sinais complementares.</li>
-  <li><b>GPU</b>: faster-whisper <code>medium</code> int8 só na faixa da voz, com filtro de silêncio, e FFmpeg com NVENC, uma tarefa de GPU por vez.</li>
+  <li><b>GPU</b>: faster-whisper <code>medium</code> int8 só na faixa da voz, com filtro de silêncio, e FFmpeg com NVENC se funcionar (com a 1050 Ti no driver 580 e o FFmpeg 9, corta no processador: ADR 0006), uma tarefa de GPU por vez.</li>
   <li><b>Frontend</b>: React + TypeScript + Vite + Tailwind.</li>
   <li><b>Escopo</b>: projeto completo, etapas 0 a 19 do roteiro, uma de cada vez.</li>
   <li><b>Redes</b>: só YouTube e TikTok nesta fase de testes.</li>

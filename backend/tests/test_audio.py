@@ -93,6 +93,14 @@ def trechos_altos(wav: Path, fator: float = 5.0) -> list[tuple[float, float]]:
     return [(float(a / 4), float(b / 4)) for a, b in zip(bordas[::2], bordas[1::2], strict=True)]
 
 
+def assert_um_pico(wav: Path, inicio: float, fim: float) -> None:
+    """Um pico só, no lugar certo, com tolerância de uma janela de medida (0,25 s): o ruído
+    da "voz" sintética muda a cada geração, e a compressão Opus espalha um pouco o fim."""
+    [(medido_inicio, medido_fim)] = trechos_altos(wav)
+    assert medido_inicio == pytest.approx(inicio, abs=0.25)
+    assert medido_fim == pytest.approx(fim, abs=0.25)
+
+
 # ------------------------------------------------------------------ sem rodar o FFmpeg
 
 
@@ -176,7 +184,7 @@ def test_extrai_a_voz_e_registra_os_dados_do_video(cfg, sessao):
     dados = soundfile.info(str(wav))
     assert (dados.samplerate, dados.channels, dados.subtype) == (16000, 1, "PCM_16")
     assert dados.duration == pytest.approx(6, abs=0.1)
-    assert trechos_altos(wav) == [(2.0, 3.0)]  # o pico da voz está no lugar certo
+    assert_um_pico(wav, 2.0, 3.0)  # o pico da voz está no lugar certo
     gravacao = sessao.get(Gravacao, tarefa.gravacao_id)
     assert (gravacao.largura, gravacao.altura, gravacao.fps) == (1280, 720, 30)
     assert gravacao.duracao_s == pytest.approx(6, abs=0.1)
@@ -279,7 +287,7 @@ def test_funciona_em_pastas_com_acento(tmp_path, sessao):
     )
     tarefa = tarefa_para(sessao, gravacao_curta(cfg.pasta_gravacoes))
     audio.extrair_audio(sessao, tarefa, cfg)
-    assert trechos_altos(audio.caminho_da_voz(cfg, tarefa.gravacao_id)) == [(2.0, 3.0)]
+    assert_um_pico(audio.caminho_da_voz(cfg, tarefa.gravacao_id), 2.0, 3.0)
 
 
 def test_ffprobe_travado_vira_erro_e_nao_trava_a_fila(tmp_path, monkeypatch):

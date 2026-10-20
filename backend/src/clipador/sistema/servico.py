@@ -47,6 +47,7 @@ from clipador.banco.backup import backup_do_dia
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa, TipoTarefa, agora
 from clipador.config import Config
+from clipador.cortes import cortar
 from clipador.detectores import detectar
 from clipador.ingestao import audio
 from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
@@ -65,6 +66,8 @@ EXECUTORES: dict[TipoTarefa, Executor] = {
     TipoTarefa.EXTRAIR_AUDIO: audio.extrair_audio,
     TipoTarefa.TRANSCREVER: transcrever.transcrever,
     TipoTarefa.DETECTAR: detectar.detectar,
+    TipoTarefa.CORTAR: cortar.cortar,
+    TipoTarefa.RECORTAR: cortar.recortar,
 }
 
 

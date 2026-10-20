@@ -176,6 +176,9 @@ class Momento(SQLModel, table=True):
     gravacao_id: int = Field(foreign_key="gravacao.id", index=True)
     inicio_s: float
     fim_s: float
+    # O instante mais forte do momento (o centro do sinal que mais pesou na nota): é dele a
+    # thumbnail (etapa 9).
+    pico_s: float | None = None
     sinais: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     nota: float = Field(default=0, index=True)
     motivo: str = ""

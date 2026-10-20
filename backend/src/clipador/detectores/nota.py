@@ -43,6 +43,7 @@ class MomentoCalculado:
     forcas: dict[str, float] = field(default_factory=dict)  # por detector disponível
     nota: float = 0.0
     motivo: str = ""
+    pico_s: float = 0.0  # centro do sinal que mais pesou na nota
 
     @property
     def duracao_s(self) -> float:
@@ -163,6 +164,12 @@ def dar_nota(
     momento.nota = 100 * sum(contribuicao.values()) / soma_pesos if soma_pesos else 0.0
     ordem = sorted(melhores, key=lambda nome: contribuicao.get(nome, 0.0), reverse=True)
     momento.motivo = " + ".join(melhores[nome].motivo for nome in ordem[:MAX_MOTIVOS])
+    if ordem:
+        principal = melhores[ordem[0]]
+        centro = (principal.inicio_s + principal.fim_s) / 2
+        momento.pico_s = min(max(centro, momento.inicio_s), momento.fim_s)
+    else:
+        momento.pico_s = (momento.inicio_s + momento.fim_s) / 2
 
 
 def calcular(

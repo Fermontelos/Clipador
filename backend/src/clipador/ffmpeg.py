@@ -40,7 +40,9 @@ class _Resultado:
     erros: str
 
 
-def _executar(comando: list[str], tempo_limite_s: float | None) -> _Resultado:
+def _executar(
+    comando: list[str], tempo_limite_s: float | None, pasta: Path | None = None
+) -> _Resultado:
     """Roda um programa e devolve o código de saída e o que ele escreveu.
 
     No limite de tempo, encerra o programa **e os processos que ele abriu**. Isso importa
@@ -50,6 +52,7 @@ def _executar(comando: list[str], tempo_limite_s: float | None) -> _Resultado:
     esperaria por ela para sempre. Foi o que travou a CI (com o FFmpeg do Chocolatey).
 
     ``stdin`` fica fechado: um programa que tente ler o teclado não fica esperando.
+    ``pasta``: onde o programa roda (os caminhos relativos dos argumentos partem dela).
     """
     # errors="replace": uma mensagem com caracteres fora do UTF-8 (comum no Windows em
     # português) não pode derrubar o app; o pior caso é aparecer um "�" na mensagem.
@@ -61,6 +64,7 @@ def _executar(comando: list[str], tempo_limite_s: float | None) -> _Resultado:
         text=True,
         encoding="utf-8",
         errors="replace",
+        cwd=pasta,
     )
     try:
         saida, erros = processo.communicate(timeout=tempo_limite_s)
@@ -84,15 +88,20 @@ def _encerrar_com_os_filhos(processo: subprocess.Popen) -> None:
         processo.communicate(timeout=10)
 
 
-def rodar(argumentos: list[str], tempo_limite_s: float | None = None) -> None:
+def rodar(
+    argumentos: list[str], tempo_limite_s: float | None = None, pasta: Path | None = None
+) -> None:
     """Roda o ``ffmpeg`` com os argumentos dados (sem o nome do programa).
 
     ``tempo_limite_s``: se o FFmpeg passar disso, é encerrado e vira ``FFmpegFalhouError``.
     Importante de madrugada (etapas 5 e 9): sem limite, um FFmpeg travado pararia a fila.
+    ``pasta``: onde o FFmpeg roda. A etapa 9 usa para passar a legenda pelo nome, sem o
+    caminho: dentro de um filtro, os ":" e as barras invertidas de um caminho do Windows
+    precisariam de escapes.
     """
     comando = [localizar("ffmpeg"), "-hide_banner", "-nostdin", "-loglevel", "error", *argumentos]
     try:
-        resultado = _executar(comando, tempo_limite_s)
+        resultado = _executar(comando, tempo_limite_s, pasta)
     except subprocess.TimeoutExpired as erro:
         raise FFmpegFalhouError(
             f"O FFmpeg passou do limite de {tempo_limite_s} s e foi encerrado."

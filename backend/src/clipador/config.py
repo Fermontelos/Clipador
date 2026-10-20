@@ -207,6 +207,37 @@ class ConfigDeteccao(BaseModel):
         return self
 
 
+class ConfigCortes(BaseModel):
+    """Como cortar os clipes (etapa 9)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    formatos: list[Literal["horizontal", "vertical_a"]] = Field(
+        default_factory=lambda: ["horizontal", "vertical_a"],
+        min_length=1,
+        description=(
+            "Quais formatos gerar de cada momento: horizontal (16:9) e vertical_a (9:16, com "
+            "o fundo desfocado). O vertical_b (zoom na ação) ainda não existe."
+        ),
+    )
+    encoder: Literal["auto", "h264_nvenc", "libx264"] = Field(
+        default="auto",
+        description=(
+            "auto = a placa de vídeo (NVENC) se funcionar; senão, o processador (libx264). "
+            "Ver ADR 0006: com o driver 580 e o FFmpeg 9, o NVENC não funciona na GTX 1050 Ti."
+        ),
+    )
+    volume_voz: float = Field(default=1.0, ge=0, le=4, description="Volume da sua voz no clipe.")
+    volume_jogo: float = Field(default=0.6, ge=0, le=4, description="Volume do jogo no clipe.")
+    lufs: float = Field(
+        default=-14,
+        ge=-30,
+        le=-5,
+        description="Volume final (loudness), em LUFS. -14 é o padrão de YouTube e TikTok.",
+    )
+    legendas: bool = Field(default=True, description="Queimar a legenda nos clipes verticais.")
+
+
 class Config(BaseSettings):
     """Configurações do app. Cada etapa do roteiro acrescenta as suas."""
 
@@ -261,6 +292,10 @@ class Config(BaseSettings):
         default_factory=ConfigDeteccao,
         description="Como achar os momentos da live e dar a nota.",
     )
+    cortes: ConfigCortes = Field(
+        default_factory=ConfigCortes,
+        description="Formatos dos clipes, encoder, volumes e legendas.",
+    )
     ignorar_gravacoes_antes_de: date | None = Field(
         default=None,
         description=(
@@ -298,6 +333,11 @@ class Config(BaseSettings):
     def pasta_transcricoes(self) -> Path:
         """Legendas .srt de cada live, para conferir a transcrição."""
         return self.pasta_dados / "transcricoes"
+
+    @property
+    def pasta_clipes(self) -> Path:
+        """Os clipes prontos para revisar (e as thumbnails)."""
+        return self.pasta_dados / "clipes"
 
     @property
     def pasta_modelos(self) -> Path:

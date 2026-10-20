@@ -109,3 +109,18 @@ fala_acelerada = 1.6
 [deteccao.lol]
 ligado = true
 peso = 0.25
+
+# Como cortar os clipes de cada momento (MP4, H.264 + AAC, em dados/clipes/).
+[cortes]
+# horizontal (16:9) e vertical_a (9:16, com o vídeo no centro e o fundo desfocado).
+formatos = ["horizontal", "vertical_a"]
+# auto = placa de vídeo (NVENC) se funcionar; senão, o processador (libx264), mais lento.
+# Com a GTX 1050 Ti no driver 580 e o FFmpeg 9, o NVENC não funciona (ver ADR 0006).
+encoder = "auto"
+# Volume da voz e do jogo no clipe (a faixa da música nunca entra: direitos autorais).
+volume_voz = 1.0
+volume_jogo = 0.6
+# Volume final, em LUFS: -14 é o padrão de YouTube e TikTok.
+lufs = -14
+# Queimar a legenda (o que você fala) nos clipes verticais.
+legendas = true

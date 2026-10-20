@@ -109,6 +109,7 @@ def detectar(
                 gravacao_id=gravacao.id,
                 inicio_s=round(momento.inicio_s, 2),
                 fim_s=round(momento.fim_s, 2),
+                pico_s=round(momento.pico_s, 2),
                 sinais={nome: round(forca, 3) for nome, forca in momento.forcas.items()},
                 nota=round(momento.nota, 1),
                 motivo=momento.motivo,
