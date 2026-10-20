@@ -89,10 +89,14 @@ class MonitorDeGravacoes:
         pasta: Path,
         estavel_apos: timedelta = ESTAVEL_APOS,
         so_nomes_do_obs: bool = True,
+        ignorar_antes_de: datetime | None = None,
     ) -> None:
         self.pasta = pasta
         self.estavel_apos = estavel_apos
         self.so_nomes_do_obs = so_nomes_do_obs
+        # Gravações que começaram antes disto ficam de fora (ex.: lives antigas, gravadas
+        # antes de o OBS separar as faixas). None = todas entram.
+        self.ignorar_antes_de = ignorar_antes_de
         self._observados: dict[Path, _Observacao] = {}
         self._avisou_pasta_ausente = False
         self._ignorados_avisados: set[Path] = set()
@@ -118,6 +122,18 @@ class MonitorDeGravacoes:
                     )
                     self._ignorados_avisados.add(arquivo)
                 continue
+            if self.ignorar_antes_de is not None:
+                inicio = inicio_pelo_nome(arquivo) or datetime.fromtimestamp(
+                    arquivo.stat().st_ctime, UTC
+                )
+                if inicio < self.ignorar_antes_de:
+                    if arquivo not in self._ignorados_avisados:
+                        log.info(
+                            "Ignorando %s: começou antes de ignorar_gravacoes_antes_de.",
+                            arquivo.name,
+                        )
+                        self._ignorados_avisados.add(arquivo)
+                    continue
             atual = por_nome.get(arquivo.stem)
             if atual is None or (
                 PREFERENCIA[arquivo.suffix.lower()] < PREFERENCIA[atual.suffix.lower()]

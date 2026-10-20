@@ -94,6 +94,7 @@ class Servico:
             cfg.pasta_gravacoes,
             estavel_apos=timedelta(minutes=cfg.minutos_gravacao_parada),
             so_nomes_do_obs=cfg.so_nomes_do_obs,
+            ignorar_antes_de=cfg.ignorar_antes_de,
         )
         self.energia = energia or ManterAcordado()
         self.relogio = relogio

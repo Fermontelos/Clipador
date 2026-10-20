@@ -62,7 +62,8 @@ separados: os seus dados reais não são tocados.
   a live, a fila fica pausada para não pesar no PC, e enquanto processa o PC não suspende.
   Por segurança, só entram vídeos com o nome no padrão do OBS (data e hora); outros vídeos
   da mesma pasta são ignorados (`so_nomes_do_obs` no `config.toml`), assim como os clipes do
-  Buffer de Replay. Se você usa o "Pausar gravação" do OBS por mais de 2 minutos, aumente
+  Buffer de Replay e, se você configurar `ignorar_gravacoes_antes_de`, as lives de antes
+  dessa data. Se você usa o "Pausar gravação" do OBS por mais de 2 minutos, aumente
   `minutos_gravacao_parada`, senão a live entra na fila pela metade.
 - `clipador processar`: processa a fila agora, sem o serviço, e sai quando acabar.
   Hoje ele extrai o áudio da voz de cada gravação (faixa 2 do OBS) num WAV mono de 16 kHz

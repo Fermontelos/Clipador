@@ -17,6 +17,7 @@ programas abertos sozinhos no login (etapa 4, ADR 0004) costumam começar em
 
 import tomllib
 from contextvars import ContextVar
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -260,6 +261,13 @@ class Config(BaseSettings):
         default_factory=ConfigDeteccao,
         description="Como achar os momentos da live e dar a nota.",
     )
+    ignorar_gravacoes_antes_de: date | None = Field(
+        default=None,
+        description=(
+            "Gravações que começaram antes desta data não entram na fila (ex.: lives antigas, "
+            "de antes de o OBS gravar as 4 faixas). Vazio = todas entram."
+        ),
+    )
     pasta_backups: Path | None = Field(
         default=None,
         description=(
@@ -277,6 +285,14 @@ class Config(BaseSettings):
     def pasta_trabalho(self) -> Path:
         """Arquivos temporários do processamento (ex.: o áudio da voz), um por gravação."""
         return self.pasta_dados / "trabalho"
+
+    @property
+    def ignorar_antes_de(self) -> datetime | None:
+        """``ignorar_gravacoes_antes_de`` como o instante (UTC) da meia-noite no horário do PC."""
+        if self.ignorar_gravacoes_antes_de is None:
+            return None
+        meia_noite = datetime.combine(self.ignorar_gravacoes_antes_de, datetime.min.time())
+        return meia_noite.astimezone().astimezone(UTC)
 
     @property
     def pasta_transcricoes(self) -> Path:

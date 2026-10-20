@@ -20,6 +20,10 @@ minutos_gravacao_parada = 2
 # Protege contra processar outros vídeos da pasta. Mude para false se você renomeia as lives.
 so_nomes_do_obs = true
 
+# Gravações que começaram antes desta data não entram na fila (sem aspas: é uma data do
+# TOML). Útil para lives antigas, gravadas antes de o OBS separar as 4 faixas.
+# ignorar_gravacoes_antes_de = 2026-10-20
+
 # Pasta onde o app guarda banco, logs e clipes. Um caminho relativo, como este, é
 # contado a partir da pasta deste arquivo.
 pasta_dados = "dados"

@@ -153,3 +153,27 @@ def test_por_padrao_so_entram_nomes_no_padrao_do_obs(pasta, caplog):
 
 def test_lista_de_pedacos_do_hls_nao_e_gravacao():
     assert not eh_gravacao(Path("2026-10-14 20-00-00.m3u8"))
+
+
+def test_gravacoes_antes_da_data_configurada_ficam_de_fora(pasta, caplog):
+    # As lives antigas, de antes de o OBS gravar as 4 faixas, não entram na fila.
+    criar(pasta, "2026-08-15 16-09-08.mp4", timedelta(days=60))
+    criar(pasta, "2026-10-20 21-00-00.mkv", timedelta(hours=3))
+    corte = datetime(2026, 10, 20).astimezone()  # meia-noite do dia 20, no horário do PC
+    monitor = MonitorDeGravacoes(pasta, ignorar_antes_de=corte)
+
+    with caplog.at_level(logging.INFO):
+        assert [a.name for a in monitor.candidatos()] == ["2026-10-20 21-00-00.mkv"]
+        monitor.candidatos()
+    assert caplog.text.count("Ignorando 2026-08-15") == 1  # avisa uma vez só
+
+
+def test_data_de_corte_vem_do_config_na_meia_noite_local(escrever_config):
+    from clipador.config import carregar_config
+
+    cfg = carregar_config(
+        escrever_config('pasta_gravacoes = "C:/g"\nignorar_gravacoes_antes_de = 2026-10-20\n')
+    )
+    assert cfg.ignorar_antes_de == datetime(2026, 10, 20).astimezone()
+    sem_corte = carregar_config(escrever_config('pasta_gravacoes = "C:/g"\n'))
+    assert sem_corte.ignorar_antes_de is None
