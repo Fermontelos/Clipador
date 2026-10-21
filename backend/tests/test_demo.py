@@ -377,7 +377,12 @@ def test_eventos_da_demo_no_segundo_certo_do_video(tmp_path):
 
 @pytest.mark.lento
 @precisa_ffmpeg
-def test_detectores_acham_os_4_picos_da_demo_e_ignoram_o_ruido(tmp_path):
+def test_detectores_acham_os_4_picos_da_demo_e_ignoram_o_ruido(tmp_path, monkeypatch):
+    from clipador.banco.modelos import TipoTarefa
+    from clipador.sistema.servico import EXECUTORES
+
+    # Os cortes (etapa 9) não importam aqui, e cortar a demo inteira leva mais de 1 min.
+    monkeypatch.delitem(EXECUTORES, TipoTarefa.CORTAR)
     # Teste obrigatório da etapa 8: na demo inteira (3 min), cada um dos 4 picos do roteiro
     # vira um momento, com os três detectores contribuindo, e nada mais vira momento.
     sem_config = str(tmp_path / "config.toml")

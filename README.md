@@ -26,7 +26,7 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 8 · Detectores e nota | Acha os melhores momentos de cada live | ✅ |
 | 9 · Cortes | Gera os clipes horizontais e verticais | 🟡 horizontal e vertical A prontos; vertical B a definir |
 
-## Experimente em 1 minuto (modo demo)
+## Experimente em 2 minutos (modo demo)
 
 Não precisa de placa de vídeo, de contas no YouTube ou no TikTok, nem de configurar nada.
 Só do Git, do [uv](https://docs.astral.sh/uv/) e do FFmpeg (`winget install Gyan.FFmpeg`).
@@ -37,7 +37,7 @@ git clone https://github.com/Fermontelos/Clipador.git
 cd Clipador
 uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
 uv run clipador status --demo  # mostra a fila da demo
-uv run clipador processar --demo  # processa a demo (áudio da voz e legenda da transcrição)
+uv run clipador processar --demo  # áudio, legenda, momentos e os 8 clipes (~1,5 min)
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
 uv run clipador momentos --demo   # os 4 melhores momentos da demo, com nota e motivo
 # os clipes da demo ficam em dados/demo/clipes/ (horizontal, vertical e thumbnail)

@@ -251,6 +251,39 @@ def test_recortar_usa_o_novo_inicio_e_fim(cfg, sessao, tarefa):
     assert len(clipes(sessao)) == 4  # substituiu, não duplicou
 
 
+@precisa_ffmpeg
+def test_thumbnail_do_recorte_fica_dentro_do_clipe(cfg, sessao, tarefa, monkeypatch):
+    momento = sessao.get(Momento, 1)  # o pico dele é aos 4 s
+    momento.inicio_s, momento.fim_s = 6.0, 11.0  # encurtado na revisão: o pico ficou de fora
+    sessao.add(momento)
+    sessao.commit()
+    quadros = []
+    original = comandos.comando_da_thumbnail
+    monkeypatch.setattr(
+        comandos,
+        "comando_da_thumbnail",
+        lambda arquivo, instante, destino: (
+            quadros.append(instante) or original(arquivo, instante, destino)
+        ),
+    )
+    recorte = Tarefa(tipo=TipoTarefa.RECORTAR, momento_id=1)
+    sessao.add(recorte)
+    sessao.commit()
+    cortar.recortar(sessao, recorte, cfg)
+    assert quadros == [6.0]
+
+
+def test_trecho_invalido_e_falha_definitiva_com_mensagem_clara(cfg, sessao, tarefa):
+    momento = sessao.get(Momento, 1)
+    momento.inicio_s, momento.fim_s = 8.0, 7.5  # fim antes do início
+    sessao.add(momento)
+    recorte = Tarefa(tipo=TipoTarefa.RECORTAR, momento_id=1)
+    sessao.add(recorte)
+    sessao.commit()
+    with pytest.raises(FalhaDefinitivaError, match="pelo menos 1 s"):
+        cortar.recortar(sessao, recorte, cfg)
+
+
 def test_recortar_sem_momento_e_falha_definitiva(cfg, sessao):
     tarefa = Tarefa(tipo=TipoTarefa.RECORTAR)
     sessao.add(tarefa)

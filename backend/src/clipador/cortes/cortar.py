@@ -32,6 +32,9 @@ from clipador.cortes.legenda import salvar_legenda_do_clipe
 
 log = logging.getLogger(__name__)
 
+# Menos que isto não é um clipe (ex.: um ajuste na revisão com o fim antes do início).
+DURACAO_MINIMA_S = 1.0
+
 
 def _prefixo(gravacao: Gravacao, momento: Momento) -> str:
     data = gravacao.inicio.astimezone().strftime("%Y-%m-%d")  # a data da live no seu relógio
@@ -69,6 +72,11 @@ class Cortador:
 
     def cortar_momento(self, momento: Momento, contexto: Contexto, refazer: bool = False) -> int:
         """Corta o momento em cada formato. Devolve quantos clipes foram feitos agora."""
+        if momento.fim_s - momento.inicio_s < DURACAO_MINIMA_S:
+            raise FalhaDefinitivaError(
+                f"O momento {momento.id} vai de {momento.inicio_s:.1f} s a {momento.fim_s:.1f} s: "
+                f"um clipe precisa de pelo menos {DURACAO_MINIMA_S:.0f} s."
+            )
         feitos = 0
         for formato in self.cfg.cortes.formatos:
             if contexto.deve_pausar():
@@ -121,9 +129,12 @@ class Cortador:
         destino = caminho_da_thumbnail(self.cfg, self.gravacao, momento)
         if destino.is_file() and not refazer:
             return
-        pico = (
-            momento.pico_s if momento.pico_s is not None else (momento.inicio_s + momento.fim_s) / 2
-        )
+        pico = momento.pico_s
+        if pico is None:
+            pico = (momento.inicio_s + momento.fim_s) / 2
+        # Depois de um ajuste na revisão, o pico pode ter ficado fora do trecho do clipe:
+        # a thumbnail tem de ser um quadro que aparece no clipe.
+        pico = min(max(pico, momento.inicio_s), momento.fim_s)
         ffmpeg.rodar(comandos.comando_da_thumbnail(self.arquivo, pico, destino), tempo_limite_s=60)
 
 

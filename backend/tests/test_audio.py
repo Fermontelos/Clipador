@@ -93,6 +93,14 @@ def trechos_altos(wav: Path, fator: float = 5.0) -> list[tuple[float, float]]:
     return [(float(a / 4), float(b / 4)) for a, b in zip(bordas[::2], bordas[1::2], strict=True)]
 
 
+def sem_cortes(monkeypatch) -> None:
+    """Tira os cortes (etapa 9) da fila: este teste não precisa deles, e cortar a demo
+    inteira leva mais de 1 min."""
+    from clipador.sistema.servico import EXECUTORES
+
+    monkeypatch.delitem(EXECUTORES, TipoTarefa.CORTAR)
+
+
 def assert_um_pico(wav: Path, inicio: float, fim: float) -> None:
     """Um pico só, no lugar certo, com tolerância de uma janela de medida (0,25 s): o ruído
     da "voz" sintética muda a cada geração, e a compressão Opus espalha um pouco o fim."""
@@ -259,7 +267,8 @@ def test_processar_demo_extrai_a_voz(tmp_path, monkeypatch):
 
 @pytest.mark.lento
 @precisa_ffmpeg
-def test_na_demo_de_3_min_a_voz_tem_a_duracao_e_os_picos_certos(tmp_path):
+def test_na_demo_de_3_min_a_voz_tem_a_duracao_e_os_picos_certos(tmp_path, monkeypatch):
+    sem_cortes(monkeypatch)
     gerar.preparar_demo(tmp_path / "dados")
     saida = runner.invoke(app, ["processar", "--demo", "--arquivo", str(tmp_path / "config.toml")])
     assert saida.exit_code == 0, saida.output
