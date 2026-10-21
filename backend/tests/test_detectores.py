@@ -24,7 +24,6 @@ from clipador.banco.modelos import (
     Tarefa,
     TipoTarefa,
     Transcricao,
-    agora,
 )
 from clipador.config import (
     ConfigDeteccao,
@@ -392,7 +391,7 @@ def test_detectar_de_novo_nao_apaga_a_sua_revisao(cfg, sessao, tarefa):
 
     detectar.detectar(sessao, tarefa, cfg)
     sessao.commit()
-    sessao.add(Decisao(momento_id=momentos_salvos(sessao)[0].id, aprovado=True, criada_em=agora()))
+    sessao.add(Decisao(momento_id=momentos_salvos(sessao)[0].id, aprovado=True))
     sessao.commit()
     with pytest.raises(FalhaDefinitivaError, match="apagaria a sua revisão"):
         detectar.detectar(sessao, tarefa, cfg)

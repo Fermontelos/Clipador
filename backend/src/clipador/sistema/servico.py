@@ -54,6 +54,7 @@ from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, regist
 from clipador.jogo.coletor import iniciar_em_segundo_plano as iniciar_coletor_do_lol
 from clipador.sistema.energia import ManterAcordado
 from clipador.sistema.trava import TravaDoServico
+from clipador.titulos import gerar
 from clipador.transcricao import transcrever
 
 log = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ EXECUTORES: dict[TipoTarefa, Executor] = {
     TipoTarefa.DETECTAR: detectar.detectar,
     TipoTarefa.CORTAR: cortar.cortar,
     TipoTarefa.RECORTAR: cortar.recortar,
+    TipoTarefa.GERAR_TITULOS: gerar.gerar_titulos,
 }
 
 

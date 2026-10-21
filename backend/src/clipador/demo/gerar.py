@@ -39,7 +39,7 @@ from clipador.banco.modelos import (
     TipoTarefa,
     Transcricao,
 )
-from clipador.config import Config, config_sem_arquivo
+from clipador.config import Config, ConfigTitulos, config_sem_arquivo
 from clipador.demo import roteiro
 from clipador.demo.roteiro import Pico
 from clipador.jogo import eventos
@@ -64,7 +64,12 @@ def pasta_da_demo(pasta_dados: Path) -> Path:
 def config_da_demo(pasta_dados: Path) -> Config:
     """Configuração para processar a demo: pastas dela e faixas no padrão do OBS."""
     pasta = pasta_da_demo(pasta_dados)
-    return config_sem_arquivo(pasta_gravacoes=pasta / "gravacoes", pasta_dados=pasta)
+    # Títulos prontos do roteiro: a demo roda em qualquer PC, sem o Ollama.
+    return config_sem_arquivo(
+        pasta_gravacoes=pasta / "gravacoes",
+        pasta_dados=pasta,
+        titulos=ConfigTitulos(fonte="demo"),
+    )
 
 
 def _volume_da_voz(picos: tuple[Pico, ...]) -> str:

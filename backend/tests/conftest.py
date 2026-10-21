@@ -7,6 +7,7 @@ import pytest
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import Gravacao, agora
 from clipador.sistema import inicializacao
+from clipador.titulos import gerador
 from clipador.transcricao import transcrever
 from clipador_integracoes.lol import ClienteLol
 
@@ -33,6 +34,20 @@ def sem_whisper_de_verdade(monkeypatch):
     inteira (ex.: ``clipador processar``) recebem este, que só encontra silêncio.
     """
     monkeypatch.setattr(transcrever, "carregar_transcritor", lambda cfg: TranscritorMudo())
+
+
+@pytest.fixture(autouse=True)
+def sem_ollama_de_verdade(monkeypatch):
+    """Nenhum teste chama o Ollama de verdade (se ele estiver rodando no PC, levaria minutos).
+
+    Para o gerador, o Ollama está sempre fechado (cai no título simples); os testes da etapa
+    10 usam um Ollama falso que responde o que eles quiserem.
+    """
+
+    def ollama_fechado(cfg):
+        raise ConnectionError("Ollama falso dos testes: fechado")
+
+    monkeypatch.setattr(gerador, "criar_cliente", ollama_fechado)
 
 
 @pytest.fixture(autouse=True)

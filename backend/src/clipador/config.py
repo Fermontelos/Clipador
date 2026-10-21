@@ -238,6 +238,39 @@ class ConfigCortes(BaseModel):
     legendas: bool = Field(default=True, description="Queimar a legenda nos clipes verticais.")
 
 
+class ConfigTitulos(BaseModel):
+    """Títulos e hashtags sugeridos pela IA local (etapa 10)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fonte: Literal["ollama", "simples", "demo"] = Field(
+        default="ollama",
+        description=(
+            "ollama = IA local; simples = a frase mais marcante da transcrição, sem IA "
+            "(também é o plano B se o Ollama falhar); demo = os títulos prontos da demo."
+        ),
+    )
+    modelo: str = Field(default="qwen3:4b", description="Modelo do Ollama.")
+    modelo_reserva: str | None = Field(
+        default="qwen3:1.7b", description="Modelo menor, usado se faltar memória na placa."
+    )
+    endereco: str = Field(default="http://127.0.0.1:11434", description="Onde o Ollama atende.")
+    tempo_limite_s: float = Field(default=180, gt=0, le=1800)
+    hashtags_fixas: list[str] = Field(
+        default_factory=lambda: ["#leagueoflegends", "#lolbr"],
+        description="Hashtags que entram em todo clipe (o resto o modelo sugere).",
+    )
+    max_hashtags: int = Field(
+        default=5, ge=1, le=15, description="O YouTube recomenda de 3 a 5 por vídeo."
+    )
+    exemplos: int = Field(
+        default=10,
+        ge=0,
+        le=30,
+        description="Quantos títulos escolhidos por você entram como exemplo do seu estilo.",
+    )
+
+
 class Config(BaseSettings):
     """Configurações do app. Cada etapa do roteiro acrescenta as suas."""
 
@@ -295,6 +328,10 @@ class Config(BaseSettings):
     cortes: ConfigCortes = Field(
         default_factory=ConfigCortes,
         description="Formatos dos clipes, encoder, volumes e legendas.",
+    )
+    titulos: ConfigTitulos = Field(
+        default_factory=ConfigTitulos,
+        description="Títulos e hashtags com a IA local (Ollama).",
     )
     ignorar_gravacoes_antes_de: date | None = Field(
         default=None,

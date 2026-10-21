@@ -506,6 +506,10 @@ def momentos(
             f"{posicao:3d}. nota {momento.nota:5.1f} · {_mmss(momento.inicio_s)}-"
             f"{_mmss(momento.fim_s)} ({momento.fim_s - momento.inicio_s:.0f} s) · {momento.motivo}"
         )
+        if momento.titulos_sugeridos:
+            titulo = momento.titulos_sugeridos[0]["titulo"]
+            hashtags = " ".join(momento.hashtags_sugeridas)
+            typer.echo(f"       “{titulo}” {hashtags}".rstrip())
 
 
 @app.command("instalar-servico")

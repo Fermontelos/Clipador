@@ -25,6 +25,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 7 · Coletor do LoL | Registra os eventos da partida durante a live | ✅ |
 | 8 · Detectores e nota | Acha os melhores momentos de cada live | ✅ |
 | 9 · Cortes | Gera os clipes horizontais e verticais | 🟡 horizontal e vertical A prontos; vertical B a definir |
+| 10 · Títulos com IA | Sugere 3 títulos e as hashtags de cada clipe | ✅ |
+| 11 · Desligar o PC | Desliga sozinho depois de processar | ⏳ próxima |
 
 ## Experimente em 2 minutos (modo demo)
 
@@ -39,7 +41,7 @@ uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~1
 uv run clipador status --demo  # mostra a fila da demo
 uv run clipador processar --demo  # áudio, legenda, momentos e os 8 clipes (~1,5 min)
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
-uv run clipador momentos --demo   # os 4 melhores momentos da demo, com nota e motivo
+uv run clipador momentos --demo   # os 4 melhores momentos, com nota, motivo e título
 # os clipes da demo ficam em dados/demo/clipes/ (horizontal, vertical e thumbnail)
 ```
 
@@ -95,6 +97,12 @@ separados: os seus dados reais não são tocados.
   **sem a música** (direitos autorais), normalizado para -14 LUFS, o padrão de YouTube e
   TikTok. O horizontal ganha uma thumbnail do pico do momento. Os cortes são feitos no
   processador quando o encoder da placa (NVENC) não funciona ([ADR 0006](docs/adr/0006-cortes-no-processador-sem-nvenc.md)).
+- Títulos e hashtags com IA local: para cada momento, o [Ollama](https://ollama.com) com o
+  modelo `qwen3:4b` sugere 3 títulos no seu estilo (frase sua, pergunta, exagero ou
+  descrição) e as hashtags, a partir do que você falou e do que aconteceu no jogo. Os
+  títulos que você escolher na revisão viram exemplos para os próximos. Roda no próprio PC,
+  sem internet e sem custo. Sem o Ollama, o título vira a frase mais marcante do momento.
+  Para instalar: `winget install Ollama.Ollama` e depois `ollama pull qwen3:4b`.
 - `clipador momentos`: lista os momentos da gravação mais recente, da maior nota para a
   menor, com o trecho e o motivo ("voz alta (+24 dB) + pentakill seu + “não acredito”").
 - `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de
@@ -187,6 +195,7 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     jogo/       coletor do LoL, eventos seus e alinhamento com o tempo da gravação
     detectores/ detectores de momentos (plugins) e a nota de cada momento
     cortes/     clipes horizontal e vertical, legenda do clipe e thumbnail
+    titulos/    títulos e hashtags com a IA local (Ollama) e o plano B sem IA
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe

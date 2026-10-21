@@ -124,3 +124,18 @@ volume_jogo = 0.6
 lufs = -14
 # Queimar a legenda (o que você fala) nos clipes verticais.
 legendas = true
+
+# Títulos e hashtags sugeridos pela IA local (Ollama: winget install Ollama.Ollama e
+# depois "ollama pull qwen3:4b"). Sem o Ollama, o app usa a frase mais marcante do momento.
+[titulos]
+# ollama = IA local; simples = sem IA, só a frase mais marcante da transcrição.
+fonte = "ollama"
+# qwen3:4b (2,5 GB) cabe na GTX 1050 Ti; se faltar memória, usa o modelo_reserva.
+modelo = "qwen3:4b"
+modelo_reserva = "qwen3:1.7b"
+# Hashtags que entram em todo clipe; o modelo completa até max_hashtags com as do momento.
+# O YouTube recomenda de 3 a 5, sempre ligadas ao vídeo (mais de 60, ele ignora todas).
+hashtags_fixas = ["#leagueoflegends", "#lolbr"]
+max_hashtags = 5
+# Quantos títulos que você escolheu na revisão entram como exemplo do seu estilo.
+exemplos = 10

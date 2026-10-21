@@ -248,6 +248,11 @@ def test_ffmpeg_que_falha_nao_deixa_wav_pela_metade(cfg, sessao, monkeypatch):
 
 @precisa_ffmpeg
 def test_processar_demo_extrai_a_voz(tmp_path, monkeypatch):
+    # A cadeia para depois da extração (sem o executor da transcrição): no fim da cadeia
+    # inteira, o WAV já teria sido apagado junto com os outros temporários.
+    from clipador.sistema.servico import EXECUTORES
+
+    monkeypatch.delitem(EXECUTORES, TipoTarefa.TRANSCREVER)
     # A demo de verdade tem 3 min (ver o teste lento abaixo); aqui, o mesmo roteiro em 6 s.
     monkeypatch.setattr(roteiro, "DURACAO_S", 6)
     monkeypatch.setattr(roteiro, "PICOS_VOZ", PICO_CURTO)
