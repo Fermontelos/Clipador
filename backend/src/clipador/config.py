@@ -292,6 +292,15 @@ class ConfigDesligamento(BaseModel):
             "conferir numa noite inteira que o horário está certo."
         ),
     )
+    espera_maxima_horas: float = Field(
+        default=4,
+        gt=0,
+        le=24,
+        description=(
+            "Se o PC não desligou até este tempo depois de a fila acabar (você estava usando), "
+            "desiste até a próxima noite: não desliga de tarde quando você sai para almoçar."
+        ),
+    )
 
 
 class Config(BaseSettings):

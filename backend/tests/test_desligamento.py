@@ -145,6 +145,24 @@ def test_modo_de_teste_so_escreve_no_log_uma_vez_por_noite(pc, caplog):
         assert caplog.text.count("desligaria agora") == 2
 
 
+def test_desiste_se_voce_seguiu_usando_o_pc_por_horas(pc, caplog):
+    # A fila acabou às 3h com você no PC; você usa até 8h e sai para almoçar às 13h: o PC
+    # não pode desligar de tarde.
+    regra = desligamento(pc)
+    with caplog.at_level(logging.INFO, logger="clipador.sistema.desligamento"):
+        for _ in range(5 * 60):  # 5 h usando o PC, conferências a cada minuto
+            pc.mexer_no_mouse()
+            regra.verificar(pc.agora, fila_pendente=False)
+            pc.passar(60)
+        pc.passar(30 * 60)  # 30 min sem mexer
+        regra.verificar(pc.agora, fila_pendente=False)
+    assert pc.comandos == []
+    assert "desistindo de desligar" in caplog.text
+    regra.houve_trabalho()  # a próxima noite
+    regra.verificar(pc.agora, fila_pendente=False)
+    assert desligou(pc)
+
+
 def test_sem_processamento_nao_desliga(pc):
     # Uma tarde com o app aberto e nada na fila: deixar o PC 10 min parado não o desliga.
     regra = Desligamento(ConfigDesligamento(modo_teste=False), pc.ocioso_s, pc.shutdown)
@@ -261,6 +279,25 @@ def test_pc_nao_suspende_enquanto_espera_para_desligar(cfg, pc):
         assert energia.ativo is False  # agora o Windows pode suspender normalmente
     finally:
         servico.encerrar()
+
+
+def test_erro_repetido_na_ociosidade_entra_no_log_uma_vez(cfg, pc, caplog):
+    from clipador.sistema.servico import Servico
+
+    def quebra():
+        raise OSError("GetLastInputInfo falhou")
+
+    regra = Desligamento(ConfigDesligamento(), quebra, pc.shutdown)
+    regra.houve_trabalho()
+    servico = Servico(cfg, executores={}, relogio=lambda: pc.agora, desligamento=regra)
+    servico.iniciar()
+    try:
+        for _ in range(5):
+            servico.passo()
+            pc.passar(61)
+    finally:
+        servico.encerrar()
+    assert caplog.text.count("Erro ao conferir o desligamento") == 1
 
 
 def test_processar_a_mao_nunca_desliga(cfg):

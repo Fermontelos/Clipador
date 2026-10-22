@@ -11,7 +11,11 @@ desliga quando **tudo** isto vale:
    daqui a mais de ``HORIZONTE`` (ex.: coleta de métricas daqui a 7 dias) não contam;
    senão o PC nunca desligaria. Também não contam as de um tipo que o serviço ainda não
    sabe executar (ex.: ``publicar``, antes da etapa 15): ficariam pendentes para sempre;
-4. teclado e mouse parados há ``minutos_ocioso`` (10 min). Programas abertos não impedem.
+4. teclado e mouse parados há ``minutos_ocioso`` (10 min). Programas abertos não impedem;
+5. a fila acabou há menos de ``espera_maxima_horas`` (4 h). Sem esse limite, se você
+   estivesse usando o PC quando o processamento terminou, ele desligaria horas depois, na
+   primeira vez que você saísse de perto (ex.: no almoço). Passado o limite, o app desiste
+   até a próxima noite de processamento.
 
 Fora isso, confere de novo a cada ``INTERVALO_DE_CONFERENCIA`` (1 min).
 
@@ -70,6 +74,7 @@ class Desligamento:
         self.processou_algo = False
         self.contagem_desde: datetime | None = None
         self.proxima_conferencia: datetime | None = None
+        self.fila_acabou_em: datetime | None = None
 
     def shutdown(self, argumentos: list[str]) -> None:
         # Procura ``rodar_shutdown`` na hora (e não como valor padrão do parâmetro): assim os
@@ -101,6 +106,18 @@ class Desligamento:
             return
         if not (self.cfg.desligar_ao_terminar and self.processou_algo) or fila_pendente:
             self.proxima_conferencia = None
+            self.fila_acabou_em = None
+            return
+        if self.fila_acabou_em is None:
+            self.fila_acabou_em = agora
+        if agora - self.fila_acabou_em > timedelta(hours=self.cfg.espera_maxima_horas):
+            log.info(
+                "A fila acabou há mais de %.0f h e você seguiu usando o PC: desistindo de "
+                "desligar até a próxima noite de processamento.",
+                self.cfg.espera_maxima_horas,
+            )
+            self.processou_algo = False
+            self.fila_acabou_em = None
             return
         if self.proxima_conferencia is not None and agora < self.proxima_conferencia:
             return
@@ -115,6 +132,7 @@ class Desligamento:
         if self.cfg.modo_teste:
             log.info("Modo de teste: desligaria agora (%s).", motivo)
             self.processou_algo = False  # uma vez por noite: só volta depois de mais trabalho
+            self.fila_acabou_em = None
             return
         log.warning("Desligando o PC em %d s: %s.", CONTAGEM_S, motivo)
         try:

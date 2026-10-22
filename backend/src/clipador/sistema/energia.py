@@ -1,5 +1,8 @@
 """Impede o Windows de suspender o PC no meio do processamento.
 
+Também fica ligado depois do processamento, enquanto o desligamento automático (etapa 11)
+espera você ficar ocioso: senão o PC poderia dormir antes de desligar.
+
 Usa a função ``SetThreadExecutionState`` do Windows. Dois detalhes importantes:
 
 - o pedido vale **para a thread que chamou**: por isso o serviço ativa e desativa sempre
@@ -36,11 +39,11 @@ class ManterAcordado:
             log.warning("O Windows recusou o pedido para não suspender o PC.")
             return
         self.ativo = True
-        log.info("Processando: o PC não vai suspender até a fila acabar.")
+        log.info("O PC não vai suspender (processando, ou esperando para desligar).")
 
     def desativar(self) -> None:
         if not self.ativo:
             return
         self._funcao(ES_CONTINUOUS)  # volta ao normal
         self.ativo = False
-        log.info("Fila vazia: o PC pode suspender normalmente.")
+        log.info("Nada a fazer: o PC pode suspender normalmente.")

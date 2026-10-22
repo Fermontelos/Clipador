@@ -29,6 +29,9 @@ outro, se devem pausar (começou uma live) e, se sim, levantam ``fila.TarefaPaus
 Quando uma gravação termina a pipeline, os arquivos temporários dela são apagados.
 
 Junto com o laço, roda o coletor do LoL (etapa 7, ``jogo.coletor``), numa thread própria.
+
+Quando a fila da noite termina, o laço também confere o desligamento automático (etapa 11,
+``sistema.desligamento``), se ele foi passado (só o ``clipador iniciar`` passa).
 """
 
 import logging
@@ -110,6 +113,7 @@ class Servico:
         self.energia = energia or ManterAcordado()
         self.relogio = relogio
         self.desligamento = desligamento
+        self._ultimo_erro_desligamento: str | None = None
         self.trava = TravaDoServico(cfg.pasta_dados)
         self.engine: Engine | None = None
         self._pausado = False
@@ -219,9 +223,13 @@ class Servico:
             return
         try:
             self.desligamento.verificar(momento, fila_pendente)
-        except Exception:
-            # Um problema no desligamento (ex.: GetLastInputInfo falhou) não para a fila.
-            log.exception("Erro ao conferir o desligamento automático.")
+            self._ultimo_erro_desligamento = None
+        except Exception as erro:
+            # Um problema no desligamento (ex.: GetLastInputInfo falhou) não para a fila, e
+            # um erro que se repete a cada conferência entra no log uma vez só.
+            if repr(erro) != self._ultimo_erro_desligamento:
+                log.exception("Erro ao conferir o desligamento automático.")
+                self._ultimo_erro_desligamento = repr(erro)
 
     def _limpar_se_terminou(self, sessao: Session, tarefa: Tarefa) -> None:
         if tarefa.gravacao_id is None:

@@ -149,3 +149,6 @@ minutos_ocioso = 10
 # Em teste, só escreve "desligaria agora" no log. Desligue o modo de teste só depois de
 # conferir numa noite inteira que o horário no log está certo.
 modo_teste = true
+# Se você estava usando o PC quando a fila acabou, o app espera você sair de perto por até
+# este tempo; depois desiste até a próxima noite (não desliga de tarde, no seu almoço).
+espera_maxima_horas = 4

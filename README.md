@@ -63,7 +63,8 @@ separados: os seus dados reais não são tocados.
   cria o banco.
 - `clipador iniciar`: liga o serviço. Ele percebe sozinho quando uma live termina (o
   arquivo do OBS fica 2 minutos sem mudar), coloca a gravação na fila e processa. Durante
-  a live, a fila fica pausada para não pesar no PC, e enquanto processa o PC não suspende.
+  a live, a fila fica pausada para não pesar no PC, e enquanto processa (ou espera para
+  desligar, etapa 11) o PC não suspende.
   Por segurança, só entram vídeos com o nome no padrão do OBS (data e hora); outros vídeos
   da mesma pasta são ignorados (`so_nomes_do_obs` no `config.toml`), assim como os clipes do
   Buffer de Replay e, se você configurar `ignorar_gravacoes_antes_de`, as lives de antes
@@ -113,7 +114,8 @@ separados: os seus dados reais não são tocados.
   `clipador processar` rodado à mão, não. Vem em **modo de teste**, que só escreve
   "desligaria agora" no log: confira uma noite inteira e então mude `modo_teste = false`
   em `[desligamento]` no `config.toml`. O `clipador status` mostra há quanto tempo o PC
-  está ocioso.
+  está ocioso. Se você estiver usando o PC quando a fila acabar, o app espera você sair de
+  perto por até 4 h (`espera_maxima_horas`) e depois desiste até a próxima noite.
 - `clipador momentos`: lista os momentos da gravação mais recente, da maior nota para a
   menor, com o trecho e o motivo ("voz alta (+24 dB) + pentakill seu + “não acredito”").
 - `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de
