@@ -44,6 +44,21 @@ def exemplos_seus(sessao: Session, quantos: int) -> list[dict[str, str]]:
     return [{"titulo": d.titulo, "tipo": d.tipo_titulo or ""} for d in decisoes]
 
 
+# Numa luta longa, o trecho pode ter dezenas de abates: o pedido leva só os mais fortes
+# (um modelo pequeno se perde com informação demais, e fica mais lento).
+MAX_EVENTOS_NO_PEDIDO = 5
+
+
+def eventos_mais_fortes(lol: Lol, gravacao: Gravacao, no_trecho: list) -> list[str]:
+    """Os eventos do LoL do trecho, do mais forte para o mais fraco, sem repetir."""
+    sinais = sorted(lol.detectar(Entrada(gravacao, 0.0, eventos=no_trecho)), key=lambda s: -s.forca)
+    nomes: list[str] = []
+    for sinal in sinais:
+        if sinal.motivo not in nomes:
+            nomes.append(sinal.motivo)
+    return nomes[:MAX_EVENTOS_NO_PEDIDO]
+
+
 def titulos_da_demo(momento: Momento, cfg: Config) -> Sugestoes:
     """Os títulos prontos do roteiro da demo, do pico que cai dentro do momento."""
     for pico, titulos in zip(roteiro.PICOS_VOZ, roteiro.TITULOS, strict=True):
@@ -97,10 +112,7 @@ def gerar_titulos(
                 pedido = Pedido(
                     falas=texto.falas_do_trecho(palavras, momento.inicio_s, momento.fim_s),
                     motivo=momento.motivo,
-                    eventos=[
-                        sinal.motivo
-                        for sinal in lol.detectar(Entrada(gravacao, 0.0, eventos=no_trecho))
-                    ],
+                    eventos=eventos_mais_fortes(lol, gravacao, no_trecho),
                     frase_marcante=texto.frase_marcante(
                         palavras, momento.inicio_s, momento.fim_s, momento.pico_s
                     ),

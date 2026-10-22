@@ -39,7 +39,7 @@ git clone https://github.com/Fermontelos/Clipador.git
 cd Clipador
 uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
 uv run clipador status --demo  # mostra a fila da demo
-uv run clipador processar --demo  # áudio, legenda, momentos e os 8 clipes (~1,5 min)
+uv run clipador processar --demo  # áudio, legenda, momentos, 8 clipes e títulos (~1,5 min)
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
 uv run clipador momentos --demo   # os 4 melhores momentos, com nota, motivo e título
 # os clipes da demo ficam em dados/demo/clipes/ (horizontal, vertical e thumbnail)
@@ -68,10 +68,11 @@ separados: os seus dados reais não são tocados.
   Buffer de Replay e, se você configurar `ignorar_gravacoes_antes_de`, as lives de antes
   dessa data. Se você usa o "Pausar gravação" do OBS por mais de 2 minutos, aumente
   `minutos_gravacao_parada`, senão a live entra na fila pela metade.
-- `clipador processar`: processa a fila agora, sem o serviço, e sai quando acabar.
-  Hoje ele extrai o áudio da voz de cada gravação (faixa 2 do OBS) num WAV mono de 16 kHz
-  e transcreve a sua fala com o Whisper na placa de vídeo, palavra por palavra, salvando
-  uma legenda `.srt` em `dados/transcricoes/` para conferir. Uma live de 3 h leva uns
+- `clipador processar`: processa a fila agora, sem o serviço, e sai quando acabar. Cada
+  gravação passa pela cadeia inteira: áudio da voz, transcrição, momentos, clipes e títulos
+  (as etapas estão descritas abaixo). A 1ª tarefa extrai o áudio da voz (faixa 2 do OBS) num
+  WAV mono de 16 kHz; a 2ª transcreve a sua fala com o Whisper na placa de vídeo, palavra
+  por palavra, salvando uma legenda `.srt` em `dados/transcricoes/` para conferir. Uma live de 3 h leva uns
   15 a 60 min de transcrição; na primeira vez, o modelo (~1,5 GB) é baixado. A transcrição
   é salva a cada 10 min de áudio: se o PC desligar ou uma live começar, ela continua
   depois de onde parou. Nomes e gírias que o Whisper deve acertar ficam em
@@ -126,7 +127,8 @@ tarefa que falha é tentada até 3 vezes antes de virar erro.
 Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg
 (`winget install Gyan.FFmpeg`). O uv instala o Python 3.12 se precisar. Para transcrever
 na placa de vídeo: uma NVIDIA com driver 570 ou mais novo (as bibliotecas do CUDA 12, ~1 GB,
-vêm com o `uv sync`); sem ela, a transcrição usa o processador, bem mais devagar. Num PC
+vêm com o `uv sync`); sem ela, a transcrição usa o processador, bem mais devagar. Para os
+títulos com IA (opcional): o [Ollama](https://ollama.com) com o modelo `qwen3:4b`. Num PC
 sem placa NVIDIA, `uv sync --no-group gpu` pula esse download.
 
 No PowerShell:

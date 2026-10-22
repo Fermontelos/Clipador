@@ -377,3 +377,20 @@ def test_demo_usa_os_titulos_prontos(tmp_path, sessao):
     sugestoes = gerar.titulos_da_demo(momento, cfg)
     assert sugestoes.titulos == [dict(t) for t in roteiro.TITULOS[0]]  # o pico de 0:25
     assert cfg.titulos.fonte == "demo"
+
+
+def test_pedido_leva_so_os_5_eventos_mais_fortes():
+    from clipador.banco.modelos import EventoJogo, PapelNoEvento
+    from clipador.config import ConfigLolDetector
+    from clipador.detectores.lol import Lol
+
+    inicio = datetime(2026, 10, 14, 23, 0, tzinfo=UTC)
+
+    def evento(tipo, papel=None, **dados):
+        return EventoJogo(tipo=tipo, horario_real=inicio, tempo_jogo_s=0, partida_inicio=inicio,
+                          event_id=1, papel=papel, dados=dados)  # fmt: skip
+
+    luta = [(evento("ChampionKill"), s) for s in range(20)]  # 20 abates de outros
+    luta.append((evento("Multikill", PapelNoEvento.ABATE, KillStreak=5), 21))
+    nomes = gerar.eventos_mais_fortes(Lol(ConfigLolDetector()), None, luta)
+    assert nomes == ["pentakill seu", "abate"]  # o mais forte primeiro, sem repetir

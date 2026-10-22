@@ -17,6 +17,7 @@ gravação, do de maior nota para o de menor, em cada formato de ``[cortes] form
 fim dele na revisão. Usa as mesmas funções e substitui os arquivos.
 """
 
+import contextlib
 import logging
 import time
 from pathlib import Path
@@ -124,6 +125,10 @@ class Cortador:
             temporario.unlink(missing_ok=True)
             if legenda:
                 legenda.unlink(missing_ok=True)
+                # Num recorte depois do fim da cadeia, a pasta de temporários já tinha sido
+                # apagada e foi recriada só para a legenda: não fica vazia para trás.
+                with contextlib.suppress(OSError):
+                    legenda.parent.rmdir()  # só apaga se estiver vazia
 
     def _thumbnail(self, momento: Momento, refazer: bool) -> None:
         destino = caminho_da_thumbnail(self.cfg, self.gravacao, momento)

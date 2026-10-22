@@ -249,6 +249,7 @@ def test_recortar_usa_o_novo_inicio_e_fim(cfg, sessao, tarefa):
         "vertical_a": pytest.approx(8, abs=0.1),
     }
     assert len(clipes(sessao)) == 4  # substituiu, não duplicou
+    assert not (cfg.pasta_trabalho / "1").exists()  # a legenda temporária não deixou pasta
 
 
 @precisa_ffmpeg
