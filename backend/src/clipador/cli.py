@@ -1,5 +1,6 @@
 """Linha de comando do app (``clipador ...``)."""
 
+import contextlib
 import logging
 import sys
 import threading
@@ -31,7 +32,8 @@ from clipador.jogo import alinhamento
 from clipador.jogo.coletor import INTERVALO_S as INTERVALO_DO_COLETOR_S
 from clipador.jogo.coletor import ColetorLol
 from clipador.logs import configurar_logs
-from clipador.sistema import inicializacao
+from clipador.sistema import inicializacao, ociosidade
+from clipador.sistema.desligamento import Desligamento
 from clipador.sistema.servico import Servico
 from clipador.sistema.trava import ServicoJaRodandoError, servico_esta_rodando
 
@@ -92,6 +94,20 @@ def _abrir_ou_sair(cfg: Config):
     except BancoMaisNovoQueOCodigoError as erro:
         typer.echo(f"Erro: {erro}", err=True)
         raise typer.Exit(code=1) from erro
+
+
+def _estado_do_desligamento(cfg: Config) -> str:
+    """Ex.: "ligado, em modo de teste (só escreve no log) · PC ocioso há 3 min"."""
+    regras = cfg.desligamento
+    if not regras.desligar_ao_terminar:
+        estado = "desligado"
+    elif regras.modo_teste:
+        estado = "ligado, em modo de teste (só escreve no log)"
+    else:
+        estado = f"ligado (depois de {regras.minutos_ocioso:.0f} min sem mexer no PC)"
+    with contextlib.suppress(OSError):  # fora da sua sessão do Windows, não dá para medir
+        estado += f" · PC ocioso há {ociosidade.segundos_ocioso() / 60:.0f} min"
+    return estado
 
 
 def _resumir_erro(erro: str | None, limite: int = 150) -> str:
@@ -179,6 +195,7 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
             # Ex.: a pasta do projeto foi movida ou renomeada depois de instalar.
             no_login = "aponta para outro config.toml (rode 'clipador instalar-servico' de novo)"
         typer.echo(f"Serviço: {rodando} · abre sozinho no login: {no_login}")
+        typer.echo(f"Desligar ao terminar: {_estado_do_desligamento(cfg)}")
     contagens = " | ".join(
         f"{situacao.value.replace('_', ' ')}: {resumo.por_status[situacao]}"
         for situacao in StatusTarefa
@@ -301,7 +318,8 @@ def iniciar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     typer.echo(f"Serviço rodando. Log em {arquivo_log}. Ctrl+C para parar.")
     parar = threading.Event()
     try:
-        Servico(cfg).rodar(parar)
+        desligamento = Desligamento(cfg.desligamento, ociosidade.segundos_ocioso)
+        Servico(cfg, desligamento=desligamento).rodar(parar)
     except (ServicoJaRodandoError, BancoMaisNovoQueOCodigoError) as erro:
         _avisar_sem_janela(arquivo, str(erro))
         typer.echo(f"Erro: {erro}", err=True)

@@ -273,6 +273,32 @@ def _mudar_gravacao(sessao: Session, tarefa: Tarefa, status: StatusGravacao) -> 
         sessao.add(gravacao)
 
 
+def ha_trabalho(
+    sessao: Session, agora: datetime, tipos: Collection[TipoTarefa], horizonte: timedelta
+) -> bool:
+    """Ainda há o que processar? (Para o desligamento automático, etapa 11.)
+
+    Conta as tarefas em andamento e as pendentes dos ``tipos`` dados (os que o serviço sabe
+    executar) que vão rodar antes de ``agora + horizonte``. As agendadas para mais longe
+    (ex.: métricas daqui a 7 dias) e as de tipos sem executor não contam.
+    """
+    em_andamento = sessao.exec(
+        select(Tarefa.id).where(Tarefa.status == StatusTarefa.EM_ANDAMENTO).limit(1)
+    ).first()
+    if em_andamento is not None:
+        return True
+    pendente = sessao.exec(
+        select(Tarefa.id)
+        .where(
+            Tarefa.status == StatusTarefa.PENDENTE,
+            col(Tarefa.tipo).in_(list(tipos)),
+            Tarefa.executar_a_partir_de <= agora + horizonte,
+        )
+        .limit(1)
+    ).first()
+    return pendente is not None
+
+
 def recuperar_interrompidas(sessao: Session) -> int:
     """Devolve para a fila as tarefas que estavam "em andamento" quando o app parou.
 

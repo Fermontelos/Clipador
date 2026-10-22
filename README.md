@@ -26,7 +26,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 8 · Detectores e nota | Acha os melhores momentos de cada live | ✅ |
 | 9 · Cortes | Gera os clipes horizontais e verticais | 🟡 horizontal e vertical A prontos; vertical B a definir |
 | 10 · Títulos com IA | Sugere 3 títulos e as hashtags de cada clipe | ✅ |
-| 11 · Desligar o PC | Desliga sozinho depois de processar | ⏳ próxima |
+| 11 · Desligar o PC | Desliga sozinho depois de processar | ✅ (em modo de teste) |
+| 12 · API da revisão | Serve os clipes e grava as suas decisões | ⏳ próxima |
 
 ## Experimente em 2 minutos (modo demo)
 
@@ -104,6 +105,15 @@ separados: os seus dados reais não são tocados.
   títulos que você escolher na revisão viram exemplos para os próximos. Roda no próprio PC,
   sem internet e sem custo. Sem o Ollama, o título vira a frase mais marcante do momento.
   Para instalar: `winget install Ollama.Ollama` e depois `ollama pull qwen3:4b`.
+- Desligamento automático: quando o serviço da noite termina a fila e você está há 10 min
+  sem mexer no teclado e no mouse, o PC desliga, depois de uma contagem de 60 s que o
+  Windows mostra na tela (mexer no mouse cancela; `shutdown /a` também). Programas abertos
+  não impedem; uma gravação em andamento conta como fila; tarefas agendadas para dias
+  depois (como as métricas) não seguram o PC ligado. Só o serviço desliga: um
+  `clipador processar` rodado à mão, não. Vem em **modo de teste**, que só escreve
+  "desligaria agora" no log: confira uma noite inteira e então mude `modo_teste = false`
+  em `[desligamento]` no `config.toml`. O `clipador status` mostra há quanto tempo o PC
+  está ocioso.
 - `clipador momentos`: lista os momentos da gravação mais recente, da maior nota para a
   menor, com o trecho e o motivo ("voz alta (+24 dB) + pentakill seu + “não acredito”").
 - `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de

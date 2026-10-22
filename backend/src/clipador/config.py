@@ -271,6 +271,29 @@ class ConfigTitulos(BaseModel):
     )
 
 
+class ConfigDesligamento(BaseModel):
+    """Desligar o PC sozinho depois do processamento (etapa 11)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    desligar_ao_terminar: bool = Field(
+        default=True, description="Desligar o PC quando a fila da noite terminar."
+    )
+    minutos_ocioso: float = Field(
+        default=10,
+        ge=1,
+        le=240,
+        description="Só desliga com teclado e mouse parados há pelo menos este tempo.",
+    )
+    modo_teste: bool = Field(
+        default=True,
+        description=(
+            "Em vez de desligar, só escreve 'desligaria agora' no log. Deixe ligado até "
+            "conferir numa noite inteira que o horário está certo."
+        ),
+    )
+
+
 class Config(BaseSettings):
     """Configurações do app. Cada etapa do roteiro acrescenta as suas."""
 
@@ -332,6 +355,10 @@ class Config(BaseSettings):
     titulos: ConfigTitulos = Field(
         default_factory=ConfigTitulos,
         description="Títulos e hashtags com a IA local (Ollama).",
+    )
+    desligamento: ConfigDesligamento = Field(
+        default_factory=ConfigDesligamento,
+        description="Desligar o PC sozinho depois do processamento da noite.",
     )
     ignorar_gravacoes_antes_de: date | None = Field(
         default=None,

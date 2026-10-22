@@ -52,6 +52,8 @@ from clipador.detectores import detectar
 from clipador.ingestao import audio
 from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
 from clipador.jogo.coletor import iniciar_em_segundo_plano as iniciar_coletor_do_lol
+from clipador.sistema.desligamento import HORIZONTE as HORIZONTE_DA_FILA
+from clipador.sistema.desligamento import Desligamento
 from clipador.sistema.energia import ManterAcordado
 from clipador.sistema.trava import TravaDoServico
 from clipador.titulos import gerar
@@ -92,7 +94,11 @@ class Servico:
         monitor: MonitorDeGravacoes | None = None,
         energia: ManterAcordado | None = None,
         relogio: Callable[[], datetime] = agora,
+        desligamento: Desligamento | None = None,
     ) -> None:
+        """``desligamento``: o desligamento automático (etapa 11). Fica ``None`` (desligado)
+        por padrão; só o ``clipador iniciar`` (o serviço da noite) o liga. Um ``clipador
+        processar`` rodado à mão nunca desliga o PC."""
         self.cfg = cfg
         self.executores = EXECUTORES if executores is None else executores
         self.monitor = monitor or MonitorDeGravacoes(
@@ -103,6 +109,7 @@ class Servico:
         )
         self.energia = energia or ManterAcordado()
         self.relogio = relogio
+        self.desligamento = desligamento
         self.trava = TravaDoServico(cfg.pasta_dados)
         self.engine: Engine | None = None
         self._pausado = False
@@ -158,6 +165,7 @@ class Servico:
                 self._pausado = True
             resultado.pausado_por_gravacao = True
             self.energia.desativar()
+            self._conferir_desligamento(momento, fila_pendente=True)  # a live conta como fila
             return resultado
         if self._pausado:
             log.info("A gravação terminou: fila retomada.")
@@ -168,9 +176,20 @@ class Servico:
             # horário alguns milissegundos depois de "momento", e ela já deve rodar nesta volta.
             tarefa = fila.pegar_proxima(sessao, self.relogio(), tipos=self.executores.keys())
             if tarefa is None:
-                self.energia.desativar()
+                if self.desligamento is not None:
+                    pendente = fila.ha_trabalho(
+                        sessao, self.relogio(), self.executores.keys(), HORIZONTE_DA_FILA
+                    )
+                    self._conferir_desligamento(self.relogio(), fila_pendente=pendente)
+                # Depois da conferência (ela pode ter acabado com a espera desta noite):
+                if self.desligamento is not None and self.desligamento.esperando:
+                    self.energia.ativar()  # não suspender antes de desligar (etapa 11)
+                else:
+                    self.energia.desativar()
                 return resultado
             self.energia.ativar()
+            if self.desligamento is not None:
+                self.desligamento.houve_trabalho()
             resultado.tarefa_executada = tarefa.tipo.value
             contexto = fila.Contexto(deve_pausar=self.ha_gravacao_em_andamento)
             try:
@@ -194,6 +213,15 @@ class Servico:
                 fila.concluir(sessao, tarefa)
                 self._limpar_se_terminou(sessao, tarefa)
         return resultado
+
+    def _conferir_desligamento(self, momento: datetime, fila_pendente: bool) -> None:
+        if self.desligamento is None:
+            return
+        try:
+            self.desligamento.verificar(momento, fila_pendente)
+        except Exception:
+            # Um problema no desligamento (ex.: GetLastInputInfo falhou) não para a fila.
+            log.exception("Erro ao conferir o desligamento automático.")
 
     def _limpar_se_terminou(self, sessao: Session, tarefa: Tarefa) -> None:
         if tarefa.gravacao_id is None:

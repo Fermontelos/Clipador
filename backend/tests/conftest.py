@@ -51,6 +51,17 @@ def sem_ollama_de_verdade(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def nunca_desligar_de_verdade(monkeypatch):
+    """Nenhum teste chama o ``shutdown`` do Windows: se algum tentar, ele falha na hora."""
+    from clipador.sistema import desligamento
+
+    def proibido(argumentos):
+        pytest.fail(f"Um teste tentou rodar 'shutdown {' '.join(argumentos)}' de verdade.")
+
+    monkeypatch.setattr(desligamento, "rodar_shutdown", proibido)
+
+
+@pytest.fixture(autouse=True)
 def sem_partida_de_lol(monkeypatch):
     """Nenhum teste conversa com um LoL de verdade (se você estiver jogando, ele responderia).
 

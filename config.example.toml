@@ -139,3 +139,13 @@ hashtags_fixas = ["#leagueoflegends", "#lolbr"]
 max_hashtags = 5
 # Quantos títulos que você escolheu na revisão entram como exemplo do seu estilo.
 exemplos = 10
+
+# Desligar o PC sozinho depois do processamento da noite. Só desliga quando a fila terminou
+# (gravação em andamento conta como fila) E teclado e mouse estão parados há minutos_ocioso.
+# Antes, mostra uma contagem de 60 s: mexer no mouse cancela (ou digite "shutdown /a").
+[desligamento]
+desligar_ao_terminar = true
+minutos_ocioso = 10
+# Em teste, só escreve "desligaria agora" no log. Desligue o modo de teste só depois de
+# conferir numa noite inteira que o horário no log está certo.
+modo_teste = true
