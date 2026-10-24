@@ -53,7 +53,9 @@ uv run clipador web --demo        # revisa a demo no navegador (veja abaixo)
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
 picos de voz em horários conhecidos (0:25, 1:10, 1:58 e 2:30), eventos de uma partida de LoL,
-uma transcrição e títulos prontos. O vídeo mostra o tempo da gravação no centro da tela.
+uma transcrição e títulos prontos. O vídeo mostra o tempo da gravação no centro da tela
+e uma "câmera" falsa no canto de cima, já configurada, para o vertical B mostrar o layout
+câmera + jogo (uma demo criada antes dela só a ganha com `clipador demo --do-zero`).
 Rodar de novo não duplica nada; `--do-zero` apaga e recria. A demo usa uma pasta e um banco
 separados: os seus dados reais não são tocados.
 
@@ -126,7 +128,9 @@ cd frontend; npm ci; npm run build; cd ..
   Windows mostra na tela (mexer no mouse cancela; `shutdown /a` também). Programas abertos
   não impedem; uma gravação em andamento conta como fila; tarefas agendadas para dias
   depois (como as métricas) não seguram o PC ligado. Só o serviço desliga: um
-  `clipador processar` rodado à mão, não. Vem em **modo de teste**, que só escreve
+  `clipador processar` rodado à mão, não. E só depois de processar uma gravação: um novo
+  corte pedido na revisão de manhã não faz o PC desligar quando você sai de perto. Vem em
+  **modo de teste**, que só escreve
   "desligaria agora" no log: confira uma noite inteira e então mude `modo_teste = false`
   em `[desligamento]` no `config.toml`. O `clipador status` mostra há quanto tempo o PC
   está ocioso. Se você estiver usando o PC quando a fila acabar, o app espera você sair de
@@ -204,7 +208,9 @@ Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg
 na placa de vídeo: uma NVIDIA com driver 570 ou mais novo (as bibliotecas do CUDA 12, ~1 GB,
 vêm com o `uv sync`); sem ela, a transcrição usa o processador, bem mais devagar. Para os
 títulos com IA (opcional): o [Ollama](https://ollama.com) com o modelo `qwen3:4b`. Num PC
-sem placa NVIDIA, `uv sync --no-group gpu` pula esse download.
+sem placa NVIDIA, `uv sync --no-group gpu` pula esse download. Para construir a interface
+de revisão (uma vez): o [Node.js](https://nodejs.org) 22.12 ou mais novo
+(`winget install OpenJS.NodeJS.LTS`) e `cd frontend; npm ci; npm run build`.
 
 No PowerShell:
 
@@ -240,7 +246,8 @@ uv run pytest -m "not lento"  # testes rápidos (o pre-commit roda estes)
 uv run pytest              # todos, inclusive a demo real de 3 min (a CI roda estes)
 uv run ruff check          # lint
 uv run ruff format         # formatação
-uv run pre-commit install  # passa a rodar lint, formatação e testes rápidos a cada commit
+uv run pre-commit install  # a cada commit: lint, formatação, testes rápidos e, se o
+                           # frontend mudou, os tipos e os testes do Vitest
 ```
 
 A interface (em `frontend/`, React + Vite + TypeScript + Tailwind):
@@ -296,6 +303,8 @@ frontend/       interface de revisão, React (etapa 13): nunca guarda chaves
   src/revisao/  a tela de revisão: atalhos, ajuste do corte e estado (funções puras)
   src/telas/    fila e status, estatísticas (Recharts)
 tests/          testes de arquitetura (as regras entre as partes)
+conftest.py     proteções de todos os testes: nenhum abre o Whisper ou o Ollama de verdade,
+                mexe na abertura no login ou desliga o PC
 docs/           roteiro em PDF e decisões técnicas (docs/adr/)
 dados/          banco, backups, logs, clipes, temporários e a demo (fora do git, criado pelo app)
 ```

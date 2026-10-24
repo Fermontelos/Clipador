@@ -192,7 +192,10 @@ class Servico:
                     self.energia.desativar()
                 return resultado
             self.energia.ativar()
-            if self.desligamento is not None:
+            if self.desligamento is not None and tarefa.tipo in fila.TAREFAS_DA_CADEIA:
+                # Só o processamento de uma gravação (a noite) arma o desligamento. Um recorte
+                # pedido na revisão de manhã (ou, depois, publicar e coletar métricas) não:
+                # senão o PC desligaria na hora do almoço, ao ficar 10 min parado.
                 self.desligamento.houve_trabalho()
             resultado.tarefa_executada = tarefa.tipo.value
             contexto = fila.Contexto(deve_pausar=self.ha_gravacao_em_andamento)

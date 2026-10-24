@@ -164,8 +164,11 @@ CAMERA = Regiao(x=1010, y=30, largura=240, altura=135)
 def test_vertical_b_sem_camera_e_so_o_centro_do_jogo():
     filtro = comandos.filtro_de_video("vertical_b")
     # A largura do recorte vem da altura (proporção 9:16), centralizada e sem sair da tela.
-    assert "crop=w=trunc(ih*1080/1920/2)*2:h=ih:x=clip(iw*0.5-ow/2\\,0\\,iw-ow):y=0" in filtro
-    assert "scale=1080:1920" in filtro
+    assert (
+        "crop=w=min(trunc(ih*1080/1920/2)*2\\,iw):h=ih:x=clip(iw*0.5-ow/2\\,0\\,iw-ow):y=0"
+        in filtro
+    )
+    assert "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920" in filtro
     assert "split" not in filtro and "vstack" not in filtro
     assert filtro.endswith("[v]")
 
@@ -180,7 +183,7 @@ def test_vertical_b_com_camera_em_cima_e_jogo_embaixo():
         "crop=1080:640" in filtro
     )
     # O jogo nos 1280 de baixo, na proporção do espaço, centrado em 40% da largura.
-    assert "crop=w=trunc(ih*1080/1280/2)*2:h=ih:x=clip(iw*0.4-ow/2" in filtro
+    assert "crop=w=min(trunc(ih*1080/1280/2)*2\\,iw):h=ih:x=clip(iw*0.4-ow/2" in filtro
     assert "scale=1080:1280" in filtro
     assert "[c][j]vstack[v]" in filtro
 
@@ -467,6 +470,35 @@ def test_vertical_b_sem_camera_e_so_o_jogo(cfg, sessao, tarefa):
 
 
 @precisa_ffmpeg
+def test_vertical_b_de_gravacao_estreita(tmp_path):
+    """Uma gravação mais estreita que o recorte (ex.: vertical, 320×480) ainda sai 1080×1920.
+
+    (O som é um tom: silêncio digital puro vira NaN no loudnorm. Na vida real isso não chega
+    aqui: uma voz muda já é recusada na extração do áudio, etapa 5.)
+    """
+    gravacao = tmp_path / "estreita.mkv"
+    ffmpeg.rodar(
+        ["-f", "lavfi", "-i", "color=c=red:s=320x480:d=1", "-f", "lavfi",
+         "-i", "sine=frequency=220:sample_rate=48000", "-t", "1", "-c:v", "libx264",
+         "-preset", "ultrafast", "-c:a", "libopus", str(gravacao)],
+        tempo_limite_s=60,
+    )  # fmt: skip
+    cortes = ConfigCortes(
+        vertical_b=ConfigVerticalB(camera=Regiao(x=0, y=0, largura=100, altura=100))
+    )
+    destino = tmp_path / "b.mp4"
+    ffmpeg.rodar(
+        comandos.comando_do_clipe(
+            gravacao, 0, 1, "vertical_b", Faixas(voz=1, jogo=2, musica=3), 1, cortes,
+            "libx264", destino,
+        ),
+        tempo_limite_s=60,
+    )  # fmt: skip
+    info = ffmpeg.inspecionar(destino)
+    assert (info.largura, info.altura) == (1080, 1920)
+
+
+@precisa_ffmpeg
 def test_camera_fora_da_tela_e_falha_definitiva(cfg, sessao, tarefa):
     cfg.cortes = ConfigCortes(
         formatos=["vertical_b"],
@@ -537,9 +569,16 @@ def energia(arquivo: Path, frequencia: float) -> float:
 
 @pytest.mark.lento
 @precisa_ffmpeg
-def test_clipes_da_demo(tmp_path):
+def test_clipes_da_demo(tmp_path, monkeypatch):
     # Teste do roteiro: duração e resolução certas, sem a música, MP4 válido e a legenda
-    # começando do zero e batendo com a fala.
+    # começando do zero e batendo com a fala. Nada disso depende da qualidade da imagem: o
+    # preset mais rápido do x264 leva o teste de 81 s para bem menos (são 12 clipes).
+    original = comandos.argumentos_de_video
+    monkeypatch.setattr(
+        comandos,
+        "argumentos_de_video",
+        lambda encoder: ["ultrafast" if a == "medium" else a for a in original(encoder)],
+    )
     from typer.testing import CliRunner
 
     from clipador.banco.conexao import abrir_banco, nova_sessao

@@ -81,6 +81,8 @@ nota_minima = 10
 # com duração entre a mínima e a máxima. A etapa 14 ajusta isso pelos seus ajustes de corte.
 segundos_antes = 10
 segundos_depois = 5
+# Duração mínima e máxima do clipe, em segundos. Valem também para o ajuste do corte na
+# revisão (as alças da linha do tempo não passam destes limites).
 duracao_minima_s = 15
 duracao_maxima_s = 60
 # Sinais a menos disto um do outro viram um momento só.

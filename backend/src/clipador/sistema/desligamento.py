@@ -4,8 +4,10 @@ O serviço chama ``Desligamento.verificar`` a cada volta do laço (a cada ~10 s)
 desliga quando **tudo** isto vale:
 
 1. ``desligar_ao_terminar`` está ligado no config;
-2. o serviço **processou alguma coisa** nesta sessão (sem isso, deixar o PC parado 10 min
-   numa tarde qualquer, com o app aberto, o desligaria);
+2. o serviço **processou uma gravação** nesta sessão, isto é, alguma tarefa da cadeia da
+   noite (``extrair_audio`` a ``gerar_titulos``). Sem isso, deixar o PC parado 10 min numa
+   tarde qualquer, com o app aberto, o desligaria. Um recorte pedido na revisão de manhã
+   (etapa 12) não conta, pelo mesmo motivo;
 3. a fila terminou: nenhuma tarefa em andamento, nenhuma gravação em andamento (a live
    conta como fila) e nenhuma tarefa pendente que vá rodar logo. Tarefas agendadas para
    daqui a mais de ``HORIZONTE`` (ex.: coleta de métricas daqui a 7 dias) não contam;
@@ -94,7 +96,7 @@ class Desligamento:
         )
 
     def houve_trabalho(self) -> None:
-        """O serviço executou uma tarefa: quando a fila acabar, vale desligar."""
+        """O serviço processou uma gravação (a cadeia da noite): ao fim da fila, vale desligar."""
         if not self.processou_algo:
             log.debug("Houve processamento: o desligamento automático fica de olho na fila.")
         self.processou_algo = True

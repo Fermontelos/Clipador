@@ -235,7 +235,7 @@ def test_servico_desliga_depois_da_ultima_tarefa(cfg, pc):
 
     regra = Desligamento(ConfigDesligamento(modo_teste=False), pc.ocioso_s, pc.shutdown)
     servico = Servico(
-        cfg, executores={TipoTarefa.COLETAR_METRICAS: lambda *a: None},
+        cfg, executores={TipoTarefa.GERAR_TITULOS: lambda *a: None},
         energia=ManterAcordado(lambda f: 1), relogio=lambda: pc.agora, desligamento=regra,
     )  # fmt: skip
     servico.iniciar()
@@ -243,13 +243,39 @@ def test_servico_desliga_depois_da_ultima_tarefa(cfg, pc):
         from clipador.banco.conexao import nova_sessao
 
         with nova_sessao(servico.engine) as sessao:
-            fila.adicionar(sessao, TipoTarefa.COLETAR_METRICAS, executar_a_partir_de=pc.agora)
-        assert servico.passo().tarefa_executada == "coletar_metricas"
+            fila.adicionar(sessao, TipoTarefa.GERAR_TITULOS, executar_a_partir_de=pc.agora)
+        assert servico.passo().tarefa_executada == "gerar_titulos"
         assert pc.comandos == []  # acabou de trabalhar
         servico.passo()  # fila vazia e PC ocioso há 1 h
     finally:
         servico.encerrar()
     assert desligou(pc)
+
+
+def test_recorte_pedido_na_revisao_nao_arma_o_desligamento(cfg, pc):
+    """Um ajuste do corte de manhã (etapa 12) não pode desligar o PC na hora do almoço."""
+    from clipador.sistema.energia import ManterAcordado
+    from clipador.sistema.servico import Servico
+
+    regra = Desligamento(ConfigDesligamento(modo_teste=False), pc.ocioso_s, pc.shutdown)
+    servico = Servico(
+        cfg, executores={TipoTarefa.RECORTAR: lambda *a: None},
+        energia=ManterAcordado(lambda f: 1), relogio=lambda: pc.agora, desligamento=regra,
+    )  # fmt: skip
+    servico.iniciar()
+    try:
+        from clipador.banco.conexao import nova_sessao
+
+        with nova_sessao(servico.engine) as sessao:
+            fila.adicionar(sessao, TipoTarefa.RECORTAR, executar_a_partir_de=pc.agora)
+        assert servico.passo().tarefa_executada == "recortar"
+        for _ in range(3):  # fila vazia e PC ocioso há 1 h, conferindo por 3 min
+            servico.passo()
+            pc.passar(61)
+    finally:
+        servico.encerrar()
+    assert pc.comandos == []
+    assert regra.processou_algo is False
 
 
 def test_pc_nao_suspende_enquanto_espera_para_desligar(cfg, pc):
@@ -262,7 +288,7 @@ def test_pc_nao_suspende_enquanto_espera_para_desligar(cfg, pc):
     regra = Desligamento(ConfigDesligamento(modo_teste=True), pc.ocioso_s, pc.shutdown)
     energia = ManterAcordado(lambda flags: 1)
     servico = Servico(
-        cfg, executores={TipoTarefa.COLETAR_METRICAS: lambda *a: None},
+        cfg, executores={TipoTarefa.GERAR_TITULOS: lambda *a: None},
         energia=energia, relogio=lambda: pc.agora, desligamento=regra,
     )  # fmt: skip
     servico.iniciar()
@@ -270,7 +296,7 @@ def test_pc_nao_suspende_enquanto_espera_para_desligar(cfg, pc):
         from clipador.banco.conexao import nova_sessao
 
         with nova_sessao(servico.engine) as sessao:
-            fila.adicionar(sessao, TipoTarefa.COLETAR_METRICAS, executar_a_partir_de=pc.agora)
+            fila.adicionar(sessao, TipoTarefa.GERAR_TITULOS, executar_a_partir_de=pc.agora)
         servico.passo()  # processa
         servico.passo()  # fila vazia, mas esperando a sua ociosidade para desligar
         assert energia.ativo is True

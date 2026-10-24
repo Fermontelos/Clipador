@@ -138,9 +138,11 @@ def recorte_do_jogo(altura_saida: int, centro_x: float) -> str:
     """O ``crop`` do centro do jogo, na proporção 1080 × ``altura_saida``, altura inteira.
 
     A largura vem da altura da gravação (``ih``), e o recorte nunca sai da tela: perto da
-    borda, ele encosta nela em vez de passar (``clip``).
+    borda, ele encosta nela em vez de passar (``clip``). Numa gravação mais estreita que o
+    recorte (ex.: uma gravação vertical), ele fica com a largura toda (``min``), e o
+    ``scale`` seguinte preenche o espaço cortando a sobra, sem distorcer.
     """
-    largura = f"trunc(ih*{LARGURA_VERTICAL}/{altura_saida}/2)*2"
+    largura = f"min(trunc(ih*{LARGURA_VERTICAL}/{altura_saida}/2)*2\\,iw)"
     x = f"clip(iw*{centro_x:g}-ow/2\\,0\\,iw-ow)"
     return f"crop=w={largura}:h=ih:x={x}:y=0"
 
@@ -161,7 +163,8 @@ def _filtro_vertical_b(cfg: ConfigVerticalB) -> str:
     altura_camera, altura_jogo = alturas_do_vertical_b(cfg)
     jogo = (
         f"{recorte_do_jogo(altura_jogo, cfg.centro_x)},"
-        f"scale={LARGURA_VERTICAL}:{altura_jogo},setsar=1"
+        f"scale={LARGURA_VERTICAL}:{altura_jogo}:force_original_aspect_ratio=increase,"
+        f"crop={LARGURA_VERTICAL}:{altura_jogo},setsar=1"
     )
     if cfg.camera is None:
         return f"[0:v:0]{jogo}"

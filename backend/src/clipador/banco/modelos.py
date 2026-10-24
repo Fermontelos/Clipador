@@ -170,7 +170,7 @@ class EventoJogo(SQLModel, table=True):
 
 
 class Momento(SQLModel, table=True):
-    """Trecho candidato a virar clipe, com a nota calculada (etapas 8 e 10)."""
+    """Trecho candidato a virar clipe: nota (etapa 8), pico (9), títulos (10), ajuste (12)."""
 
     id: int | None = Field(default=None, primary_key=True)
     gravacao_id: int = Field(foreign_key="gravacao.id", index=True)

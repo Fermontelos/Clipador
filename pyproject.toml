@@ -48,6 +48,7 @@ addopts = "--import-mode=importlib"
 markers = [
     "lento: testes demorados (ex.: a demo real de 3 min); o pre-commit pula, a CI roda",
 ]
-# Nenhum teste pode passar de 5 min (o mais lento, a demo real, leva uns 30 s). Um teste
-# travado falha sozinho, mostrando onde parou, em vez de segurar a CI por horas.
+# Nenhum teste pode passar de 5 min (os mais lentos, a demo inteira com os cortes, levam
+# perto de 1 min com o PC livre). Um teste travado falha sozinho, mostrando onde parou, em
+# vez de segurar a CI por horas.
 timeout = 300

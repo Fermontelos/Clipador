@@ -40,10 +40,14 @@ O conteúdo da live é humor e reação (a voz do streamer é o sinal principal 
 
 ## Consequências
 
-- Quando a webcam chegar: `clipador calibrar`, pôr o retângulo no `config.toml` e, para as
-  lives já cortadas, `clipador refazer` ou um ajuste na revisão.
+- Quando a webcam chegar: `clipador calibrar` (numa live gravada com ela) e pôr o retângulo
+  no `config.toml`. As lives cortadas dali em diante já saem com a câmera; as já cortadas
+  ficam como estavam (o `clipador refazer` só devolve tarefas com erro, e um ajuste na
+  revisão só corta de novo quando o trecho muda).
 - Se a câmera mudar de lugar na cena do OBS, o config precisa mudar junto.
 - Uma cena sem a câmera (ex.: tela de espera) ainda mostra o canto da cena no terço de
   cima. Detectar a câmera na imagem fica para depois, se isso aparecer nas lives.
-- Cada momento ganha mais um clipe (~14 s de processador por 20 s de vídeo), de madrugada.
+- Cada momento ganha mais um clipe (~14 s de processador por 20 s de vídeo). Numa live
+  com 30 momentos, os cortes da noite passam de 30–60 min (2 formatos, ADR 0006) para
+  45–90 min, de madrugada, quando a velocidade não importa.
 - A demo tem uma "câmera" falsa no canto, já configurada, para mostrar o layout.

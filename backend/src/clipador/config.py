@@ -191,8 +191,18 @@ class ConfigDeteccao(BaseModel):
     segundos_depois: float = Field(
         default=5, ge=0, le=60, description="O clipe termina este tanto depois do último sinal."
     )
-    duracao_minima_s: float = Field(default=15, gt=0, le=600)
-    duracao_maxima_s: float = Field(default=60, gt=0, le=600)
+    duracao_minima_s: float = Field(
+        default=15,
+        gt=0,
+        le=600,
+        description="Menor clipe, em segundos (vale também para o ajuste do corte na revisão).",
+    )
+    duracao_maxima_s: float = Field(
+        default=60,
+        gt=0,
+        le=600,
+        description="Maior clipe, em segundos (vale também para o ajuste do corte na revisão).",
+    )
     juntar_ate_s: float = Field(
         default=8, ge=0, le=60, description="Sinais a menos disto um do outro viram um momento só."
     )
