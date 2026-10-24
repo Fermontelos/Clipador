@@ -1,0 +1,77 @@
+// Conversa com a API local (127.0.0.1). Nada de chaves aqui: tudo o que está no navegador
+// pode ser lido por quem abrir as ferramentas de desenvolvedor.
+import type {
+  Config,
+  Dia,
+  Estatisticas,
+  ListaMomentos,
+  Momento,
+  Status,
+} from "./tipos";
+
+export class ErroDaApi extends Error {
+  constructor(
+    public status: number,
+    mensagem: string,
+  ) {
+    super(mensagem);
+  }
+}
+
+/** A mensagem que a API mandou (``detail``), em texto. */
+function explicar(corpo: unknown, status: number): string {
+  const detalhe = (corpo as { detail?: unknown } | null)?.detail;
+  if (typeof detalhe === "string") return detalhe;
+  if (Array.isArray(detalhe)) {
+    return detalhe.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ");
+  }
+  return `Erro ${status} na API.`;
+}
+
+async function pedir<T>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
+  let resposta: Response;
+  try {
+    resposta = await fetch(caminho, {
+      ...opcoes,
+      headers: opcoes.body ? { "Content-Type": "application/json" } : undefined,
+    });
+  } catch {
+    throw new ErroDaApi(0, "Sem resposta da API: o 'clipador web' está aberto?");
+  }
+  const corpo = await resposta.json().catch(() => null);
+  if (!resposta.ok) throw new ErroDaApi(resposta.status, explicar(corpo, resposta.status));
+  return corpo as T;
+}
+
+const json = (dados: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(dados) });
+
+export const api = {
+  config: () => pedir<Config>("/api/config"),
+  dias: () => pedir<Dia[]>("/api/dias"),
+  momentos: (dia: string | null, verMais: boolean) => {
+    const parametros = new URLSearchParams();
+    if (dia) parametros.set("dia", dia);
+    if (verMais) parametros.set("ver_mais", "true");
+    const texto = parametros.toString();
+    return pedir<ListaMomentos>(`/api/momentos${texto ? `?${texto}` : ""}`);
+  },
+  momento: (id: number) => pedir<Momento>(`/api/momentos/${id}`),
+  decidir: (
+    id: number,
+    decisao: {
+      aprovado: boolean;
+      destinos?: Record<string, string[]>;
+      titulo?: string;
+      hashtags?: string[];
+      tipo_titulo?: string | null;
+    },
+  ) => pedir<Momento>(`/api/momentos/${id}/decisao`, json(decisao)),
+  desfazer: (id: number) => pedir<Momento>(`/api/momentos/${id}/decisao`, { method: "DELETE" }),
+  ajustar: (id: number, inicio_s: number, fim_s: number) =>
+    pedir<{ tarefa_id: number | null; momento: Momento }>(
+      `/api/momentos/${id}/ajuste`,
+      json({ inicio_s, fim_s }),
+    ),
+  status: () => pedir<Status>("/api/status"),
+  estatisticas: () => pedir<Estatisticas>("/api/estatisticas"),
+};

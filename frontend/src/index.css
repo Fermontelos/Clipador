@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Tema escuro (revisar vídeo de madrugada ou de manhã cansa menos a vista). Cores neutras e
+   das séries da paleta de referência do tema escuro; status (bom, aviso, erro) separadas
+   das séries e sempre com ícone e texto junto, nunca só a cor. */
+:root {
+  color-scheme: dark;
+  --fundo: #0d0d0d;
+  --superficie: #1a1a19;
+  --texto: #f0efec;
+  --texto-2: #c3c2b7;
+  --texto-fraco: #898781;
+  --grade: #2c2c2a;
+  --trilho: #383835;
+  --borda: rgba(255, 255, 255, 0.1);
+  --destaque: #3987e5;
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --bom: #0ca30c;
+  --aviso: #fab219;
+  --erro: #d03b3b;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* O foco do teclado sempre visível: a revisão é feita quase só pelo teclado. */
+:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+}

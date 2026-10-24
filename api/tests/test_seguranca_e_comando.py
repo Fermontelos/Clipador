@@ -70,7 +70,15 @@ def test_web_aparece_no_cli():
     assert nomes.count("web") == 1
 
 
-def test_web_sobe_so_em_127_0_0_1(monkeypatch, tmp_path):
+@pytest.mark.parametrize(("construida", "pagina"), [(False, "docs"), (True, "")])
+def test_web_sobe_so_em_127_0_0_1(monkeypatch, tmp_path, construida, pagina):
+    import clipador_api.app
+
+    build = tmp_path / "dist"
+    if construida:
+        build.mkdir()
+        (build / "index.html").write_text("<!doctype html>", encoding="utf-8")
+    monkeypatch.setattr(clipador_api.app, "PASTA_DA_INTERFACE", build)
     chamadas = {}
     monkeypatch.setattr("uvicorn.run", lambda app, **opcoes: chamadas.update(opcoes))
     abertos = []
@@ -86,7 +94,7 @@ def test_web_sobe_so_em_127_0_0_1(monkeypatch, tmp_path):
     assert resultado.exit_code == 0, resultado.output
     assert chamadas["host"] == "127.0.0.1"
     assert chamadas["port"] == 8799
-    assert abertos == ["http://127.0.0.1:8799/docs"]
+    assert abertos == [f"http://127.0.0.1:8799/{pagina}"]
 
 
 def test_web_sem_navegador_e_outra_porta(monkeypatch, tmp_path):

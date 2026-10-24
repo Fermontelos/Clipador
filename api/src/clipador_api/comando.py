@@ -1,5 +1,7 @@
 """``clipador web``: sobe a API da revisão em 127.0.0.1 e abre o navegador.
 
+Abre a interface (etapa 13) se ela foi construída; senão, a documentação em ``/docs``.
+
 A API se cadastra no CLI do backend pelo grupo de *entry points* ``clipador.comandos``
 (``api/pyproject.toml``), porque o backend não pode importar a API (ADR 0003).
 """
@@ -50,10 +52,10 @@ def web(
         bool, typer.Option("--sem-navegador", help="Não abre o navegador sozinho.")
     ] = False,
 ) -> None:
-    """Abre a revisão dos clipes no navegador (por enquanto, a documentação em /docs)."""
+    """Abre a revisão dos clipes no navegador."""
     import uvicorn  # só aqui: o resto do CLI não precisa esperar o FastAPI carregar
 
-    from clipador_api.app import criar_app
+    from clipador_api.app import PASTA_DA_INTERFACE, criar_app
 
     cfg = config_do_comando(Path(arquivo), demo)
     porta = porta or cfg.revisao.porta
@@ -64,7 +66,13 @@ def web(
             err=True,
         )
         raise typer.Exit(code=1)
-    endereco = f"http://{ENDERECO}:{porta}/docs"
+    construida = (PASTA_DA_INTERFACE / "index.html").is_file()
+    endereco = f"http://{ENDERECO}:{porta}/" + ("" if construida else "docs")
+    if not construida:
+        typer.echo(
+            "A interface ainda não foi construída (cd frontend; npm ci; npm run build): "
+            "abrindo a documentação da API, que também permite revisar."
+        )
     typer.echo(f"Revisão em {endereco} (Ctrl+C para fechar).")
     if cfg.revisao.abrir_navegador and not sem_navegador:
         # Espera o servidor subir para o navegador não abrir numa página de erro.

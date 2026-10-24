@@ -21,3 +21,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: frontend
+        name: frontend (tipos e testes do Vitest)
+        entry: bash -c "cd frontend && npm run typecheck && npm test"
+        language: system
+        files: ^frontend/
+        pass_filenames: false

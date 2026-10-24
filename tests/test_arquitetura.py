@@ -76,8 +76,31 @@ def test_frontend_nao_guarda_chaves():
     # O que vai para o navegador pode ser lido por qualquer pessoa. Um .env no frontend
     # (fora o .env.example, sem valores) é sinal de chave no lugar errado.
     pasta = RAIZ / "frontend"
-    arquivos_env = [p.name for p in pasta.rglob(".env*") if p.name != ".env.example"]
+    arquivos_env = [
+        p.relative_to(pasta)
+        for p in pasta.rglob(".env*")
+        if p.name != ".env.example" and not _de_terceiros(p, pasta)
+    ]
     assert arquivos_env == []
+
+
+def _de_terceiros(arquivo: Path, pasta: Path) -> bool:
+    """Dependências do npm e o build não são código do projeto."""
+    return arquivo.relative_to(pasta).parts[0] in {"node_modules", "dist"}
+
+
+def test_codigo_do_frontend_nao_fala_de_chaves():
+    # O frontend conversa só com a API local; tokens do YouTube e do TikTok ficam nas
+    # integrações (lidas do .env pelo backend). Estes nomes no frontend são sinal de vazamento.
+    proibidos = ("client_secret", "refresh_token", "access_token", "api_key", "apikey")
+    violacoes = [
+        f"{arquivo.relative_to(RAIZ)} menciona {nome}"
+        for arquivo in (RAIZ / "frontend" / "src").rglob("*")
+        if arquivo.is_file()
+        for nome in proibidos
+        if nome in arquivo.read_text(encoding="utf-8").lower()
+    ]
+    assert violacoes == []
 
 
 def test_regras_conferem_de_verdade(tmp_path):

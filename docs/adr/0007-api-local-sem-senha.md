@@ -45,8 +45,8 @@ ferramentas usam para plugins.
 
 - Testes conferem as barreiras: `Host` de outro nome dá 400, `Origin` de outro site dá
   403, formulário `text/plain` dá 422 (`api/tests/test_seguranca_e_comando.py`).
-- A interface da etapa 13 precisa ser servida pela mesma origem da API. Em produção, a
-  própria API serve os arquivos prontos; durante o desenvolvimento, o Vite repassa `/api`
-  com *proxy*, e esse proxy precisa reescrever o `Origin` (o navegador manda o do Vite,
-  `localhost:5173`, que a API recusaria).
+- A interface da etapa 13 é servida pela mesma origem da API: a própria API serve os
+  arquivos prontos (`frontend/dist`). Durante o desenvolvimento, o Vite repassa `/api` com
+  *proxy* e troca **só** a origem dele (`127.0.0.1:5173`) pela da API; a de qualquer outro
+  site passa adiante e continua recusada (conferido na etapa 13, em `frontend/vite.config.ts`).
 - Sem a API instalada, o CLI do backend funciona normalmente, só sem o `web`.

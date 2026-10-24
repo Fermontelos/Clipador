@@ -1,0 +1,42 @@
+/// <reference types="vitest/config" />
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+
+// Onde o "clipador web" está rodando (a porta é a de [revisao] porta no config.toml).
+const API = process.env.CLIPADOR_API ?? "http://127.0.0.1:8765";
+const PORTA_DO_VITE = 5173;
+const ORIGENS_DO_VITE = new Set([
+  `http://localhost:${PORTA_DO_VITE}`,
+  `http://127.0.0.1:${PORTA_DO_VITE}`,
+]);
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    host: "127.0.0.1", // só este PC, como a API
+    port: PORTA_DO_VITE,
+    strictPort: true,
+    proxy: {
+      // No desenvolvimento ("npm run dev"), o Vite repassa /api para o FastAPI. A API recusa
+      // pedidos que mudam algo vindos de outra origem (ADR 0007), e o navegador manda a do
+      // Vite: o proxy troca SÓ ela pela da API. Uma origem estranha continua sendo recusada.
+      "/api": {
+        target: API,
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (pedido) => {
+            const origem = pedido.getHeader("origin");
+            if (typeof origem === "string" && ORIGENS_DO_VITE.has(origem)) {
+              pedido.setHeader("origin", API);
+            }
+          });
+        },
+      },
+    },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/testes/preparar.ts"],
+  },
+});

@@ -9,7 +9,10 @@ Rotas (todas documentadas, e testáveis no navegador, em ``/docs``):
 - ``POST /api/momentos/{id}/ajuste``: novo início e fim (põe um novo corte na fila);
 - ``GET /api/clipes/{id}/video``: o vídeo, com ``Range`` (o player avança e volta);
 - ``GET /api/momentos/{id}/thumbnail``: o quadro do pico (clipes horizontais);
-- ``GET /api/dias``, ``GET /api/status`` e ``GET /api/estatisticas``.
+- ``GET /api/dias``, ``GET /api/status``, ``GET /api/estatisticas`` e ``GET /api/config``
+  (o que a interface precisa saber do config: limites do corte, formatos...);
+- ``/``: a interface de revisão (etapa 13), se ela foi construída (``npm run build`` em
+  ``frontend/``). Sem ela, a página inicial explica como construir e aponta o ``/docs``.
 
 Segurança (a API não tem senha, então só o próprio PC pode usá-la):
 
@@ -30,7 +33,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, col, select
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -43,6 +46,7 @@ from clipador.banco.modelos import (
     Decisao,
     Gravacao,
     Momento,
+    Plataforma,
     StatusTarefa,
     Tarefa,
     agora,
@@ -50,18 +54,24 @@ from clipador.banco.modelos import (
 from clipador.config import Config
 from clipador.cortes.cortar import caminho_da_thumbnail
 from clipador.revisao import consultas, cota, decisoes
+from clipador.titulos.texto import LIMITE_TITULO_YOUTUBE
 from clipador_api import esquemas
 
 HOSTS_PERMITIDOS = ["127.0.0.1", "localhost"]
 METODOS_SEGUROS = {"GET", "HEAD", "OPTIONS"}
 SEM_CACHE_VELHO = {"Cache-Control": "no-cache"}
+# O build da interface (etapa 13): frontend/dist, na raiz do repositório.
+PASTA_DA_INTERFACE = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 
 
-def criar_app(cfg: Config, engine: Engine | None = None) -> FastAPI:
+def criar_app(
+    cfg: Config, engine: Engine | None = None, pasta_interface: Path = PASTA_DA_INTERFACE
+) -> FastAPI:
     """Monta a API para a configuração dada (a sua ou a da demo).
 
     ``engine``: um banco já aberto (os testes passam o deles); sem ele, abre o do config,
-    aplicando as migrações pendentes, como o resto do app.
+    aplicando as migrações pendentes, como o resto do app. ``pasta_interface``: o build da
+    interface (os testes passam um falso).
     """
 
     @asynccontextmanager
@@ -101,6 +111,7 @@ def criar_app(cfg: Config, engine: Engine | None = None) -> FastAPI:
 
     _registrar_erros(app)
     _registrar_rotas(app)
+    _registrar_interface(app, pasta_interface)  # por último: pega o que nenhuma rota pegou
     return app
 
 
@@ -167,6 +178,7 @@ def montar_momento(
         fim_s=momento.fim_s,
         duracao_s=round(momento.fim_s - momento.inicio_s, 3),
         pico_s=momento.pico_s,
+        duracao_gravacao_s=gravacao.duracao_s,
         inicio_detectado_s=momento.inicio_detectado_s,
         fim_detectado_s=momento.fim_detectado_s,
         titulos_sugeridos=momento.titulos_sugeridos,
@@ -304,7 +316,14 @@ def _registrar_rotas(app: FastAPI) -> None:
     def ajustar(
         momento_id: int, pedido: esquemas.PedidoAjuste, sessao: Sessao, cfg: Cfg
     ) -> esquemas.RespostaAjuste:
-        tarefa = decisoes.ajustar(sessao, momento_id, pedido.inicio_s, pedido.fim_s)
+        tarefa = decisoes.ajustar(
+            sessao,
+            momento_id,
+            pedido.inicio_s,
+            pedido.fim_s,
+            duracao_minima_s=cfg.deteccao.duracao_minima_s,
+            duracao_maxima_s=cfg.deteccao.duracao_maxima_s,
+        )
         return esquemas.RespostaAjuste(
             tarefa_id=tarefa.id if tarefa else None, momento=ver_momento(momento_id, sessao, cfg)
         )
@@ -355,3 +374,57 @@ def _registrar_rotas(app: FastAPI) -> None:
     @app.get("/api/estatisticas", tags=["painel"], summary="Dados dos gráficos")
     def estatisticas(sessao: Sessao) -> esquemas.EstatisticasSaida:
         return esquemas.EstatisticasSaida(**vars(consultas.estatisticas(sessao)))
+
+    @app.get("/api/config", tags=["painel"], summary="O que a interface precisa do config")
+    def config(cfg: Cfg) -> esquemas.ConfigSaida:
+        return esquemas.ConfigSaida(
+            limite_diario=cfg.limite_diario,
+            duracao_minima_s=cfg.deteccao.duracao_minima_s,
+            duracao_maxima_s=cfg.deteccao.duracao_maxima_s,
+            formatos=list(cfg.cortes.formatos),
+            plataformas=[p.value for p in Plataforma],
+            destinos_padrao={f: list(d) for f, d in cfg.revisao.destinos_padrao.items()},
+            max_hashtags=cfg.titulos.max_hashtags,
+            limite_titulo=LIMITE_TITULO_YOUTUBE,
+        )
+
+
+# --------------------------------------------------------------------------- interface
+
+SEM_INTERFACE = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<title>Clipador</title></head>
+<body style="font-family:sans-serif;max-width:40rem;margin:3rem auto">
+<h1>A interface de revisão ainda não foi construída</h1>
+<p>Para construí-la (uma vez só; precisa do Node.js):</p>
+<pre>cd frontend
+npm ci
+npm run build</pre>
+<p>Enquanto isso, dá para revisar tudo pela <a href="/docs">documentação interativa</a>.</p>
+</body></html>"""
+
+
+def _registrar_interface(app: FastAPI, pasta: Path) -> None:
+    """Serve o build da interface (``frontend/dist``): os arquivos e, para o resto, o index.
+
+    Os arquivos de ``assets/`` têm o conteúdo no nome (ex.: ``index-3f2a1b.js``), então o
+    navegador pode guardá-los para sempre; o ``index.html`` não (ele aponta para os novos).
+    """
+    pasta = pasta.resolve()
+
+    @app.get("/{caminho:path}", include_in_schema=False)
+    def interface(caminho: str) -> Response:
+        if caminho == "api" or caminho.startswith("api/"):
+            raise HTTPException(404, f"Não existe a rota /{caminho}.")
+        indice = pasta / "index.html"
+        if not indice.is_file():
+            return HTMLResponse(SEM_INTERFACE)
+        arquivo = (pasta / caminho).resolve()
+        # is_relative_to: um "../../config.toml" no endereço não sai da pasta do build.
+        if caminho and arquivo.is_relative_to(pasta) and arquivo.is_file():
+            if arquivo.parent == pasta / "assets":
+                cache = {"Cache-Control": "public, max-age=31536000, immutable"}
+            else:
+                cache = SEM_CACHE_VELHO
+            return FileResponse(arquivo, headers=cache)
+        # Qualquer outro endereço (ex.: /estatisticas) é uma tela da interface.
+        return FileResponse(indice, headers=SEM_CACHE_VELHO)

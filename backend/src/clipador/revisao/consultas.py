@@ -140,6 +140,9 @@ class Estatisticas:
     # Em quantos aprovados cada formato e cada plataforma foram escolhidos.
     formatos: dict[str, int] = field(default_factory=dict)
     plataformas: dict[str, int] = field(default_factory=dict)
+    # Força média de cada detector nos momentos aprovados e nos recusados (de 0 a 1). Um
+    # detector que pesa igual nos dois não ajuda a separar o bom do ruim (etapa 14).
+    sinais: list[dict] = field(default_factory=list)
     # Média dos ajustes do corte (segundos; negativo = você puxou para mais cedo).
     ajuste_medio_inicio_s: float | None = None
     ajuste_medio_fim_s: float | None = None
@@ -161,6 +164,7 @@ def estatisticas(sessao: Session) -> Estatisticas:
     plataformas: Counter = Counter()
     ajustes_inicio: list[float] = []
     ajustes_fim: list[float] = []
+    forcas: dict[str, dict[str, list[float]]] = {}
     for momento, decisao in linhas:
         dia = dia_da_gravacao(gravacoes[momento.gravacao_id])
         contagem_dia = por_dia.setdefault(dia, Counter())
@@ -174,6 +178,9 @@ def estatisticas(sessao: Session) -> Estatisticas:
         chave = "aprovados" if decisao.aprovado else "recusados"
         contagem_dia[chave] += 1
         contagem_nota[chave] += 1
+        for detector, forca in momento.sinais.items():
+            listas = forcas.setdefault(detector, {"aprovados": [], "recusados": []})
+            listas[chave].append(forca)
         if decisao.aprovado:
             resultado.aprovados += 1
             formatos.update(decisao.formatos)
@@ -200,6 +207,16 @@ def estatisticas(sessao: Session) -> Estatisticas:
         for faixa, c in (
             (f, por_nota.get(f, Counter())) for f in range(0, 100, LARGURA_DA_FAIXA_DE_NOTA)
         )
+    ]
+    resultado.sinais = [
+        {
+            "detector": detector,
+            **{
+                chave: round(sum(valores) / len(valores), 3) if valores else None
+                for chave, valores in listas.items()
+            },
+        }
+        for detector, listas in sorted(forcas.items())
     ]
     resultado.formatos = dict(formatos)
     resultado.plataformas = dict(plataformas)

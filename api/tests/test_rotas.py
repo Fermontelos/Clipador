@@ -19,6 +19,7 @@ from clipador.banco.modelos import (
 )
 from clipador.revisao import decisoes
 
+LIMITES = {"duracao_minima_s": 15, "duracao_maxima_s": 60}
 APROVACAO = {
     "aprovado": True,
     "destinos": {"vertical_a": ["youtube", "tiktok"], "horizontal": ["youtube"]},
@@ -374,7 +375,7 @@ def test_publicacao_espera_o_novo_corte(sessao, um_momento):
     from clipador.revisao.consultas import recorte_pendente
 
     assert not recorte_pendente(sessao, um_momento.id)
-    tarefa = decisoes.ajustar(sessao, um_momento.id, 95, 125)
+    tarefa = decisoes.ajustar(sessao, um_momento.id, 95, 125, **LIMITES)
     assert recorte_pendente(sessao, um_momento.id)
     tarefa.status = StatusTarefa.FEITA
     sessao.add(tarefa)
@@ -433,7 +434,7 @@ def test_video_apagado_da_404(cliente, sessao, um_momento):
 
 
 def test_status(cliente, sessao, um_momento):
-    decisoes.ajustar(sessao, um_momento.id, 95, 125)  # uma tarefa pendente
+    decisoes.ajustar(sessao, um_momento.id, 95, 125, **LIMITES)  # uma tarefa pendente
     erro = Tarefa(
         tipo=TipoTarefa.TRANSCREVER, status=StatusTarefa.ERRO, ultimo_erro="sem faixa da voz"
     )

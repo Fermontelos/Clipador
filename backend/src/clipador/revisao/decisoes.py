@@ -6,10 +6,11 @@ Regras:
   vai ler as decisões aprovadas e virar tarefas na fila.
 - Depois que um clipe do momento foi para a publicação, a decisão e o corte não mudam mais
   (``RevisaoBloqueadaError``): mudar aqui não mudaria o que já subiu.
-- **Ajuste do corte**: muda o início e o fim do momento e põe uma tarefa ``recortar`` na
-  fila, que corta de novo só esse momento. O trecho que o detector escolheu fica guardado
-  (``Momento.inicio_detectado_s``) e a diferença vai para a decisão: a etapa 14 aprende a
-  janela padrão com a média desses ajustes.
+- **Ajuste do corte**: muda o início e o fim do momento (com a mesma duração mínima e
+  máxima que o detector usa, ``[deteccao] duracao_minima_s`` e ``duracao_maxima_s``) e põe
+  uma tarefa ``recortar`` na fila, que corta de novo só esse momento. O trecho que o
+  detector escolheu fica guardado (``Momento.inicio_detectado_s``) e a diferença vai para a
+  decisão: a etapa 14 aprende a janela padrão com a média desses ajustes.
 """
 
 import logging
@@ -34,8 +35,6 @@ from clipador.titulos.texto import LIMITE_TITULO_YOUTUBE, TIPOS_DE_TITULO
 log = logging.getLogger(__name__)
 
 MAX_HASHTAGS = 15  # o YouTube recomenda 3 a 5; mais de 60, ignora todas
-# Um ajuste maior que isto não é mais um "clipe" (o Shorts aceita até 3 min).
-DURACAO_MAXIMA_S = 180.0
 HASHTAG_VALIDA = re.compile(r"^#\w+$")
 
 
@@ -201,8 +200,19 @@ def desfazer(sessao: Session, momento_id: int) -> None:
     log.info("Decisão do momento %s desfeita.", momento_id)
 
 
-def ajustar(sessao: Session, momento_id: int, inicio_s: float, fim_s: float) -> Tarefa | None:
+def ajustar(
+    sessao: Session,
+    momento_id: int,
+    inicio_s: float,
+    fim_s: float,
+    *,
+    duracao_minima_s: float,
+    duracao_maxima_s: float,
+) -> Tarefa | None:
     """Muda o trecho do momento e põe na fila um novo corte só dele.
+
+    A duração tem de ficar entre ``duracao_minima_s`` e ``duracao_maxima_s`` (as do
+    detector). Numa gravação mais curta que o mínimo, vale a gravação inteira.
 
     Devolve a tarefa ``recortar`` (uma que já estava esperando na fila é reaproveitada) ou
     ``None`` se o trecho não mudou.
@@ -221,11 +231,15 @@ def ajustar(sessao: Session, momento_id: int, inicio_s: float, fim_s: float) -> 
         raise DecisaoInvalidaError(
             f"O fim ({fim_s:.1f} s) passa do fim da gravação ({gravacao.duracao_s:.1f} s)."
         )
-    duracao = fim_s - inicio_s
-    if not DURACAO_MINIMA_S <= duracao <= DURACAO_MAXIMA_S:
+    duracao = round(fim_s - inicio_s, 3)
+    minima = duracao_minima_s
+    if gravacao.duracao_s is not None:
+        minima = min(minima, gravacao.duracao_s)
+    minima = max(minima, DURACAO_MINIMA_S)  # o corte nunca aceita menos que isto
+    if not minima <= duracao <= duracao_maxima_s:
         raise DecisaoInvalidaError(
-            f"O clipe ficaria com {duracao:.1f} s: precisa ter de {DURACAO_MINIMA_S:.0f} a "
-            f"{DURACAO_MAXIMA_S:.0f} s."
+            f"O clipe ficaria com {duracao:.1f} s: precisa ter de {minima:.0f} a "
+            f"{duracao_maxima_s:.0f} s."
         )
     if (inicio_s, fim_s) == (momento.inicio_s, momento.fim_s):
         return None

@@ -24,3 +24,6 @@ dados/
 *.mkv
 *.mp4
 *.wav
+
+# Frontend (etapa 13): dependências do npm (o build, frontend/dist, já cai em dist/)
+node_modules/

@@ -9,6 +9,8 @@ com o engajamento do público quais momentos viram bons cortes.
 
 Projeto pessoal e de portfólio, feito só com ferramentas e APIs gratuitas.
 
+![A revisão dos clipes, feita só pelo teclado](docs/imagens/revisao.gif)
+
 ## Status
 
 Em desenvolvimento, uma etapa por vez. O roteiro completo (19 etapas), a stack e os riscos
@@ -28,7 +30,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 10 · Títulos com IA | Sugere 3 títulos e as hashtags de cada clipe | ✅ |
 | 11 · Desligar o PC | Desliga sozinho depois de processar | ✅ (em modo de teste) |
 | 12 · API da revisão | Serve os clipes e grava as suas decisões | ✅ |
-| 13 · Interface da revisão | Revisar os clipes pelo teclado, no navegador | ⏳ próxima |
+| 13 · Interface da revisão | Revisar os clipes pelo teclado, no navegador | ✅ |
+| 14 · Aprendizado | Ajustar a nota com as suas aprovações | ⏳ próxima |
 
 ## Experimente em 2 minutos (modo demo)
 
@@ -44,7 +47,7 @@ uv run clipador status --demo  # mostra a fila da demo
 uv run clipador processar --demo  # áudio, legenda, momentos, 8 clipes e títulos (~1,5 min)
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
 uv run clipador momentos --demo   # os 4 melhores momentos, com nota, motivo e título
-uv run clipador web --demo        # revisa a demo no navegador (por enquanto, pelo /docs)
+uv run clipador web --demo        # revisa a demo no navegador (veja abaixo)
 # os clipes da demo ficam em dados/demo/clipes/ (horizontal, vertical e thumbnail)
 ```
 
@@ -53,6 +56,14 @@ picos de voz em horários conhecidos (0:25, 1:10, 1:58 e 2:30), eventos de uma p
 uma transcrição e títulos prontos. O vídeo mostra o tempo da gravação no centro da tela.
 Rodar de novo não duplica nada; `--do-zero` apaga e recria. A demo usa uma pasta e um banco
 separados: os seus dados reais não são tocados.
+
+A interface de revisão precisa ser construída uma vez (com o
+[Node.js](https://nodejs.org) 22.12 ou mais novo: `winget install OpenJS.NodeJS.LTS`); sem ela, o
+`clipador web` abre a documentação interativa da API, que também permite revisar:
+
+```powershell
+cd frontend; npm ci; npm run build; cd ..
+```
 
 ## O que já funciona
 
@@ -118,8 +129,35 @@ separados: os seus dados reais não são tocados.
   em `[desligamento]` no `config.toml`. O `clipador status` mostra há quanto tempo o PC
   está ocioso. Se você estiver usando o PC quando a fila acabar, o app espera você sair de
   perto por até 4 h (`espera_maxima_horas`) e depois desiste até a próxima noite.
-- `clipador web`: abre a revisão no navegador. Por enquanto é a documentação interativa
-  da API (`/docs`, a interface chega na etapa 13), mas já dá para revisar tudo por ela:
+- `clipador web`: abre a revisão no navegador, em três telas:
+  - **Revisão**: o clipe toca repetindo o trecho do momento, com a nota, o motivo, os 3
+    títulos sugeridos, as hashtags e os formatos e destinos. Tudo pelo teclado:
+
+    | Tecla | O que faz |
+    |---|---|
+    | `A` / `R` | aprova / recusa (e vai para o próximo pendente) |
+    | `U` | desfaz a última decisão (de novo: a penúltima...) |
+    | `←` `→` / `Espaço` | momento anterior, próximo / pausa |
+    | `1` `2` `3` | troca o formato exibido (horizontal, vertical) |
+    | `Shift` + `1` `2` `3` | tira ou põe o formato na aprovação |
+    | `T` / `Tab` | edita o título / troca entre as 3 sugestões |
+    | `H` | edita as hashtags |
+    | `[` `]` / `Shift` + `[` `]` | início / fim do corte, 1 s para trás ou para frente |
+    | `M` / `?` | ver mais (além do limite do dia) / ajuda |
+
+    Enquanto você digita no título ou nas hashtags, os atalhos ficam desligados (`Esc`
+    ou `Enter` sai do campo). O 1º clipe espera uma tecla: o navegador só toca vídeo
+    com som depois de você interagir com a página. O corte também se ajusta arrastando
+    as alças da linha do tempo, entre 15 e 60 s (`[deteccao] duracao_minima_s` e
+    `duracao_maxima_s`); o player mostra na hora o trecho novo, e ao aprovar o app
+    corta de novo só esse clipe. Encurtar aparece na hora; a parte que passa do corte
+    atual só aparece depois do novo corte (a tela avisa).
+  - **Fila e status**: o que está processando, os erros (com o `clipador refazer` de
+    cada um) e a cota do YouTube do dia.
+  - **Estatísticas**: a precisão do detector, aprovações por faixa de nota e por dia,
+    e a força média de cada sinal nos aprovados e nos recusados.
+
+  Por baixo, a interface usa a API (documentada e testável em `/docs`):
   - `GET /api/momentos`: os momentos do dia da live mais recente, da maior nota para a
     menor, até o `limite_diario` (15); `ver_mais=true` traz o resto, e `dia=AAAA-MM-DD`
     escolhe outro dia (`GET /api/dias` lista os dias e quantos faltam revisar);
@@ -129,7 +167,8 @@ separados: os seus dados reais não são tocados.
   - `POST /api/momentos/{id}/ajuste`: novo início e fim; o novo corte só desse clipe entra
     na fila e sai quando ela rodar (o serviço, ou `clipador processar`);
   - `GET /api/clipes/{id}/video`: o vídeo, com avanço no player;
-  - `GET /api/status` e `GET /api/estatisticas`: fila, erros, cota do YouTube e precisão.
+  - `GET /api/status`, `GET /api/estatisticas` e `GET /api/config`: fila, erros, cota do
+    YouTube, precisão e os limites do corte.
 
   Os destinos padrão de cada formato ficam em `[revisao]` no `config.toml`. A API só aceita
   pedidos do próprio PC ([ADR 0007](docs/adr/0007-api-local-sem-senha.md)). Nada é
@@ -198,13 +237,25 @@ uv run ruff format         # formatação
 uv run pre-commit install  # passa a rodar lint, formatação e testes rápidos a cada commit
 ```
 
+A interface (em `frontend/`, React + Vite + TypeScript + Tailwind):
+
+```bash
+npm run dev        # em frontend/, com o "clipador web" aberto: recarrega a cada mudança
+npm test           # testes do Vitest (atalhos, desfazer, contador, ajuste do corte)
+npm run build      # gera frontend/dist, que o "clipador web" serve
+```
+
+No `npm run dev`, o Vite (em `127.0.0.1:5173`) repassa `/api` para o `clipador web`
+(porta 8765; outra: `CLIPADOR_API=http://127.0.0.1:PORTA`).
+
 Depois de mudar uma tabela em `backend/src/clipador/banco/modelos.py`, gere a migração do banco:
 
 ```bash
 uv run alembic revision --autogenerate -m "o que mudou"
 ```
 
-A CI (GitHub Actions) roda lint, formatação e testes em Windows a cada push.
+A CI (GitHub Actions) roda lint, formatação e testes em Windows a cada push, e os tipos,
+os testes e o build da interface em Linux.
 Nenhum teste pode passar de 5 minutos (`pytest-timeout`): um teste travado falha mostrando
 onde parou. Os testes nunca mexem na abertura no login de verdade: usam uma chave de teste
 do registro, apagada no fim.
@@ -236,6 +287,8 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
 api/            API local da revisão, FastAPI (etapa 12) e o comando clipador web
 integracoes/    YouTube, TikTok e LoL (etapas 7, 15-17): único código que lê as chaves
 frontend/       interface de revisão, React (etapa 13): nunca guarda chaves
+  src/revisao/  a tela de revisão: atalhos, ajuste do corte e estado (funções puras)
+  src/telas/    fila e status, estatísticas (Recharts)
 tests/          testes de arquitetura (as regras entre as partes)
 docs/           roteiro em PDF e decisões técnicas (docs/adr/)
 dados/          banco, backups, logs, clipes, temporários e a demo (fora do git, criado pelo app)

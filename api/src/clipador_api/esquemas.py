@@ -39,6 +39,9 @@ class MomentoSaida(BaseModel):
     fim_s: float
     duracao_s: float
     pico_s: float | None
+    duracao_gravacao_s: float | None = Field(
+        description="Duração da live inteira (o ajuste do corte não passa dela)."
+    )
     inicio_detectado_s: float | None = Field(description="Vazio se o corte nunca foi ajustado.")
     fim_detectado_s: float | None
     titulos_sugeridos: list[dict]
@@ -134,7 +137,23 @@ class EstatisticasSaida(BaseModel):
     precisao: float | None = Field(description="Aprovados / decididos (a precisão do detector).")
     por_dia: list[dict]
     por_nota: list[dict]
+    sinais: list[dict] = Field(
+        description="Força média de cada detector (0 a 1) nos aprovados e nos recusados."
+    )
     formatos: dict[str, int]
     plataformas: dict[str, int]
     ajuste_medio_inicio_s: float | None
     ajuste_medio_fim_s: float | None
+
+
+class ConfigSaida(BaseModel):
+    """O que a interface precisa saber do config (nada de caminhos nem chaves)."""
+
+    limite_diario: int
+    duracao_minima_s: float = Field(description="Menor duração aceita num ajuste do corte.")
+    duracao_maxima_s: float
+    formatos: list[str] = Field(description="Formatos cortados, na ordem das teclas 1, 2 e 3.")
+    plataformas: list[str]
+    destinos_padrao: dict[str, list[str]]
+    max_hashtags: int = Field(description="Quantas hashtags o YouTube recomenda (só aviso).")
+    limite_titulo: int
