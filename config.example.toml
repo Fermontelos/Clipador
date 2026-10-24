@@ -28,7 +28,8 @@ so_nomes_do_obs = true
 # contado a partir da pasta deste arquivo.
 pasta_dados = "dados"
 
-# Quantos momentos a revisão mostra por dia (de 1 a 100).
+# Quantos momentos a revisão mostra por dia, os de maior nota (de 1 a 100). Os outros
+# ficam no "ver mais".
 limite_diario = 15
 
 # Quanto detalhe vai para o log: DEBUG, INFO, WARNING ou ERROR.
@@ -152,3 +153,11 @@ modo_teste = true
 # Se você estava usando o PC quando a fila acabou, o app espera você sair de perto por até
 # este tempo; depois desiste até a próxima noite (não desliga de tarde, no seu almoço).
 espera_maxima_horas = 4
+
+# A revisão no navegador ("clipador web"). A API só escuta em 127.0.0.1 (este PC).
+[revisao]
+porta = 8765
+abrir_navegador = true
+# Para onde vai cada formato quando você aprova (dá para mudar na hora, clipe a clipe).
+# youtube = vídeo normal no horizontal e Shorts no vertical.
+destinos_padrao = { horizontal = ["youtube"], vertical_a = ["youtube", "tiktok"], vertical_b = ["youtube", "tiktok"] }

@@ -303,6 +303,44 @@ class ConfigDesligamento(BaseModel):
     )
 
 
+PLATAFORMAS = ("youtube", "tiktok")
+
+
+class ConfigRevisao(BaseModel):
+    """A revisão no navegador (etapas 12 e 13)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    porta: int = Field(
+        default=8765, ge=1024, le=65535, description="Porta da API (só em 127.0.0.1)."
+    )
+    abrir_navegador: bool = Field(
+        default=True, description="'clipador web' abre o navegador sozinho."
+    )
+    destinos_padrao: dict[Literal["horizontal", "vertical_a", "vertical_b"], list[str]] = Field(
+        default_factory=lambda: {
+            "horizontal": ["youtube"],
+            "vertical_a": ["youtube", "tiktok"],
+            "vertical_b": ["youtube", "tiktok"],
+        },
+        description=(
+            "Para onde vai cada formato quando você aprova (dá para mudar na hora). "
+            "youtube = vídeo normal no horizontal e Shorts no vertical."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _plataformas_conhecidas(self) -> "ConfigRevisao":
+        for formato, destinos in self.destinos_padrao.items():
+            desconhecidas = sorted(set(destinos) - set(PLATAFORMAS))
+            if desconhecidas:
+                raise ValueError(
+                    f"[revisao] destinos_padrao.{formato}: {desconhecidas} não existe "
+                    f"(use {', '.join(PLATAFORMAS)})."
+                )
+        return self
+
+
 class Config(BaseSettings):
     """Configurações do app. Cada etapa do roteiro acrescenta as suas."""
 
@@ -319,7 +357,10 @@ class Config(BaseSettings):
         default=15,
         ge=1,
         le=100,
-        description="Quantos momentos a revisão mostra por dia.",
+        description=(
+            "Quantos momentos a revisão mostra por dia (os de maior nota; o resto fica no "
+            "'ver mais')."
+        ),
     )
     nivel_log: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
@@ -368,6 +409,10 @@ class Config(BaseSettings):
     desligamento: ConfigDesligamento = Field(
         default_factory=ConfigDesligamento,
         description="Desligar o PC sozinho depois do processamento da noite.",
+    )
+    revisao: ConfigRevisao = Field(
+        default_factory=ConfigRevisao,
+        description="A revisão dos clipes no navegador (porta, destinos padrão).",
     )
     ignorar_gravacoes_antes_de: date | None = Field(
         default=None,

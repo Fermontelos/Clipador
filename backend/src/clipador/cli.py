@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 from datetime import datetime
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Annotated
 
@@ -87,7 +88,16 @@ def _exigir_demo(cfg: Config) -> None:
         raise typer.Exit(code=1)
 
 
-def _abrir_ou_sair(cfg: Config):
+def config_do_comando(arquivo: Path, demo: bool) -> Config:
+    """A configuração de um comando com ``--demo``: a da demo (que precisa existir) ou a sua."""
+    if demo:
+        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
+        _exigir_demo(cfg)
+        return cfg
+    return _carregar_ou_sair(arquivo)
+
+
+def abrir_banco_ou_sair(cfg: Config):
     """Abre o banco; um banco de uma versão mais nova do app vira mensagem, não traceback."""
     try:
         return abrir_banco(cfg.caminho_banco, cfg.pasta_backups_efetiva)
@@ -170,13 +180,9 @@ OpcaoDemo = Annotated[
 @app.command()
 def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> None:
     """Mostra a fila de tarefas: quantas há em cada situação, as próximas e os erros."""
-    if demo:
-        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
-        _exigir_demo(cfg)
-    else:
-        cfg = _carregar_ou_sair(arquivo)
+    cfg = config_do_comando(arquivo, demo)
     caminho_banco, pasta_backups = cfg.caminho_banco, cfg.pasta_backups_efetiva
-    engine = _abrir_ou_sair(cfg)
+    engine = abrir_banco_ou_sair(cfg)
     try:
         with nova_sessao(engine) as sessao:
             resumo = fila.resumo(sessao)
@@ -380,12 +386,8 @@ def refazer(
     demo: OpcaoDemo = False,
 ) -> None:
     """Devolve para a fila uma tarefa que deu erro, depois de corrigir a causa."""
-    if demo:
-        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
-        _exigir_demo(cfg)
-    else:
-        cfg = _carregar_ou_sair(arquivo)
-    engine = _abrir_ou_sair(cfg)
+    cfg = config_do_comando(arquivo, demo)
+    engine = abrir_banco_ou_sair(cfg)
     try:
         with nova_sessao(engine) as sessao:
             tarefa = fila.refazer(sessao, numero)
@@ -409,7 +411,7 @@ def coletar_lol(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     if servico_esta_rodando(cfg.pasta_dados):
         typer.echo("O serviço está rodando e já coleta os eventos do LoL.", err=True)
         raise typer.Exit(code=1)
-    engine = _abrir_ou_sair(cfg)
+    engine = abrir_banco_ou_sair(cfg)
     coletor = ColetorLol(engine)
     typer.echo("Esperando uma partida do LoL (consulta a cada 2 s). Ctrl+C para parar.")
     em_partida = False
@@ -451,12 +453,8 @@ def eventos(
     demo: OpcaoDemo = False,
 ) -> None:
     """Mostra os eventos do LoL de uma gravação, com o segundo de cada um no vídeo."""
-    if demo:
-        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
-        _exigir_demo(cfg)
-    else:
-        cfg = _carregar_ou_sair(arquivo)
-    engine = _abrir_ou_sair(cfg)
+    cfg = config_do_comando(arquivo, demo)
+    engine = abrir_banco_ou_sair(cfg)
     try:
         with nova_sessao(engine) as sessao:
             consulta = select(Gravacao).order_by(col(Gravacao.inicio).desc())
@@ -493,12 +491,8 @@ def momentos(
     demo: OpcaoDemo = False,
 ) -> None:
     """Mostra os momentos achados numa gravação, do de maior nota para o de menor."""
-    if demo:
-        cfg = config_da_demo(_pasta_dados_da_demo(arquivo))
-        _exigir_demo(cfg)
-    else:
-        cfg = _carregar_ou_sair(arquivo)
-    engine = _abrir_ou_sair(cfg)
+    cfg = config_do_comando(arquivo, demo)
+    engine = abrir_banco_ou_sair(cfg)
     try:
         with nova_sessao(engine) as sessao:
             consulta = select(Gravacao).order_by(col(Gravacao.inicio).desc())
@@ -552,5 +546,24 @@ def remover_servico() -> None:
         typer.echo("O serviço não estava cadastrado para abrir no login.")
 
 
+def registrar_comandos_de_fora() -> None:
+    """Comandos que outras partes do projeto oferecem (ex.: ``clipador web``, da API).
+
+    O backend não pode importar a API (ADR 0003): é a API que se cadastra aqui, pelo grupo
+    de *entry points* ``clipador.comandos`` do ``pyproject.toml`` dela. Sem a API instalada,
+    o comando só não aparece. Roda no ``main`` (e não ao importar este módulo), porque o
+    comando da API importa este módulo: seria um import circular.
+    """
+    ja_registrados = {comando.name for comando in app.registered_commands}
+    for ponto in entry_points(group="clipador.comandos"):
+        if ponto.name in ja_registrados:
+            continue
+        try:
+            app.command(ponto.name)(ponto.load())
+        except Exception:
+            log.exception("Não foi possível carregar o comando '%s' (%s).", ponto.name, ponto.value)
+
+
 def main() -> None:
+    registrar_comandos_de_fora()
     app()

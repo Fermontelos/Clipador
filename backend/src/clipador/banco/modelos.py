@@ -179,6 +179,10 @@ class Momento(SQLModel, table=True):
     # O instante mais forte do momento (o centro do sinal que mais pesou na nota): é dele a
     # thumbnail (etapa 9).
     pico_s: float | None = None
+    # O trecho que o detector escolheu, guardado no primeiro ajuste feito na revisão (etapa
+    # 12). Vazio = nunca ajustado. A etapa 14 usa a diferença para aprender a janela padrão.
+    inicio_detectado_s: float | None = None
+    fim_detectado_s: float | None = None
     sinais: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     nota: float = Field(default=0, index=True)
     motivo: str = ""
@@ -205,10 +209,14 @@ class Decisao(SQLModel, table=True):
     momento_id: int = Field(foreign_key="momento.id", unique=True)
     aprovado: bool
     formatos: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    destinos: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    # Formato -> plataformas (ex.: {"vertical_a": ["youtube", "tiktok"]}): o mesmo YouTube
+    # recebe o horizontal como vídeo normal e o vertical como Shorts.
+    destinos: dict[str, list[str]] = Field(default_factory=dict, sa_column=Column(JSON))
     titulo: str | None = None
     hashtags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     tipo_titulo: str | None = None
+    # Quanto você moveu o início e o fim em relação ao trecho detectado (segundos; negativo =
+    # mais cedo). Vazio = não ajustou. Atualizado também por um ajuste depois da decisão.
     ajuste_inicio_s: float | None = None
     ajuste_fim_s: float | None = None
     decidida_em: datetime = Field(default_factory=agora)

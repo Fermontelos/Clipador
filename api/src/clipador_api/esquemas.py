@@ -1,0 +1,140 @@
+"""O formato dos dados que entram e saem da API (aparecem no /docs)."""
+
+from datetime import date, datetime
+
+from pydantic import BaseModel, Field
+
+
+class ClipeSaida(BaseModel):
+    id: int
+    formato: str
+    duracao_s: float | None
+    video: str = Field(description="Endereço do vídeo (aceita Range: dá para avançar no player).")
+    disponivel: bool = Field(description="O arquivo existe (falso se foi apagado ou movido).")
+
+
+class DecisaoSaida(BaseModel):
+    aprovado: bool
+    formatos: list[str]
+    destinos: dict[str, list[str]]
+    titulo: str | None
+    hashtags: list[str]
+    tipo_titulo: str | None
+    ajuste_inicio_s: float | None
+    ajuste_fim_s: float | None
+    decidida_em: datetime
+
+
+class MomentoSaida(BaseModel):
+    id: int
+    gravacao_id: int
+    dia: date
+    posicao: int = Field(
+        description="Posição no dia pela nota (1 = a maior; 0 = gravação ainda em processamento)."
+    )
+    nota: float
+    motivo: str
+    sinais: dict[str, float]
+    inicio_s: float
+    fim_s: float
+    duracao_s: float
+    pico_s: float | None
+    inicio_detectado_s: float | None = Field(description="Vazio se o corte nunca foi ajustado.")
+    fim_detectado_s: float | None
+    titulos_sugeridos: list[dict]
+    hashtags_sugeridas: list[str]
+    clipes: list[ClipeSaida]
+    thumbnail: str | None
+    destinos_padrao: dict[str, list[str]] = Field(
+        description="Destinos do config para cada formato cortado (o ponto de partida ao aprovar)."
+    )
+    decisao: DecisaoSaida | None
+    recortando: bool = Field(description="Há um novo corte na fila (depois de um ajuste).")
+    publicado: bool = Field(description="Já foi para a publicação: não muda mais.")
+
+
+class ListaMomentos(BaseModel):
+    dia: date | None = Field(description="Vazio se ainda não há nenhum momento para revisar.")
+    limite_diario: int
+    total: int = Field(description="Momentos do dia.")
+    pendentes: int = Field(description="Momentos do dia sem decisão.")
+    restantes: int = Field(description="Momentos que ficaram fora da lista (o 'ver mais').")
+    momentos: list[MomentoSaida]
+
+
+class DiaSaida(BaseModel):
+    dia: date
+    momentos: int
+    decididos: int
+    pendentes: int
+
+
+class PedidoDecisao(BaseModel):
+    aprovado: bool
+    destinos: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description='Formato -> plataformas. Ex.: {"vertical_a": ["youtube", "tiktok"]}.',
+        examples=[{"vertical_a": ["youtube", "tiktok"]}],
+    )
+    titulo: str | None = None
+    hashtags: list[str] = Field(default_factory=list)
+    tipo_titulo: str | None = Field(
+        default=None,
+        description=(
+            "frase_sua, pergunta, exagero ou descricao (os da etapa 10). Se vazio, vem da "
+            "sugestão com o mesmo título (um título editado fica sem tipo)."
+        ),
+    )
+
+
+class PedidoAjuste(BaseModel):
+    # allow_inf_nan=False: "NaN" e "Infinity" passam no JSON do Python, mas não são um tempo.
+    inicio_s: float = Field(
+        allow_inf_nan=False, description="Novo início, em segundos desde o começo da gravação."
+    )
+    fim_s: float = Field(allow_inf_nan=False)
+
+
+class RespostaAjuste(BaseModel):
+    tarefa_id: int | None = Field(description="A tarefa do novo corte (vazio: nada mudou).")
+    momento: MomentoSaida
+
+
+class TarefaSaida(BaseModel):
+    id: int
+    tipo: str
+    status: str
+    gravacao_id: int | None
+    momento_id: int | None
+    tentativas: int
+    ultimo_erro: str | None
+    atualizada_em: datetime
+
+
+class CotaSaida(BaseModel):
+    envios: int
+    limite_envios: int
+    unidades: int
+    limite_unidades: int
+    renova_em: datetime
+
+
+class StatusSaida(BaseModel):
+    fila: dict[str, int] = Field(description="Quantas tarefas há em cada situação.")
+    em_andamento: list[TarefaSaida]
+    erros: list[TarefaSaida]
+    cota_youtube: CotaSaida
+    dias: list[DiaSaida] = Field(description="Dias com momentos, do mais recente.")
+
+
+class EstatisticasSaida(BaseModel):
+    momentos: int
+    aprovados: int
+    recusados: int
+    precisao: float | None = Field(description="Aprovados / decididos (a precisão do detector).")
+    por_dia: list[dict]
+    por_nota: list[dict]
+    formatos: dict[str, int]
+    plataformas: dict[str, int]
+    ajuste_medio_inicio_s: float | None
+    ajuste_medio_fim_s: float | None

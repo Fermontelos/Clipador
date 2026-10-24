@@ -27,7 +27,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 9 · Cortes | Gera os clipes horizontais e verticais | 🟡 horizontal e vertical A prontos; vertical B a definir |
 | 10 · Títulos com IA | Sugere 3 títulos e as hashtags de cada clipe | ✅ |
 | 11 · Desligar o PC | Desliga sozinho depois de processar | ✅ (em modo de teste) |
-| 12 · API da revisão | Serve os clipes e grava as suas decisões | ⏳ próxima |
+| 12 · API da revisão | Serve os clipes e grava as suas decisões | ✅ |
+| 13 · Interface da revisão | Revisar os clipes pelo teclado, no navegador | ⏳ próxima |
 
 ## Experimente em 2 minutos (modo demo)
 
@@ -43,6 +44,7 @@ uv run clipador status --demo  # mostra a fila da demo
 uv run clipador processar --demo  # áudio, legenda, momentos, 8 clipes e títulos (~1,5 min)
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
 uv run clipador momentos --demo   # os 4 melhores momentos, com nota, motivo e título
+uv run clipador web --demo        # revisa a demo no navegador (por enquanto, pelo /docs)
 # os clipes da demo ficam em dados/demo/clipes/ (horizontal, vertical e thumbnail)
 ```
 
@@ -116,6 +118,22 @@ separados: os seus dados reais não são tocados.
   em `[desligamento]` no `config.toml`. O `clipador status` mostra há quanto tempo o PC
   está ocioso. Se você estiver usando o PC quando a fila acabar, o app espera você sair de
   perto por até 4 h (`espera_maxima_horas`) e depois desiste até a próxima noite.
+- `clipador web`: abre a revisão no navegador. Por enquanto é a documentação interativa
+  da API (`/docs`, a interface chega na etapa 13), mas já dá para revisar tudo por ela:
+  - `GET /api/momentos`: os momentos do dia da live mais recente, da maior nota para a
+    menor, até o `limite_diario` (15); `ver_mais=true` traz o resto, e `dia=AAAA-MM-DD`
+    escolhe outro dia (`GET /api/dias` lista os dias e quantos faltam revisar);
+  - `POST /api/momentos/{id}/decisao`: aprovar (formatos, destinos, título, hashtags) ou
+    recusar;
+  - `DELETE` na mesma rota: desfazer;
+  - `POST /api/momentos/{id}/ajuste`: novo início e fim; o novo corte só desse clipe entra
+    na fila e sai quando ela rodar (o serviço, ou `clipador processar`);
+  - `GET /api/clipes/{id}/video`: o vídeo, com avanço no player;
+  - `GET /api/status` e `GET /api/estatisticas`: fila, erros, cota do YouTube e precisão.
+
+  Os destinos padrão de cada formato ficam em `[revisao]` no `config.toml`. A API só aceita
+  pedidos do próprio PC ([ADR 0007](docs/adr/0007-api-local-sem-senha.md)). Nada é
+  publicado aqui: a publicação (etapa 15) vai usar só o que você aprovou.
 - `clipador momentos`: lista os momentos da gravação mais recente, da maior nota para a
   menor, com o trecho e o motivo ("voz alta (+24 dB) + pentakill seu + “não acredito”").
 - `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de
@@ -212,9 +230,10 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     titulos/    títulos e hashtags com a IA local (Ollama) e o plano B sem IA
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
+    revisao/    regras da revisão: momentos do dia, decisões, ajuste do corte e cota
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
   tests/
-api/            API local da revisão, FastAPI (etapa 12)
+api/            API local da revisão, FastAPI (etapa 12) e o comando clipador web
 integracoes/    YouTube, TikTok e LoL (etapas 7, 15-17): único código que lê as chaves
 frontend/       interface de revisão, React (etapa 13): nunca guarda chaves
 tests/          testes de arquitetura (as regras entre as partes)
@@ -235,6 +254,7 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 - [ADR 0004: abrir no login pela chave "Run"](docs/adr/0004-abrir-no-login-pela-chave-run.md)
 - [ADR 0005: detectores devolvem sinais, e a nota monta os momentos](docs/adr/0005-detectores-devolvem-sinais.md)
 - [ADR 0006: cortar no processador quando o NVENC não funcionar](docs/adr/0006-cortes-no-processador-sem-nvenc.md)
+- [ADR 0007: API da revisão local, sem senha](docs/adr/0007-api-local-sem-senha.md)
 
 ## Licença
 
