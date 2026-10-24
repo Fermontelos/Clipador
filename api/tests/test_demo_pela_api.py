@@ -39,7 +39,11 @@ def test_revisar_a_demo_inteira(tmp_path, monkeypatch):
         assert lista["restantes"] == 0
 
         for momento in momentos:
-            assert {c["formato"] for c in momento["clipes"]} == {"horizontal", "vertical_a"}
+            assert {c["formato"] for c in momento["clipes"]} == {
+                "horizontal",
+                "vertical_a",
+                "vertical_b",
+            }
             assert len(momento["titulos_sugeridos"]) == 3  # os títulos prontos da demo
             assert cliente.get(momento["thumbnail"]).status_code == 200
             video = cliente.get(momento["clipes"][0]["video"], headers={"Range": "bytes=0-1023"})

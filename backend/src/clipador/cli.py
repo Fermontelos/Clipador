@@ -26,6 +26,7 @@ from clipador.config import (
     ConfigNaoEncontradaError,
     carregar_config,
 )
+from clipador.cortes import comandos
 from clipador.demo import roteiro
 from clipador.demo.gerar import config_da_demo, preparar_demo
 from clipador.ingestao.monitor import SemMonitor
@@ -522,6 +523,75 @@ def momentos(
             titulo = momento.titulos_sugeridos[0]["titulo"]
             hashtags = " ".join(momento.hashtags_sugeridas)
             typer.echo(f"       “{titulo}” {hashtags}".rstrip())
+
+
+@app.command()
+def calibrar(
+    gravacao_id: Annotated[
+        int | None,
+        typer.Option("--gravacao", "-g", help="Número da gravação (padrão: a mais recente)."),
+    ] = None,
+    segundo: Annotated[
+        float | None,
+        typer.Option("--segundo", "-s", help="Que segundo da live usar (padrão: o meio)."),
+    ] = None,
+    arquivo: OpcaoArquivo = CAMINHO_PADRAO,
+    demo: OpcaoDemo = False,
+) -> None:
+    """Salva um quadro da live com uma grade, para achar a posição da câmera (vertical B)."""
+    cfg = config_do_comando(arquivo, demo)
+    engine = abrir_banco_ou_sair(cfg)
+    try:
+        with nova_sessao(engine) as sessao:
+            consulta = select(Gravacao).order_by(col(Gravacao.inicio).desc())
+            if gravacao_id is not None:
+                consulta = select(Gravacao).where(Gravacao.id == gravacao_id)
+            gravacao = sessao.exec(consulta).first()
+    finally:
+        engine.dispose()
+    if gravacao is None:
+        typer.echo("Nenhuma gravação encontrada (grave uma live antes).", err=True)
+        raise typer.Exit(code=1)
+    video = Path(gravacao.arquivo)
+    if not video.is_file():
+        typer.echo(f"Erro: a gravação {video} não existe mais.", err=True)
+        raise typer.Exit(code=1)
+    info = ffmpeg.inspecionar(video)
+    if info.largura is None or info.altura is None:
+        typer.echo(f"Erro: não deu para ler o tamanho da imagem de {video.name}.", err=True)
+        raise typer.Exit(code=1)
+    duracao = info.duracao_s or gravacao.duracao_s or 0
+    instante = segundo if segundo is not None else duracao / 2
+    if duracao and not 0 <= instante < duracao:
+        typer.echo(f"Erro: a gravação tem {duracao:.0f} s; use --segundo entre 0 e isso.", err=True)
+        raise typer.Exit(code=1)
+    destino = cfg.pasta_dados / "calibracao.png"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    vertical_b = cfg.cortes.vertical_b
+    ffmpeg.rodar(
+        comandos.comando_de_calibracao(
+            video, instante, info.largura, info.altura, vertical_b, destino
+        ),
+        tempo_limite_s=60,
+    )
+    typer.echo(f"Quadro salvo em {destino}")
+    typer.echo(f"  {video.name}, aos {_mmss(instante)}; a imagem tem {info.largura}×{info.altura}.")
+    typer.echo("  Grade a cada 100 px (os números nas bordas são os pixels).")
+    jogo = comandos.regiao_do_jogo(info.largura, info.altura, vertical_b)
+    typer.echo(f"  Verde: o recorte do jogo (x de {jogo.x} a {jogo.x + jogo.largura}).")
+    if vertical_b.camera is None:
+        typer.echo("  Sem câmera no config: o vertical B sai só com o jogo. Para pôr a câmera:")
+    else:
+        c = vertical_b.camera
+        typer.echo(f"  Vermelho: a câmera do config ({c.largura}×{c.altura} em {c.x}, {c.y}).")
+        try:
+            comandos.validar_regiao(c, info.largura, info.altura)
+        except ValueError as erro:
+            typer.echo(f"  Atenção: {erro}", err=True)
+        typer.echo("  Para mudar a câmera:")
+    typer.echo("    [cortes.vertical_b]")
+    typer.echo("    camera = { x = 1500, y = 760, largura = 400, altura = 300 }")
+    typer.echo("  (x, y = o canto de cima à esquerda da câmera; troque pelos números do quadro).")
 
 
 @app.command("instalar-servico")

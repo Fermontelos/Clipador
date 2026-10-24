@@ -34,7 +34,7 @@ def test_config_para_a_interface(cliente):
         "limite_diario": 15,
         "duracao_minima_s": 15,
         "duracao_maxima_s": 60,
-        "formatos": ["horizontal", "vertical_a"],
+        "formatos": ["horizontal", "vertical_a", "vertical_b"],
         "plataformas": ["youtube", "tiktok"],
         "destinos_padrao": {
             "horizontal": ["youtube"],

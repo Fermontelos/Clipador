@@ -26,7 +26,7 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 6 · Transcrição | Transforma a fala em texto, palavra por palavra | ✅ |
 | 7 · Coletor do LoL | Registra os eventos da partida durante a live | ✅ |
 | 8 · Detectores e nota | Acha os melhores momentos de cada live | ✅ |
-| 9 · Cortes | Gera os clipes horizontais e verticais | 🟡 horizontal e vertical A prontos; vertical B a definir |
+| 9 · Cortes | Gera os clipes horizontais e verticais | ✅ |
 | 10 · Títulos com IA | Sugere 3 títulos e as hashtags de cada clipe | ✅ |
 | 11 · Desligar o PC | Desliga sozinho depois de processar | ✅ (em modo de teste) |
 | 12 · API da revisão | Serve os clipes e grava as suas decisões | ✅ |
@@ -44,7 +44,7 @@ git clone https://github.com/Fermontelos/Clipador.git
 cd Clipador
 uv run clipador demo           # cria uma live falsa de 3 min em dados/demo/ (~15 s)
 uv run clipador status --demo  # mostra a fila da demo
-uv run clipador processar --demo  # áudio, legenda, momentos, 8 clipes e títulos (~1,5 min)
+uv run clipador processar --demo  # áudio, legenda, momentos, 12 clipes e títulos (~2 min)
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
 uv run clipador momentos --demo   # os 4 melhores momentos, com nota, motivo e título
 uv run clipador web --demo        # revisa a demo no navegador (veja abaixo)
@@ -108,8 +108,10 @@ cd frontend; npm ci; npm run build; cd ..
   um momento, com uma janela de 15 a 60 s e uma nota de 0 a 100 (média ponderada dos
   sinais; pesos em `[deteccao]` no `config.toml`). Ficam os 30 melhores.
 - Cortes: cada momento vira um clipe MP4 em `dados/clipes/`, nos formatos de
-  `[cortes] formatos`: horizontal (16:9) e vertical A (9:16, com o vídeo no centro e o
-  fundo desfocado, e a legenda da sua fala queimada). O áudio junta só a voz e o jogo,
+  `[cortes] formatos`: horizontal (16:9), vertical A (9:16, com o vídeo no centro e o
+  fundo desfocado) e vertical B (9:16, a sua câmera no terço de cima e o centro do jogo
+  embaixo; sem câmera configurada, só o centro do jogo, ampliado). Os verticais têm a
+  legenda da sua fala queimada ([ADR 0008](docs/adr/0008-vertical-b-camera-e-jogo.md)). O áudio junta só a voz e o jogo,
   **sem a música** (direitos autorais), normalizado para -14 LUFS, o padrão de YouTube e
   TikTok. O horizontal ganha uma thumbnail do pico do momento. Os cortes são feitos no
   processador quando o encoder da placa (NVENC) não funciona ([ADR 0006](docs/adr/0006-cortes-no-processador-sem-nvenc.md)).
@@ -183,6 +185,10 @@ cd frontend; npm ci; npm run build; cd ..
 - `clipador instalar-servico`: faz o serviço abrir sozinho, sem janela, quando você entra
   no Windows (`clipador remover-servico` desfaz). Não precisa de administrador
   ([ADR 0004](docs/adr/0004-abrir-no-login-pela-chave-run.md)).
+- `clipador calibrar`: salva um quadro da live mais recente em `dados/calibracao.png`,
+  com uma grade a cada 100 px e as regiões do vertical B desenhadas (verde: o recorte do
+  jogo; vermelho: a câmera). É de onde saem os números de `[cortes.vertical_b] camera`
+  (`--segundo` escolhe o momento da live; `--demo` usa a demo).
 - `clipador demo`: cria a live falsa da demo (veja acima).
 - `clipador backup`: faz uma cópia do banco agora. O app guarda as 14 mais recentes.
   Para restaurar uma cópia, veja [como restaurar um backup](#como-restaurar-um-backup).
@@ -308,6 +314,7 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 - [ADR 0005: detectores devolvem sinais, e a nota monta os momentos](docs/adr/0005-detectores-devolvem-sinais.md)
 - [ADR 0006: cortar no processador quando o NVENC não funcionar](docs/adr/0006-cortes-no-processador-sem-nvenc.md)
 - [ADR 0007: API da revisão local, sem senha](docs/adr/0007-api-local-sem-senha.md)
+- [ADR 0008: vertical B com a câmera em cima e o jogo embaixo](docs/adr/0008-vertical-b-camera-e-jogo.md)
 
 ## Licença
 

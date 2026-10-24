@@ -1,7 +1,8 @@
 """Executores das tarefas ``cortar`` e ``recortar``: momentos viram clipes em ``dados/clipes/``.
 
 ``cortar`` (etapa 9, na cadeia depois de ``detectar``): corta todos os momentos da
-gravação, do de maior nota para o de menor, em cada formato de ``[cortes] formatos``.
+gravação, do de maior nota para o de menor, em cada formato de ``[cortes] formatos``
+(horizontal, vertical A e vertical B; ver ``comandos.py``).
 
 - **Retomável**: cada clipe é salvo no banco (tabela ``Clipe``) assim que fica pronto.
   Se o PC cair no meio, os clipes que já existem são pulados.
@@ -60,7 +61,15 @@ class Cortador:
             raise FileNotFoundError(
                 f"A gravação {self.arquivo} não foi encontrada (o arquivo foi movido ou apagado?)."
             )
-        self.faixas_na_gravacao = ffmpeg.inspecionar(self.arquivo).faixas_audio
+        info = ffmpeg.inspecionar(self.arquivo)
+        self.faixas_na_gravacao = info.faixas_audio
+        camera = cfg.cortes.vertical_b.camera
+        if "vertical_b" in cfg.cortes.formatos and camera is not None:
+            try:
+                comandos.validar_regiao(camera, info.largura, info.altura)
+            except ValueError as erro:
+                # Config errado não se resolve tentando de novo: vai direto para "erro".
+                raise FalhaDefinitivaError(str(erro)) from erro
         try:
             self.encoder = comandos.escolher_encoder(cfg.cortes.encoder)
         except RuntimeError as erro:

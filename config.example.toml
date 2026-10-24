@@ -113,8 +113,9 @@ peso = 0.25
 
 # Como cortar os clipes de cada momento (MP4, H.264 + AAC, em dados/clipes/).
 [cortes]
-# horizontal (16:9) e vertical_a (9:16, com o vídeo no centro e o fundo desfocado).
-formatos = ["horizontal", "vertical_a"]
+# horizontal (16:9); vertical_a (9:16, a tela inteira no centro e o fundo desfocado);
+# vertical_b (9:16, a sua câmera em cima e o centro do jogo embaixo; sem câmera, só o jogo).
+formatos = ["horizontal", "vertical_a", "vertical_b"]
 # auto = placa de vídeo (NVENC) se funcionar; senão, o processador (libx264), mais lento.
 # Com a GTX 1050 Ti no driver 580 e o FFmpeg 9, o NVENC não funciona (ver ADR 0006).
 encoder = "auto"
@@ -125,6 +126,17 @@ volume_jogo = 0.6
 lufs = -14
 # Queimar a legenda (o que você fala) nos clipes verticais.
 legendas = true
+
+# O vertical B (ADR 0008). "clipador calibrar" salva um quadro da sua live com uma grade
+# (dados/calibracao.png), para achar onde a câmera fica na cena do OBS.
+[cortes.vertical_b]
+# A câmera, em pixels da gravação (x, y = o canto de cima à esquerda). Sem esta linha, o
+# vertical B sai só com o centro do jogo.
+# camera = { x = 1500, y = 760, largura = 400, altura = 300 }
+# Centro do recorte do jogo, na largura da tela: 0 = esquerda, 0.5 = meio, 1 = direita.
+centro_x = 0.5
+# Quanto da altura do clipe a câmera ocupa (de 0.2 a 0.5).
+altura_camera = 0.3333
 
 # Títulos e hashtags sugeridos pela IA local (Ollama: winget install Ollama.Ollama e
 # depois "ollama pull qwen3:4b"). Sem o Ollama, o app usa a frase mais marcante do momento.

@@ -21,7 +21,7 @@ import { Player } from "./Player";
 const NOMES_DOS_FORMATOS: Record<string, string> = {
   horizontal: "Horizontal",
   vertical_a: "Vertical (fundo desfocado)",
-  vertical_b: "Vertical (zoom na ação)",
+  vertical_b: "Vertical (câmera + jogo)",
 };
 const NOMES_DAS_PLATAFORMAS: Record<string, string> = { youtube: "YouTube", tiktok: "TikTok" };
 

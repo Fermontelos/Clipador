@@ -12,7 +12,9 @@ qualquer notebook, inclusive um sem placa NVIDIA (o da entrevista, por exemplo).
 
 Escolhas medidas para a demo ficar rápida (o roteiro pede menos de 1 minuto):
 - imagem: fundo liso com o tempo da gravação escrito no centro (13 s; o padrão de teste
-  ``testsrc`` levava 28 s). De quebra, quem assiste vê em que segundo está cada pico;
+  ``testsrc`` levava 28 s). De quebra, quem assiste vê em que segundo está cada pico.
+  No canto de cima, à direita, uma "câmera" falsa (um quadro com o nome), já configurada
+  na demo, para o vertical B mostrar o layout câmera em cima e jogo embaixo (ADR 0008);
 - áudio em Opus (3 s para as 4 faixas; o AAC levava 24 s). Uma gravação real do OBS vem
   em AAC, mas o FFmpeg lê os dois, então o resto do app não muda.
 
@@ -39,7 +41,14 @@ from clipador.banco.modelos import (
     TipoTarefa,
     Transcricao,
 )
-from clipador.config import Config, ConfigTitulos, config_sem_arquivo
+from clipador.config import (
+    Config,
+    ConfigCortes,
+    ConfigTitulos,
+    ConfigVerticalB,
+    Regiao,
+    config_sem_arquivo,
+)
 from clipador.demo import roteiro
 from clipador.demo.roteiro import Pico
 from clipador.jogo import eventos
@@ -55,6 +64,9 @@ VOLUME_PICO = 0.6
 TITULOS_FAIXAS = ("Mistura", "Voz", "Jogo", "Música")
 FONTE_RELOGIO = Path("C:/Windows/Fonts/arial.ttf")
 COR_FUNDO = "0x1e1e2e"
+# A "câmera" falsa da demo, no canto de cima à direita (16:9, como uma webcam).
+CAMERA_DA_DEMO = Regiao(x=1010, y=30, largura=240, altura=135)
+COR_CAMERA = "0x3987e5"
 
 
 def pasta_da_demo(pasta_dados: Path) -> Path:
@@ -64,11 +76,13 @@ def pasta_da_demo(pasta_dados: Path) -> Path:
 def config_da_demo(pasta_dados: Path) -> Config:
     """Configuração para processar a demo: pastas dela e faixas no padrão do OBS."""
     pasta = pasta_da_demo(pasta_dados)
-    # Títulos prontos do roteiro: a demo roda em qualquer PC, sem o Ollama.
+    # Títulos prontos do roteiro: a demo roda em qualquer PC, sem o Ollama. A câmera falsa
+    # do vídeo da demo já vem configurada para o vertical B.
     return config_sem_arquivo(
         pasta_gravacoes=pasta / "gravacoes",
         pasta_dados=pasta,
         titulos=ConfigTitulos(fonte="demo"),
+        cortes=ConfigCortes(vertical_b=ConfigVerticalB(camera=CAMERA_DA_DEMO)),
     )
 
 
@@ -106,12 +120,16 @@ def comando_gerar(destino: Path, duracao_s: float, picos: tuple[Pico, ...]) -> l
         ]
     )
     imagem = f"color=c={COR_FUNDO}:s={LARGURA}x{ALTURA}:r={QUADROS_POR_SEGUNDO}:d={duracao_s}"
+    c = CAMERA_DA_DEMO
+    imagem += f",drawbox=x={c.x}:y={c.y}:w={c.largura}:h={c.altura}:color={COR_CAMERA}:t=fill"
     if FONTE_RELOGIO.is_file():
         # O ":" do caminho e do formato precisa de "\" para não ser lido como separador.
         fonte = FONTE_RELOGIO.as_posix().replace(":", r"\:")
         imagem += (
             f",drawtext=fontfile='{fonte}':text='%{{pts\\:hms}}':fontsize=120"
             ":fontcolor=white:x=(w-tw)/2:y=(h-th)/2"
+            f",drawtext=fontfile='{fonte}':text='câmera':fontsize=36:fontcolor=white"
+            f":x={c.x}+({c.largura}-tw)/2:y={c.y}+({c.altura}-th)/2"
         )
     argumentos = [
         "-y",

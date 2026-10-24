@@ -207,17 +207,58 @@ class ConfigDeteccao(BaseModel):
         return self
 
 
+class Regiao(BaseModel):
+    """Um retângulo da tela da gravação, em pixels (0, 0 = o canto de cima à esquerda)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    largura: int = Field(gt=0)
+    altura: int = Field(gt=0)
+
+
+class ConfigVerticalB(BaseModel):
+    """O vertical B: a sua câmera em cima e o centro do jogo embaixo (ADR 0008)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    camera: Regiao | None = Field(
+        default=None,
+        description=(
+            "Onde a sua câmera fica na cena do OBS, em pixels da gravação. Vazio = sem câmera: "
+            "o vertical B sai só com o centro do jogo. 'clipador calibrar' ajuda a achar."
+        ),
+    )
+    centro_x: float = Field(
+        default=0.5,
+        ge=0,
+        le=1,
+        description=(
+            "Onde fica o centro do recorte do jogo, na largura da tela (0 = esquerda, "
+            "0,5 = meio, 1 = direita). Com a câmera travada no LoL, o campeão fica no meio."
+        ),
+    )
+    altura_camera: float = Field(
+        default=1 / 3,
+        ge=0.2,
+        le=0.5,
+        description="Quanto da altura do clipe a câmera ocupa (o resto é do jogo).",
+    )
+
+
 class ConfigCortes(BaseModel):
     """Como cortar os clipes (etapa 9)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    formatos: list[Literal["horizontal", "vertical_a"]] = Field(
-        default_factory=lambda: ["horizontal", "vertical_a"],
+    formatos: list[Literal["horizontal", "vertical_a", "vertical_b"]] = Field(
+        default_factory=lambda: ["horizontal", "vertical_a", "vertical_b"],
         min_length=1,
         description=(
-            "Quais formatos gerar de cada momento: horizontal (16:9) e vertical_a (9:16, com "
-            "o fundo desfocado). O vertical_b (zoom na ação) ainda não existe."
+            "Quais formatos gerar de cada momento: horizontal (16:9), vertical_a (9:16, a tela "
+            "inteira com o fundo desfocado) e vertical_b (9:16, a sua câmera em cima e o "
+            "centro do jogo embaixo; sem câmera, só o centro do jogo)."
         ),
     )
     encoder: Literal["auto", "h264_nvenc", "libx264"] = Field(
@@ -236,6 +277,16 @@ class ConfigCortes(BaseModel):
         description="Volume final (loudness), em LUFS. -14 é o padrão de YouTube e TikTok.",
     )
     legendas: bool = Field(default=True, description="Queimar a legenda nos clipes verticais.")
+    vertical_b: ConfigVerticalB = Field(
+        default_factory=ConfigVerticalB,
+        description="A câmera e o recorte do jogo do vertical B.",
+    )
+
+    @model_validator(mode="after")
+    def _formatos_sem_repetir(self) -> "ConfigCortes":
+        if len(set(self.formatos)) != len(self.formatos):
+            raise ValueError("[cortes] formatos tem um formato repetido.")
+        return self
 
 
 class ConfigTitulos(BaseModel):

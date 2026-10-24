@@ -16,7 +16,13 @@ from sqlmodel import select
 from clipador import ffmpeg
 from clipador.banco.fila import Contexto, FalhaDefinitivaError, TarefaPausada
 from clipador.banco.modelos import Clipe, Gravacao, Momento, Tarefa, TipoTarefa, Transcricao
-from clipador.config import ConfigCortes, Faixas, config_sem_arquivo
+from clipador.config import (
+    ConfigCortes,
+    ConfigVerticalB,
+    Faixas,
+    Regiao,
+    config_sem_arquivo,
+)
 from clipador.cortes import comandos, cortar
 from clipador.cortes.legenda import linhas_do_clipe
 from clipador.demo import gerar
@@ -74,7 +80,7 @@ def test_vertical_a_tem_fundo_desfocado_e_video_no_centro():
 def test_horizontal_mantem_o_video():
     assert comandos.filtro_de_video("horizontal") == "[0:v:0]null[v]"
     with pytest.raises(ValueError, match="Formato desconhecido"):
-        comandos.filtro_de_video("vertical_b")
+        comandos.filtro_de_video("quadrado")
 
 
 def test_comando_do_clipe():
@@ -150,6 +156,111 @@ def test_palavra_cortada_na_borda_fica_dentro_do_clipe():
     assert linhas[0]["inicio_s"] == 0.0 and linhas[-1]["fim_s"] == 15.0
 
 
+# ------------------------------------------------------------------ vertical B (sem FFmpeg)
+
+CAMERA = Regiao(x=1010, y=30, largura=240, altura=135)
+
+
+def test_vertical_b_sem_camera_e_so_o_centro_do_jogo():
+    filtro = comandos.filtro_de_video("vertical_b")
+    # A largura do recorte vem da altura (proporção 9:16), centralizada e sem sair da tela.
+    assert "crop=w=trunc(ih*1080/1920/2)*2:h=ih:x=clip(iw*0.5-ow/2\\,0\\,iw-ow):y=0" in filtro
+    assert "scale=1080:1920" in filtro
+    assert "split" not in filtro and "vstack" not in filtro
+    assert filtro.endswith("[v]")
+
+
+def test_vertical_b_com_camera_em_cima_e_jogo_embaixo():
+    vertical_b = ConfigVerticalB(camera=CAMERA, centro_x=0.4)
+    filtro = comandos.filtro_de_video("vertical_b", vertical_b=vertical_b)
+    assert "[0:v:0]split[cam][jogo]" in filtro
+    # A câmera do config, ampliada até preencher 1080×640 (o terço de cima), sem distorcer.
+    assert (
+        "[cam]crop=240:135:1010:30,scale=1080:640:force_original_aspect_ratio=increase,"
+        "crop=1080:640" in filtro
+    )
+    # O jogo nos 1280 de baixo, na proporção do espaço, centrado em 40% da largura.
+    assert "crop=w=trunc(ih*1080/1280/2)*2:h=ih:x=clip(iw*0.4-ow/2" in filtro
+    assert "scale=1080:1280" in filtro
+    assert "[c][j]vstack[v]" in filtro
+
+
+def test_altura_da_camera_e_par_e_soma_1920():
+    for fracao in (0.2, 0.25, 1 / 3, 0.37, 0.5):
+        camera, jogo = comandos.alturas_do_vertical_b(
+            ConfigVerticalB(camera=CAMERA, altura_camera=fracao)
+        )
+        assert camera % 2 == 0 and jogo % 2 == 0  # o H.264 em yuv420p exige
+        assert camera + jogo == 1920
+    assert comandos.alturas_do_vertical_b(ConfigVerticalB()) == (0, 1920)
+
+
+def test_legenda_do_vertical_b():
+    # Sem câmera: na altura de sempre (como no vertical A).
+    sem = comandos.filtro_de_video("vertical_b", "l.srt")
+    assert "Alignment=2,MarginV=75" in sem
+    # Com câmera: logo abaixo dela, na emenda (no alto, centralizada: 6 na numeração do SSA).
+    com = comandos.filtro_de_video("vertical_b", "l.srt", ConfigVerticalB(camera=CAMERA))
+    assert "Alignment=6,MarginV=102" in com  # 640/1920 da tela de 288 = 96, mais 6
+    assert com.index("vstack") < com.index("subtitles")  # a legenda vai depois de juntar
+
+
+def test_validar_regiao_da_camera():
+    comandos.validar_regiao(CAMERA, 1280, 720)  # cabe
+    comandos.validar_regiao(Regiao(x=1040, y=585, largura=240, altura=135), 1280, 720)
+    with pytest.raises(ValueError, match="vai até \\(1290, 165\\).*1280×720"):
+        comandos.validar_regiao(Regiao(x=1050, y=30, largura=240, altura=135), 1280, 720)
+    comandos.validar_regiao(Regiao(x=5000, y=0, largura=1, altura=1), None, None)  # sem medida
+
+
+@pytest.mark.parametrize(
+    ("centro_x", "x_esperado"),
+    # Sem câmera, numa gravação 1280×720: 404 de largura (720 × 1080/1920 = 405, para baixo
+    # no par). Perto da borda, o recorte encosta nela em vez de sair da tela.
+    [(0.5, 640 - 202), (0.0, 0), (0.1, 0), (1.0, 1280 - 404), (0.95, 1280 - 404)],
+)
+def test_regiao_do_jogo(centro_x, x_esperado):
+    jogo = comandos.regiao_do_jogo(1280, 720, ConfigVerticalB(centro_x=centro_x))
+    assert (jogo.x, jogo.y, jogo.largura, jogo.altura) == (x_esperado, 0, 404, 720)
+
+
+def test_comando_de_calibracao():
+    argumentos = comandos.comando_de_calibracao(
+        Path("live.mkv"), 30, 1280, 720, ConfigVerticalB(camera=CAMERA), Path("q.png")
+    )
+    filtros = argumentos[argumentos.index("-vf") + 1]
+    assert "drawgrid=w=100:h=100" in filtros
+    assert "drawbox=x=337:y=0:w=606:h=720:color=lime" in filtros  # o recorte do jogo
+    assert "drawbox=x=1010:y=30:w=240:h=135:color=red" in filtros  # a câmera
+    assert argumentos[argumentos.index("-frames:v") + 1] == "1"
+    sem_camera = comandos.comando_de_calibracao(
+        Path("live.mkv"), 30, 1280, 720, ConfigVerticalB(), Path("q.png")
+    )
+    assert "color=red" not in sem_camera[sem_camera.index("-vf") + 1]
+
+
+def test_formatos_padrao_e_repetidos():
+    assert ConfigCortes().formatos == ["horizontal", "vertical_a", "vertical_b"]
+    with pytest.raises(ValueError, match="repetido"):
+        ConfigCortes(formatos=["vertical_b", "vertical_b"])
+
+
+def test_camera_no_config_toml(escrever_config, tmp_path):
+    from clipador.config import carregar_config
+
+    caminho = escrever_config(
+        f'pasta_gravacoes = "{tmp_path.as_posix()}"\n'
+        "[cortes.vertical_b]\n"
+        "camera = { x = 1500, y = 760, largura = 400, altura = 300 }\n"
+        "centro_x = 0.45\n"
+    )
+    vertical_b = carregar_config(caminho).cortes.vertical_b
+    assert vertical_b.camera == Regiao(x=1500, y=760, largura=400, altura=300)
+    assert vertical_b.centro_x == 0.45
+    with pytest.raises(ValueError):
+        ConfigVerticalB(camera=Regiao(x=0, y=0, largura=0, altura=10))
+
+
 # ------------------------------------------------------------------ executor (com FFmpeg)
 
 
@@ -163,7 +274,12 @@ def cfg(tmp_path, monkeypatch):
         "argumentos_de_video",
         lambda encoder: ["ultrafast" if a == "medium" else a for a in original(encoder)],
     )
-    return config_sem_arquivo(pasta_gravacoes=tmp_path / "g", pasta_dados=tmp_path / "dados")
+    # Os 2 formatos de antes: estes testes são do fluxo; o vertical B tem os testes dele.
+    return config_sem_arquivo(
+        pasta_gravacoes=tmp_path / "g",
+        pasta_dados=tmp_path / "dados",
+        cortes=ConfigCortes(formatos=["horizontal", "vertical_a"]),
+    )
 
 
 @pytest.fixture
@@ -311,6 +427,92 @@ def test_nvenc_forcado_sem_placa_e_falha_definitiva(tmp_path, sessao, monkeypatc
         cortar.Cortador(sessao, cfg, gravacao)
 
 
+def cor_no_quadro(arquivo: Path, x: int, y: int, segundo: float = 1) -> np.ndarray:
+    """A cor (R, G, B) de um ponto do quadro, numa versão de 108×192 do vertical."""
+    bruto = subprocess.run(
+        [ffmpeg.localizar(), "-v", "error", "-ss", str(segundo), "-i", str(arquivo),
+         "-frames:v", "1", "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        capture_output=True, check=True, timeout=60,
+    ).stdout  # fmt: skip
+    return np.frombuffer(bruto, np.uint8).reshape(192, 108, 3)[y, x].astype(int)
+
+
+AZUL_DA_CAMERA = np.array([0x39, 0x87, 0xE5])  # gerar.COR_CAMERA
+FUNDO_DA_DEMO = np.array([0x1E, 0x1E, 0x2E])  # gerar.COR_FUNDO
+
+
+@precisa_ffmpeg
+def test_vertical_b_com_a_camera_da_demo(cfg, sessao, tarefa):
+    cfg.cortes = ConfigCortes(
+        formatos=["vertical_b"], vertical_b=ConfigVerticalB(camera=gerar.CAMERA_DA_DEMO)
+    )
+    cortar.cortar(sessao, tarefa, cfg)
+    clipe = clipes(sessao)[0]
+    info = ffmpeg.inspecionar(Path(clipe.arquivo))
+    assert (info.largura, info.altura) == (1080, 1920)
+    # No terço de cima, a "câmera" azul da demo; embaixo, o fundo do jogo (fora do relógio).
+    assert np.abs(cor_no_quadro(Path(clipe.arquivo), 10, 30) - AZUL_DA_CAMERA).max() < 30
+    assert np.abs(cor_no_quadro(Path(clipe.arquivo), 10, 170) - FUNDO_DA_DEMO).max() < 30
+
+
+@precisa_ffmpeg
+def test_vertical_b_sem_camera_e_so_o_jogo(cfg, sessao, tarefa):
+    cfg.cortes = ConfigCortes(formatos=["vertical_b"])
+    cortar.cortar(sessao, tarefa, cfg)
+    clipe = clipes(sessao)[0]
+    info = ffmpeg.inspecionar(Path(clipe.arquivo))
+    assert (info.largura, info.altura) == (1080, 1920)
+    # O recorte do centro não pega o canto da câmera: em cima também é o fundo do jogo.
+    assert np.abs(cor_no_quadro(Path(clipe.arquivo), 10, 30) - FUNDO_DA_DEMO).max() < 30
+
+
+@precisa_ffmpeg
+def test_camera_fora_da_tela_e_falha_definitiva(cfg, sessao, tarefa):
+    cfg.cortes = ConfigCortes(
+        formatos=["vertical_b"],
+        vertical_b=ConfigVerticalB(camera=Regiao(x=1200, y=0, largura=240, altura=135)),
+    )
+    with pytest.raises(FalhaDefinitivaError, match="clipador calibrar"):
+        cortar.cortar(sessao, tarefa, cfg)
+    # Sem o vertical B nos formatos, uma câmera errada no config não atrapalha os outros.
+    cfg.cortes = ConfigCortes(
+        formatos=["horizontal"],
+        vertical_b=ConfigVerticalB(camera=Regiao(x=1200, y=0, largura=240, altura=135)),
+    )
+    cortar.cortar(sessao, tarefa, cfg)
+    assert [c.formato.value for c in clipes(sessao)] == ["horizontal", "horizontal"]
+
+
+@precisa_ffmpeg
+def test_clipador_calibrar(tmp_path, escrever_config, sessao, tarefa, cfg):
+    from typer.testing import CliRunner
+
+    from clipador.cli import app
+
+    gravacao = sessao.get(Gravacao, tarefa.gravacao_id)
+    gravacao.duracao_s = 12
+    sessao.add(gravacao)
+    sessao.commit()
+    banco = Path(str(sessao.get_bind().url.database))
+    config = escrever_config(
+        f'pasta_gravacoes = "{(tmp_path / "g").as_posix()}"\n'
+        f'pasta_dados = "{banco.parent.as_posix()}"\n'
+        "[cortes.vertical_b]\n"
+        "camera = { x = 1010, y = 30, largura = 240, altura = 135 }\n"
+    )
+    resultado = CliRunner().invoke(app, ["calibrar", "--arquivo", str(config)])
+    assert resultado.exit_code == 0, resultado.output
+    quadro = banco.parent / "calibracao.png"
+    info = ffmpeg.inspecionar(quadro)
+    assert (info.largura, info.altura) == (1280, 720)
+    assert "1280×720" in resultado.output
+    assert "Vermelho: a câmera do config (240×135 em 1010, 30)" in resultado.output
+    # Um segundo fora da gravação explica, em vez de gerar um quadro preto.
+    resultado = CliRunner().invoke(app, ["calibrar", "--arquivo", str(config), "-s", "99"])
+    assert resultado.exit_code == 1
+    assert "entre 0 e isso" in resultado.output
+
+
 def test_servico_tem_os_executores_de_corte():
     from clipador.sistema.servico import EXECUTORES
 
@@ -357,7 +559,7 @@ def test_clipes_da_demo(tmp_path):
         palavras = sessao.exec(select(Transcricao)).one().palavras
     engine.dispose()
 
-    assert len(lista) == 2 * len(roteiro.PICOS_VOZ)
+    assert len(lista) == 3 * len(roteiro.PICOS_VOZ)  # horizontal, vertical A e B
     for clipe in lista:
         momento = momentos[clipe.momento_id]
         info = ffmpeg.inspecionar(Path(clipe.arquivo))  # abre: é um MP4 válido
