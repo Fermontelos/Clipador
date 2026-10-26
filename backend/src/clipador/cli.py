@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from sqlmodel import col, select
 
 from clipador import __version__, ffmpeg
+from clipador.aprendizado import sugestao as aprendizado
 from clipador.banco import fila
 from clipador.banco.backup import fazer_backup, listar_backups
 from clipador.banco.conexao import BancoMaisNovoQueOCodigoError, abrir_banco, nova_sessao
@@ -293,8 +294,9 @@ def demo(
     typer.echo(f"  Picos de voz em: {picos}")
     c = resultado.contagens
     typer.echo(
-        f"  Banco da demo: {c['gravacoes']} gravação, {c['eventos']} eventos do LoL, "
-        f"{c['transcricoes']} transcrição pronta, {c['tarefas_pendentes']} tarefa(s) na fila"
+        f"  Banco da demo: a live, {c['eventos']} eventos do LoL, {c['transcricoes']} "
+        f"transcrição pronta, {c['tarefas_pendentes']} tarefa(s) na fila; e "
+        f"{c['gravacoes'] - 1} lives antigas com {c['decisoes']} decisões (para o aprendizado)"
     )
     typer.echo("Próximos passos: clipador processar --demo  e  clipador status --demo")
 
@@ -592,6 +594,86 @@ def calibrar(
     typer.echo("    [cortes.vertical_b]")
     typer.echo("    camera = { x = 1500, y = 760, largura = 400, altura = 300 }")
     typer.echo("  (x, y = o canto de cima à esquerda da câmera; troque pelos números do quadro).")
+
+
+def _porcento(valor: float | None) -> str:
+    return "—" if valor is None else f"{valor * 100:.0f}%"
+
+
+def _br(valor: float, sinal: bool = False) -> str:
+    """Número com vírgula decimal (11,5), como se escreve em português."""
+    texto = f"{valor:+g}" if sinal else f"{valor:g}"
+    return texto.replace(".", ",")
+
+
+@app.command()
+def aprender(
+    aceitar: Annotated[
+        bool, typer.Option("--aceitar", help="Aceita a sugestão sem perguntar.")
+    ] = False,
+    arquivo: OpcaoArquivo = CAMINHO_PADRAO,
+    demo: OpcaoDemo = False,
+) -> None:
+    """Mostra o que as suas decisões ensinam (pesos da nota e janela do corte) e pede o aceite."""
+    cfg = config_do_comando(arquivo, demo)
+    engine = abrir_banco_ou_sair(cfg)
+    try:
+        with nova_sessao(engine) as sessao:
+            s = aprendizado.sugerir(sessao, cfg)
+            typer.echo(f"Decisões: {s.decisoes} ({s.aprovadas} aprovadas).")
+            for dia in s.precisao_por_dia[-7:]:
+                typer.echo(
+                    f"  {dia['dia']}: aprovou {dia['aprovados']} de {dia['decididos']} "
+                    f"({_porcento(dia['precisao'])})"
+                )
+            typer.echo(
+                "\nPesos da nota"
+                + (f" (versão {s.versao_atual})" if s.versao_atual else " (do config)")
+                + ":"
+            )
+            nomes = sorted(set(s.pesos_atuais) | set(s.pesos_novos or {}))
+            for nome in nomes:
+                novo = f" -> {s.pesos_novos[nome]:.3f}" if s.pesos_novos else ""
+                typer.echo(f"  {nome:12s} {s.pesos_atuais.get(nome, 0):.3f}{novo}")
+            if s.pesos_novos:
+                typer.echo(
+                    f"  Precisão nos de maior nota, em decisões que o treino não viu: "
+                    f"{_porcento(s.precisao_antes)} com os atuais, "
+                    f"{_porcento(s.precisao_depois)} com os sugeridos."
+                )
+            else:
+                typer.echo(f"  Sem sugestão: {s.sem_pesos_porque}")
+            antes, depois = s.janela_atual
+            typer.echo(
+                f"\nJanela do corte: {_br(antes)} s antes e {_br(depois)} s depois do sinal."
+            )
+            if s.janela_nova:
+                j = s.janela_nova
+                typer.echo(
+                    f"  Sugestão: {_br(j.segundos_antes)} s antes e {_br(j.segundos_depois)} s "
+                    f"depois (você moveu o início {_br(j.media_inicio_s, True)} s e o fim "
+                    f"{_br(j.media_fim_s, True)} s, "
+                    f"em média, em {j.aprovados} aprovados)."
+                )
+            else:
+                typer.echo(f"  Sem sugestão: {s.sem_janela_porque}")
+            if not s.tem_sugestao:
+                return
+            if not aceitar:
+                # O typer.confirm pergunta "[y/N]", em inglês: um "s" seria lido como "não".
+                resposta = typer.prompt(
+                    "\nAceitar esta sugestão? (s/N)", default="n", show_default=False
+                )
+                if resposta.strip().lower() not in ("s", "sim", "y", "yes"):
+                    typer.echo("Nada mudou.")
+                    return
+            versao = aprendizado.aceitar(sessao, cfg, s.decisoes)
+            typer.echo(
+                f"Versão {versao.versao} aceita: vale a partir da próxima detecção "
+                "(os momentos já detectados ficam como estão)."
+            )
+    finally:
+        engine.dispose()
 
 
 @app.command("instalar-servico")

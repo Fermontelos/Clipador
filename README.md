@@ -31,7 +31,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 11 · Desligar o PC | Desliga sozinho depois de processar | ✅ (em modo de teste) |
 | 12 · API da revisão | Serve os clipes e grava as suas decisões | ✅ |
 | 13 · Interface da revisão | Revisar os clipes pelo teclado, no navegador | ✅ |
-| 14 · Aprendizado | Ajustar a nota com as suas aprovações | ⏳ próxima |
+| 14 · Aprendizado | Ajustar a nota com as suas aprovações | ✅ (falta o gráfico de uma live real) |
+| 15 · YouTube | Publicar os clipes aprovados, com agendamento | ⏳ próxima |
 
 ## Experimente em 2 minutos (modo demo)
 
@@ -56,6 +57,8 @@ picos de voz em horários conhecidos (0:25, 1:10, 1:58 e 2:30), eventos de uma p
 uma transcrição e títulos prontos. O vídeo mostra o tempo da gravação no centro da tela
 e uma "câmera" falsa no canto de cima, já configurada, para o vertical B mostrar o layout
 câmera + jogo (uma demo criada antes dela só a ganha com `clipador demo --do-zero`).
+A demo também traz 6 lives antigas já revisadas (120 decisões, só no banco, sem vídeo),
+para o aprendizado ter o que mostrar: `uv run clipador aprender --demo`.
 Rodar de novo não duplica nada; `--do-zero` apaga e recria. A demo usa uma pasta e um banco
 separados: os seus dados reais não são tocados.
 
@@ -161,7 +164,8 @@ cd frontend; npm ci; npm run build; cd ..
   - **Fila e status**: o que está processando, os erros (com o `clipador refazer` de
     cada um) e a cota do YouTube do dia.
   - **Estatísticas**: a precisão do detector, aprovações por faixa de nota e por dia,
-    e a força média de cada sinal nos aprovados e nos recusados.
+    a força média de cada sinal nos aprovados e nos recusados, e o **aprendizado**
+    (veja abaixo), com o botão de aceitar.
 
   Por baixo, a interface usa a API (documentada e testável em `/docs`):
   - `GET /api/momentos`: os momentos do dia da live mais recente, da maior nota para a
@@ -174,7 +178,9 @@ cd frontend; npm ci; npm run build; cd ..
     na fila e sai quando ela rodar (o serviço, ou `clipador processar`);
   - `GET /api/clipes/{id}/video`: o vídeo, com avanço no player;
   - `GET /api/status`, `GET /api/estatisticas` e `GET /api/config`: fila, erros, cota do
-    YouTube, precisão e os limites do corte.
+    YouTube, precisão e os limites do corte;
+  - `GET /api/aprendizado` e `POST /api/aprendizado/aceitar`: a sugestão de pesos e de
+    janela e o aceite (com o número de decisões que você viu: se mudou, é recusado).
 
   Os destinos padrão de cada formato ficam em `[revisao]` no `config.toml`. A API só aceita
   pedidos do próprio PC ([ADR 0007](docs/adr/0007-api-local-sem-senha.md)). Nada é
@@ -189,6 +195,19 @@ cd frontend; npm ci; npm run build; cd ..
 - `clipador instalar-servico`: faz o serviço abrir sozinho, sem janela, quando você entra
   no Windows (`clipador remover-servico` desfaz). Não precisa de administrador
   ([ADR 0004](docs/adr/0004-abrir-no-login-pela-chave-run.md)).
+- Aprendizado com as suas decisões ([ADR 0009](docs/adr/0009-regressao-logistica.md)):
+  `clipador aprender` (ou o painel na tela de Estatísticas) mostra a precisão por dia e, com
+  100 decisões ou mais, os pesos que as suas aprovações sugerem para a nota. Eles saem de
+  uma regressão logística: as entradas são as forças dos sinais de cada momento, e a saída
+  é "aprovou?". Para a comparação ser justa, a precisão "antes e depois" é medida com
+  validação cruzada, em decisões que o modelo não viu no treino: dos momentos de maior nota
+  de cada dia (a metade de cima), quantos você aprovaria com os pesos atuais e com os
+  sugeridos. A média dos seus ajustes de corte também sugere uma nova janela (ex.: você
+  sempre adianta o início em 3 s, então os próximos cortes começam 3 s antes), a partir de
+  20 aprovações. Nada muda sozinho: você aceita, e a versão aceita vale a partir da próxima
+  detecção (os momentos já detectados ficam como estão). **Limitação**: só os momentos que
+  você revisou têm decisão, e quase todos são os de maior nota do dia; o modelo aprende
+  entre os que o detector já achou bons, não sobre a live inteira.
 - `clipador calibrar`: salva um quadro da live mais recente em `dados/calibracao.png`,
   com uma grade a cada 100 px e as regiões do vertical B desenhadas (verde: o recorte do
   jogo; vermelho: a câmera). É de onde saem os números de `[cortes.vertical_b] camera`
@@ -295,6 +314,7 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     revisao/    regras da revisão: momentos do dia, decisões, ajuste do corte e cota
+    aprendizado/ métricas, pesos da nota (regressão logística) e janela do corte
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
   tests/
 api/            API local da revisão, FastAPI (etapa 12) e o comando clipador web
@@ -324,6 +344,7 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 - [ADR 0006: cortar no processador quando o NVENC não funcionar](docs/adr/0006-cortes-no-processador-sem-nvenc.md)
 - [ADR 0007: API da revisão local, sem senha](docs/adr/0007-api-local-sem-senha.md)
 - [ADR 0008: vertical B com a câmera em cima e o jogo embaixo](docs/adr/0008-vertical-b-camera-e-jogo.md)
+- [ADR 0009: regressão logística para aprender os pesos da nota](docs/adr/0009-regressao-logistica.md)
 
 ## Licença
 

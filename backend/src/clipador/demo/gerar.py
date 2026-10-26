@@ -4,7 +4,8 @@ Tudo fica em ``<pasta_dados>/demo/``, separado dos dados reais:
 
     demo/
     ├─ gravacoes/2026-01-10 20-00-00.mkv   a "live" de 3 minutos
-    ├─ clipador.db                         banco só da demo
+    ├─ clipador.db                         banco só da demo (com 6 lives antigas já
+    │                                      revisadas, para o aprendizado: historico.py)
     └─ backups/
 
 O vídeo usa o encoder da CPU (``libx264``), e não o da placa: a demo precisa rodar em
@@ -34,6 +35,7 @@ from sqlmodel import func, select
 from clipador import ffmpeg
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import (
+    Decisao,
     EventoJogo,
     Gravacao,
     StatusTarefa,
@@ -49,7 +51,7 @@ from clipador.config import (
     Regiao,
     config_sem_arquivo,
 )
-from clipador.demo import roteiro
+from clipador.demo import historico, roteiro
 from clipador.demo.roteiro import Pico
 from clipador.jogo import eventos
 
@@ -272,10 +274,12 @@ def preparar_demo(pasta_dados: Path, do_zero: bool = False) -> ResultadoDemo:
     try:
         with nova_sessao(engine) as sessao:
             banco_preenchido = _popular_banco(sessao, arquivo)
+            historico.popular(sessao)  # as lives antigas, já revisadas (etapa 14)
             contagens = {
                 nome: sessao.exec(select(func.count()).select_from(tabela)).one()
                 for nome, tabela in (
                     ("gravacoes", Gravacao),
+                    ("decisoes", Decisao),
                     ("eventos", EventoJogo),
                     ("transcricoes", Transcricao),
                     ("tarefas", Tarefa),

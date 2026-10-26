@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { api } from "../api";
+import { Aprendizado } from "./Aprendizado";
 import type { Estatisticas as Dados } from "../tipos";
 
 // Cores das séries: azul e laranja da paleta de referência no tema escuro (validadas para
@@ -33,7 +34,9 @@ function porcento(valor: number | null): string {
 }
 
 function segundos(valor: number | null): string {
-  return valor === null ? "—" : `${valor > 0 ? "+" : ""}${valor.toFixed(1)} s`;
+  if (valor === null) return "—";
+  const texto = valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return `${valor > 0 ? "+" : ""}${texto} s`;
 }
 
 /** Estatísticas: a precisão do detector e o que cada sinal diz. Engajamento: etapa 17. */
@@ -80,7 +83,7 @@ export function Estatisticas() {
         <h2 className="font-semibold">Força média de cada sinal (0 a 1)</h2>
         <p className="mb-3 text-sm text-[var(--texto-fraco)]">
           Um sinal forte nos aprovados e fraco nos recusados separa bem o bom do ruim. Com 100
-          decisões, a etapa 14 sugere novos pesos a partir disto.
+          decisões, o aprendizado (abaixo) sugere novos pesos a partir disto.
         </p>
         {sinais.length === 0 ? (
           <p className="text-sm text-[var(--texto-fraco)]">Ainda sem decisões.</p>
@@ -92,7 +95,9 @@ export function Estatisticas() {
               <YAxis domain={[0, 1]} {...EIXO} />
               <Tooltip
                 contentStyle={{ background: "var(--fundo)", border: "1px solid var(--borda)" }}
-                formatter={(v) => (typeof v === "number" ? v.toFixed(2) : "—")}
+                formatter={(v) =>
+                  typeof v === "number" ? v.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"
+                }
               />
               <Legend formatter={textoDaLegenda} />
               {SERIES.map((s) => (
@@ -112,12 +117,13 @@ export function Estatisticas() {
 
       <section className="grid gap-3 md:grid-cols-2">
         <Numero nome="Ajuste médio do início" valor={segundos(dados.ajuste_medio_inicio_s)}>
-          negativo = você puxou para mais cedo
+          nos clipes que você ajustou (negativo = mais cedo)
         </Numero>
         <Numero nome="Ajuste médio do fim" valor={segundos(dados.ajuste_medio_fim_s)}>
-          a etapa 14 usa isto para mudar a janela padrão
+          nos clipes que você ajustou (a janela sugerida, abaixo, usa os aprovados)
         </Numero>
       </section>
+      <Aprendizado />
       <p className="text-sm text-[var(--texto-fraco)]">
         Engajamento (views, curtidas, retenção) chega na etapa 17, com os cortes publicados.
       </p>

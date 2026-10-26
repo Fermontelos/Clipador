@@ -237,12 +237,22 @@ class Publicacao(SQLModel, table=True):
 
 
 class PesosNota(SQLModel, table=True):
-    """Versão aceita dos pesos da nota (etapas 14 e 17)."""
+    """Uma versão aceita do que a nota aprendeu (etapas 14 e 17): pesos e janela do corte.
+
+    A mais recente vale no lugar do ``[deteccao]`` do config, na próxima detecção.
+    """
 
     id: int | None = Field(default=None, primary_key=True)
     versao: int = Field(unique=True)
+    # Peso de cada detector (somam 1). Vazio = os pesos não mudaram nesta versão.
     valores: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    # Precisão medida na validação cruzada: com os pesos novos e com os que valiam antes.
     precisao: float | None = None
+    precisao_antes: float | None = None
+    decisoes: int | None = None  # quantas decisões havia ao aceitar
+    # Janela do corte aprendida dos seus ajustes (vazio = a do config).
+    segundos_antes: float | None = None
+    segundos_depois: float | None = None
     criada_em: datetime = Field(default_factory=agora)
 
 

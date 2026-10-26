@@ -9,6 +9,8 @@ Rotas (todas documentadas, e testáveis no navegador, em ``/docs``):
 - ``POST /api/momentos/{id}/ajuste``: novo início e fim (põe um novo corte na fila);
 - ``GET /api/clipes/{id}/video``: o vídeo, com ``Range`` (o player avança e volta);
 - ``GET /api/momentos/{id}/thumbnail``: o quadro do pico (clipes horizontais);
+- ``GET /api/aprendizado`` e ``POST /api/aprendizado/aceitar``: o que as suas decisões
+  ensinam (pesos da nota e janela do corte, etapa 14) e o aceite;
 - ``GET /api/dias``, ``GET /api/status``, ``GET /api/estatisticas`` e ``GET /api/config``
   (o que a interface precisa saber do config: limites do corte, formatos...);
 - ``/``: a interface de revisão (etapa 13), se ela foi construída (``npm run build`` em
@@ -39,6 +41,7 @@ from sqlmodel import Session, col, select
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from clipador import __version__
+from clipador.aprendizado import sugestao as aprendizado
 from clipador.banco import fila
 from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import (
@@ -142,6 +145,8 @@ def _registrar_erros(app: FastAPI) -> None:
     app.add_exception_handler(decisoes.DecisaoNaoEncontradaError, responder(404))
     app.add_exception_handler(decisoes.RevisaoBloqueadaError, responder(409))
     app.add_exception_handler(decisoes.DecisaoInvalidaError, responder(422))
+    app.add_exception_handler(aprendizado.SugestaoMudouError, responder(409))
+    app.add_exception_handler(aprendizado.NadaParaAceitarError, responder(409))
 
     async def pedido_invalido(_request: Request, erro: RequestValidationError) -> JSONResponse:
         # Igual ao padrão do FastAPI, mas sem devolver o valor recebido: um "NaN" ou
@@ -375,6 +380,17 @@ def _registrar_rotas(app: FastAPI) -> None:
     def estatisticas(sessao: Sessao) -> esquemas.EstatisticasSaida:
         return esquemas.EstatisticasSaida(**vars(consultas.estatisticas(sessao)))
 
+    @app.get("/api/aprendizado", tags=["aprendizado"], summary="O que as decisões ensinam")
+    def ver_aprendizado(sessao: Sessao, cfg: Cfg) -> esquemas.AprendizadoSaida:
+        return _aprendizado(aprendizado.sugerir(sessao, cfg))
+
+    @app.post("/api/aprendizado/aceitar", tags=["aprendizado"], summary="Aceitar a sugestão")
+    def aceitar(
+        pedido: esquemas.PedidoAceite, sessao: Sessao, cfg: Cfg
+    ) -> esquemas.AprendizadoSaida:
+        aprendizado.aceitar(sessao, cfg, pedido.decisoes)
+        return _aprendizado(aprendizado.sugerir(sessao, cfg))
+
     @app.get("/api/config", tags=["painel"], summary="O que a interface precisa do config")
     def config(cfg: Cfg) -> esquemas.ConfigSaida:
         return esquemas.ConfigSaida(
@@ -387,6 +403,26 @@ def _registrar_rotas(app: FastAPI) -> None:
             max_hashtags=cfg.titulos.max_hashtags,
             limite_titulo=LIMITE_TITULO_YOUTUBE,
         )
+
+
+def _aprendizado(s: aprendizado.Sugestao) -> esquemas.AprendizadoSaida:
+    j = s.janela_nova
+    return esquemas.AprendizadoSaida(
+        decisoes=s.decisoes,
+        aprovadas=s.aprovadas,
+        minimo_para_pesos=s.minimo_para_pesos,
+        versao_atual=s.versao_atual,
+        pesos_atuais=s.pesos_atuais,
+        pesos_novos=s.pesos_novos,
+        precisao_antes=s.precisao_antes,
+        precisao_depois=s.precisao_depois,
+        sem_pesos_porque=s.sem_pesos_porque,
+        janela_atual=s.janela_atual,
+        janela_nova=esquemas.JanelaSugerida(**vars(j)) if j else None,
+        sem_janela_porque=s.sem_janela_porque,
+        precisao_por_dia=s.precisao_por_dia,
+        versoes=s.versoes,
+    )
 
 
 # --------------------------------------------------------------------------- interface

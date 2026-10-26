@@ -99,8 +99,10 @@ def detectar(
             sinais.extend(detector.detectar(entrada))
         else:
             log.info("Detector %s sem dados nesta gravação (fica fora da nota).", detector.nome)
+    # O que você aceitou na etapa 14 (pesos e janela do corte) vale no lugar do config.
     pesos = nota.pesos_atuais(sessao, cfg.deteccao)
-    momentos = nota.calcular(sinais, disponiveis, pesos, cfg.deteccao, entrada.duracao_s)
+    deteccao = nota.deteccao_atual(sessao, cfg.deteccao)
+    momentos = nota.calcular(sinais, disponiveis, pesos, deteccao, entrada.duracao_s)
 
     _apagar_momentos_antigos(sessao, gravacao.id)
     for momento in momentos:

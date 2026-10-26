@@ -378,6 +378,22 @@ def test_executor_salva_os_momentos_com_nota_e_motivo(cfg, sessao, tarefa):
     assert momento.inicio_s == 110.0 and momento.fim_s == pytest.approx(128, abs=0.5)
 
 
+def test_executor_usa_os_pesos_e_a_janela_aceitos(cfg, sessao, tarefa):
+    """Depois do aceite na etapa 14, a próxima detecção usa a versão nova (e não o config)."""
+    sessao.add(
+        PesosNota(versao=1, valores={"volume_voz": 1.0, "fala": 0.0, "lol": 0.0},
+                  segundos_antes=20, segundos_depois=10)
+    )  # fmt: skip
+    sessao.commit()
+    detectar.detectar(sessao, tarefa, cfg)
+    sessao.commit()
+
+    [momento] = momentos_salvos(sessao)
+    assert momento.nota == pytest.approx(100 * momento.sinais["volume_voz"], abs=0.1)
+    # Sem a versão: 110 a 128 s (10 s antes e 5 s depois do grito, que vai de 120 a 123 s).
+    assert momento.inicio_s == 100.0 and momento.fim_s == pytest.approx(133, abs=0.5)
+
+
 def test_detectar_de_novo_substitui_os_momentos(cfg, sessao, tarefa):
     detectar.detectar(sessao, tarefa, cfg)
     sessao.commit()

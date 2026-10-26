@@ -32,6 +32,8 @@ def test_revisar_a_demo_inteira(tmp_path, monkeypatch):
 
     cfg = config_da_demo(tmp_path / "dados")
     with TestClient(criar_app(cfg), base_url="http://127.0.0.1") as cliente:
+        # A demo também traz lives antigas já revisadas (etapa 14): conta-se o que mudou.
+        estatisticas_antes = cliente.get("/api/estatisticas").json()
         lista = cliente.get("/api/momentos").json()
         assert lista["dia"] == "2026-01-10"  # o dia da live falsa
         momentos = lista["momentos"]
@@ -83,7 +85,11 @@ def test_revisar_a_demo_inteira(tmp_path, monkeypatch):
             duracao = ffmpeg.inspecionar(Path(arquivo)).duracao_s
             assert duracao == pytest.approx(primeiro["duracao_s"] + 3, abs=0.1)
         estatisticas = cliente.get("/api/estatisticas").json()
-        assert estatisticas["aprovados"] == len(momentos) - 1
-        assert estatisticas["recusados"] == 1
-        assert estatisticas["ajuste_medio_fim_s"] == 3
-        assert cliente.get("/api/dias").json()[0]["pendentes"] == 0
+        mudou = {k: estatisticas[k] - estatisticas_antes[k] for k in ("aprovados", "recusados")}
+        assert mudou == {"aprovados": len(momentos) - 1, "recusados": 1}
+        assert depois["decisao"]["ajuste_fim_s"] == 3
+        assert cliente.get("/api/dias").json()[0]["pendentes"] == 0  # a live da demo
+        # O aprendizado já tem o que mostrar: as decisões antigas e as de agora.
+        aprendizado = cliente.get("/api/aprendizado").json()
+        assert aprendizado["decisoes"] == estatisticas["aprovados"] + estatisticas["recusados"]
+        assert aprendizado["pesos_novos"]["fala"] > aprendizado["pesos_atuais"]["fala"]

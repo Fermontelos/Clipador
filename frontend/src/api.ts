@@ -1,6 +1,7 @@
 // Conversa com a API local (127.0.0.1). Nada de chaves aqui: tudo o que está no navegador
 // pode ser lido por quem abrir as ferramentas de desenvolvedor.
 import type {
+  Aprendizado,
   Config,
   Dia,
   Estatisticas,
@@ -74,4 +75,8 @@ export const api = {
     ),
   status: () => pedir<Status>("/api/status"),
   estatisticas: () => pedir<Estatisticas>("/api/estatisticas"),
+  aprendizado: () => pedir<Aprendizado>("/api/aprendizado"),
+  /** ``decisoes``: quantas havia na sugestão que você viu (se mudou, a API recusa). */
+  aceitarAprendizado: (decisoes: number) =>
+    pedir<Aprendizado>("/api/aprendizado/aceitar", json({ decisoes })),
 };

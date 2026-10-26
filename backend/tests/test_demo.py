@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from clipador import ffmpeg
 from clipador.cli import app
-from clipador.demo import gerar, roteiro
+from clipador.demo import gerar, historico, roteiro
 from clipador.demo.roteiro import Pico
 
 precisa_ffmpeg = pytest.mark.skipif(
@@ -155,7 +155,13 @@ def test_rodar_a_demo_duas_vezes_nao_duplica_nada(tmp_path, demo_curta):
 
     assert primeira.video_criado and primeira.banco_preenchido
     assert not segunda.video_criado and not segunda.banco_preenchido
-    esperado = {"gravacoes": 1, "eventos": len(roteiro.EVENTOS_LOL), "transcricoes": 1}
+    # A live da demo e as lives antigas, já revisadas (etapa 14), sem duplicar nada.
+    esperado = {
+        "gravacoes": 1 + historico.DIAS,
+        "decisoes": historico.DIAS * historico.POR_LIVE,
+        "eventos": len(roteiro.EVENTOS_LOL),
+        "transcricoes": 1,
+    }
     for resultado in (primeira, segunda):
         assert {k: resultado.contagens[k] for k in esperado} == esperado
         assert resultado.contagens["tarefas"] == 1
@@ -228,7 +234,7 @@ def test_mover_a_pasta_do_projeto_nao_duplica_a_demo(tmp_path, demo_curta):
     resultado = gerar.preparar_demo(depois / "dados")
 
     assert not resultado.banco_preenchido
-    assert resultado.contagens["gravacoes"] == 1
+    assert resultado.contagens["gravacoes"] == 1 + historico.DIAS
     assert resultado.contagens["eventos"] == len(roteiro.EVENTOS_LOL)
     assert resultado.contagens["tarefas"] == 1
 
@@ -394,11 +400,19 @@ def test_detectores_acham_os_4_picos_da_demo_e_ignoram_o_ruido(tmp_path, monkeyp
     from sqlmodel import select
 
     from clipador.banco.conexao import abrir_banco, nova_sessao
-    from clipador.banco.modelos import Momento
+    from clipador.banco.modelos import Gravacao, Momento
 
     engine = abrir_banco(gerar.pasta_da_demo(tmp_path / "dados") / "clipador.db")
     with nova_sessao(engine) as sessao:
-        momentos = sorted(sessao.exec(select(Momento)).all(), key=lambda m: m.inicio_s)
+        # Só os da live da demo (o banco também tem as lives antigas do histórico).
+        momentos = sorted(
+            sessao.exec(
+                select(Momento)
+                .join(Gravacao)
+                .where(Gravacao.arquivo.endswith(roteiro.NOME_ARQUIVO))
+            ).all(),
+            key=lambda m: m.inicio_s,
+        )
     engine.dispose()
 
     assert len(momentos) == len(roteiro.PICOS_VOZ)

@@ -157,3 +157,38 @@ class ConfigSaida(BaseModel):
     destinos_padrao: dict[str, list[str]]
     max_hashtags: int = Field(description="Quantas hashtags o YouTube recomenda (só aviso).")
     limite_titulo: int
+
+
+class JanelaSugerida(BaseModel):
+    segundos_antes: float
+    segundos_depois: float
+    media_inicio_s: float = Field(description="Quanto você moveu o início, em média.")
+    media_fim_s: float
+    aprovados: int
+
+
+class AprendizadoSaida(BaseModel):
+    """O que as suas decisões ensinam (etapa 14). Nada muda até você aceitar."""
+
+    decisoes: int
+    aprovadas: int
+    minimo_para_pesos: int
+    versao_atual: int | None
+    pesos_atuais: dict[str, float]
+    pesos_novos: dict[str, float] | None
+    precisao_antes: float | None = Field(
+        description="Precisão nos de maior nota com os pesos atuais, em decisões não vistas."
+    )
+    precisao_depois: float | None = Field(description="O mesmo, com os pesos sugeridos.")
+    sem_pesos_porque: str | None
+    janela_atual: tuple[float, float] = Field(description="(segundos antes, segundos depois).")
+    janela_nova: JanelaSugerida | None
+    sem_janela_porque: str | None
+    precisao_por_dia: list[dict]
+    versoes: list[dict] = Field(description="As versões aceitas, da primeira à atual.")
+
+
+class PedidoAceite(BaseModel):
+    decisoes: int = Field(
+        description="Quantas decisões havia na sugestão que você viu (se mudou, é recusado)."
+    )

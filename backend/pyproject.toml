@@ -23,6 +23,7 @@ dependencies = [
     "watchdog>=6.0.0",
     "ollama>=0.6.3",
     "tzdata>=2026.5",
+    "scikit-learn>=1.9.1",
 ]
 
 [project.scripts]

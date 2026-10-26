@@ -19,8 +19,9 @@
 5. Ficam só os ``max_momentos_por_live`` (30) melhores, e só os com nota de pelo menos
    ``nota_minima`` (10): abaixo disso é ruído (ex.: só a torre derrubada por um aliado).
 
-Os pesos vêm do ``[deteccao]`` do config até existir uma versão aprovada na tabela
-``PesosNota`` (etapas 14 e 17), que passa a valer no lugar.
+Os pesos e a janela (``segundos_antes`` e ``segundos_depois``) vêm do ``[deteccao]`` do
+config até existir uma versão aceita na tabela ``PesosNota`` (etapas 14 e 17), que passa a
+valer no lugar (``pesos_atuais`` e ``deteccao_atual``).
 """
 
 from dataclasses import dataclass, field
@@ -61,6 +62,19 @@ def pesos_atuais(sessao: Session, cfg: ConfigDeteccao) -> dict[str, float]:
     if aprovados is not None:
         pesos.update(aprovados.valores)
     return pesos
+
+
+def deteccao_atual(sessao: Session, cfg: ConfigDeteccao) -> ConfigDeteccao:
+    """O ``[deteccao]`` com a janela do corte aprendida (etapa 14), se houver uma aceita."""
+    aprovados = sessao.exec(select(PesosNota).order_by(col(PesosNota.versao).desc())).first()
+    if aprovados is None or aprovados.segundos_antes is None:
+        return cfg
+    return cfg.model_copy(
+        update={
+            "segundos_antes": aprovados.segundos_antes,
+            "segundos_depois": aprovados.segundos_depois,
+        }
+    )
 
 
 def agrupar(sinais: list[Sinal], juntar_ate_s: float) -> list[list[Sinal]]:

@@ -130,3 +130,40 @@ export interface Rascunho {
   inicio_s: number;
   fim_s: number;
 }
+
+export interface JanelaSugerida {
+  segundos_antes: number;
+  segundos_depois: number;
+  media_inicio_s: number;
+  media_fim_s: number;
+  aprovados: number;
+}
+
+export interface VersaoAceita {
+  versao: number;
+  criada_em: string;
+  pesos: Record<string, number>;
+  precisao_antes: number | null;
+  precisao: number | null;
+  decisoes: number | null;
+  segundos_antes: number | null;
+  segundos_depois: number | null;
+}
+
+/** O que as suas decisões ensinam (etapa 14). Nada muda até você aceitar. */
+export interface Aprendizado {
+  decisoes: number;
+  aprovadas: number;
+  minimo_para_pesos: number;
+  versao_atual: number | null;
+  pesos_atuais: Record<string, number>;
+  pesos_novos: Record<string, number> | null;
+  precisao_antes: number | null;
+  precisao_depois: number | null;
+  sem_pesos_porque: string | null;
+  janela_atual: [number, number];
+  janela_nova: JanelaSugerida | null;
+  sem_janela_porque: string | null;
+  precisao_por_dia: { dia: string; decididos: number; aprovados: number; precisao: number }[];
+  versoes: VersaoAceita[];
+}
