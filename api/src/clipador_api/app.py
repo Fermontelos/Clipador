@@ -54,7 +54,7 @@ from clipador.banco.modelos import (
     Tarefa,
     agora,
 )
-from clipador.config import Config
+from clipador.config import FORMATOS_DO_TIKTOK, Config
 from clipador.cortes.cortar import caminho_da_thumbnail
 from clipador.publicacao import cota, pedido, planejar
 from clipador.revisao import consultas, decisoes
@@ -216,7 +216,8 @@ def montar_momento(
                 id=p.id,
                 plataforma=p.plataforma.value,
                 formato=clipe_por_id[p.clipe_id].formato.value,
-                short=pedido.e_short(
+                short=p.plataforma is Plataforma.YOUTUBE
+                and pedido.e_short(
                     clipe_por_id[p.clipe_id].formato.value.startswith("vertical"),
                     clipe_por_id[p.clipe_id].duracao_s,
                 ),
@@ -418,6 +419,14 @@ def _registrar_rotas(app: FastAPI) -> None:
             duracao_maxima_s=cfg.deteccao.duracao_maxima_s,
             formatos=list(cfg.cortes.formatos),
             plataformas=[p.value for p in Plataforma],
+            plataformas_por_formato={
+                f: [
+                    p.value
+                    for p in Plataforma
+                    if p is not Plataforma.TIKTOK or f in FORMATOS_DO_TIKTOK
+                ]
+                for f in cfg.cortes.formatos
+            },
             destinos_padrao={f: list(d) for f, d in cfg.revisao.destinos_padrao.items()},
             max_hashtags=cfg.titulos.max_hashtags,
             limite_titulo=LIMITE_TITULO_YOUTUBE,

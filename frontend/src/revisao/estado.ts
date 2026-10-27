@@ -129,11 +129,30 @@ function quando(iso: string | null): string {
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
+/** O TikTok não tem horário: o vídeo vai para a pasta (e, no modo rascunho, para o app). */
+function textoDoTiktok(p: Publicacao): string {
+  switch (p.status) {
+    case "pendente":
+      return "na fila (U ainda cancela)";
+    case "enviando":
+      return "enviando agora";
+    case "na_pasta":
+      return "na pasta de exportação, com a legenda no .txt: poste pelo celular";
+    case "rascunho":
+      return "rascunho no app do TikTok: finalize pela notificação (a legenda está no .txt)";
+    case "erro":
+      return "erro no envio (veja a tela Fila e status)";
+    default:
+      return p.status;
+  }
+}
+
 /**
  * Ex.: "na fila, vai ao ar 28/10/2026, 18:00 (U ainda cancela)", "enviando agora...",
  * "enviado, vai ao ar 28/10/2026, 18:00", "publicado em ..." ou o aviso de erro.
  */
 export function textoDaPublicacao(p: Publicacao, agora: Date = new Date()): string {
+  if (p.plataforma === "tiktok") return textoDoTiktok(p);
   if (p.status === "pendente") {
     return `na fila, vai ao ar ${quando(p.agendada_para)} (U ainda cancela)`;
   }

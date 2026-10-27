@@ -207,6 +207,16 @@ describe("publicação", () => {
     expect(texto).not.toContain("cancela");
   });
 
+  it("TikTok: sem horário; pasta ou rascunho no app", () => {
+    const tt = { ...base, plataforma: "tiktok", short: false, agendada_para: null };
+    expect(textoDaPublicacao({ ...tt, status: "pendente" }, agora)).toBe(
+      "na fila (U ainda cancela)",
+    );
+    expect(textoDaPublicacao({ ...tt, status: "na_pasta" }, agora)).toMatch(/^na pasta/);
+    expect(textoDaPublicacao({ ...tt, status: "rascunho" }, agora)).toMatch(/notificação/);
+    expect(textoDaPublicacao({ ...tt, status: "erro" }, agora)).toContain("Fila e status");
+  });
+
   it("erro aponta para a tela da fila", () => {
     expect(textoDaPublicacao({ ...base, status: "erro" }, agora)).toContain("Fila e status");
   });

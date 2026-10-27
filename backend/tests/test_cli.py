@@ -267,3 +267,40 @@ def test_youtube_entrar_salva_o_login_na_pasta_de_segredos(config_valida, monkey
     assert resultado.exit_code == 0, resultado.output
     assert pastas == [config_valida.parent / "segredos"]  # relativo à pasta do config.toml
     assert "youtube_token.json" in resultado.output
+
+
+# ------------------------------------------------------------------ tiktok-entrar (etapa 16)
+
+
+def test_tiktok_entrar_sem_as_chaves_do_app_explica(config_valida):
+    resultado = runner.invoke(app, ["tiktok-entrar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "TIKTOK_CLIENT_KEY" in resultado.output
+
+
+def test_tiktok_entrar_que_nao_termina_explica_sem_traceback(config_valida, monkeypatch):
+    from clipador_integracoes import tiktok
+
+    def recusou(self, abrir):
+        raise tiktok.ErroDoTiktokError("O TikTok não autorizou: access_denied")
+
+    monkeypatch.setattr(tiktok.ClienteTiktok, "entrar", recusou)
+    resultado = runner.invoke(app, ["tiktok-entrar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "o login não terminou" in resultado.output
+
+
+def test_tiktok_entrar_usa_os_caminhos_do_config(config_valida, monkeypatch):
+    from clipador_integracoes import tiktok
+
+    vistos = []
+    monkeypatch.setattr(
+        tiktok.ClienteTiktok,
+        "entrar",
+        lambda self, abrir: vistos.append((self.pasta, self.arquivo_env)),
+    )
+    resultado = runner.invoke(app, ["tiktok-entrar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 0, resultado.output
+    pasta = config_valida.parent
+    assert vistos == [(pasta / "segredos", pasta / ".env")]  # relativos à pasta do config
+    assert 'modo = "rascunho"' in resultado.output

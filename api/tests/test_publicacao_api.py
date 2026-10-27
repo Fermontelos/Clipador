@@ -18,10 +18,13 @@ def test_aprovar_mostra_as_publicacoes_e_desfazer_cancela(cliente, sessao, um_mo
     assert {(p["plataforma"], p["formato"], p["short"]) for p in publicacoes} == {
         ("youtube", "vertical_a", True),
         ("youtube", "horizontal", False),
-    }  # o TikTok fica para a etapa 16
-    assert all(p["status"] == "pendente" and p["agendada_para"] for p in publicacoes)
+        ("tiktok", "vertical_a", False),  # "Short" é coisa do YouTube
+    }
+    assert all(p["status"] == "pendente" for p in publicacoes)
+    # Só o YouTube tem horário: o TikTok você posta pelo celular.
+    assert {p["plataforma"] for p in publicacoes if p["agendada_para"]} == {"youtube"}
     assert momento["publicado"] is False  # pendente não trava: ainda dá para desfazer
-    assert len(sessao.exec(select(Tarefa).where(Tarefa.tipo == TipoTarefa.PUBLICAR)).all()) == 2
+    assert len(sessao.exec(select(Tarefa).where(Tarefa.tipo == TipoTarefa.PUBLICAR)).all()) == 3
 
     depois = cliente.delete(f"{rota}/decisao").json()
     assert depois["publicacoes"] == []

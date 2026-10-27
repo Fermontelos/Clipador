@@ -4,8 +4,9 @@
 #
 # Qualquer valor também pode vir de uma variável de ambiente com o prefixo CLIPADOR_
 # (ex.: CLIPADOR_NIVEL_LOG=DEBUG), que tem prioridade sobre este arquivo.
-# Chaves e tokens NÃO ficam aqui: o login do YouTube fica em pasta_segredos e as chaves do
-# TikTok no .env, que só as integrações leem (veja o .env.example).
+# Chaves e tokens NÃO ficam aqui: os logins do YouTube e do TikTok ficam em pasta_segredos
+# e as chaves do app do TikTok no .env (arquivo_chaves), que só as integrações leem (veja o
+# .env.example).
 
 # Pasta onde o OBS salva as gravações. O ideal é uma pasta só para elas: o serviço coloca
 # na fila os vídeos que encontrar aqui.
@@ -43,6 +44,10 @@ nivel_log = "INFO"
 # Pasta (fora do git) com o client_secret.json do Google Cloud e o seu login no YouTube
 # (etapa 15). Só o pacote das integrações lê o que tem dentro.
 pasta_segredos = "segredos"
+
+# Arquivo (fora do git) com as chaves do app do TikTok (etapa 16, modo "rascunho"). Veja o
+# .env.example. Só o pacote das integrações lê o que tem dentro.
+arquivo_chaves = ".env"
 
 # Em qual faixa de áudio do OBS está cada fonte, contando a partir de 1 como no OBS
 # (Configurações > Saída > Gravação > Faixas de áudio). A faixa 1 é a mistura completa
@@ -205,6 +210,20 @@ tags = ["League of Legends", "LoL"]
 categoria = 20
 # Thumbnail do pico nos vídeos horizontais (gasta 50 das 10.000 unidades diárias).
 thumbnail = true
+
+# Publicação no TikTok (etapa 16). Só os verticais vão para lá. Nada sai sem a sua aprovação.
+[tiktok]
+# pasta = o vídeo e um .txt com a legenda vão para a pasta abaixo, e você posta pelo celular.
+# rascunho = também vão para a caixa de entrada do app do TikTok (você finaliza pela
+# notificação; o rascunho chega sem legenda: ela está no .txt). Precisa do app no TikTok for
+# Developers e de "clipador tiktok-entrar" (passo a passo no README). No máximo 5 rascunhos
+# pendentes a cada 24 h: o sexto espera na fila.
+modo = "pasta"
+# Para onde vão o vídeo e o .txt. Sem esta linha: <pasta_dados>/exportar/tiktok. Uma pasta
+# sincronizada com o celular (ex.: Google Drive) evita copiar à mão.
+# pasta = "D:/Google Drive/TikTok"
+# Legenda (o .txt): {titulo}, {hashtags} e {data} (o dia da live). Até 2.200 caracteres.
+legenda = "{titulo}\n\n{hashtags}"
 
 # A revisão no navegador ("clipador web"). A API só escuta em 127.0.0.1 (este PC).
 [revisao]

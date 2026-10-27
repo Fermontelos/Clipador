@@ -6,7 +6,7 @@ Limites conferidos nas fontes oficiais (ver ``docs/stack.html``):
 - hashtags: o YouTube recomenda de 3 a 5 por vídeo, sempre ligadas ao conteúdo (hashtag
   enganosa pode levar à remoção do vídeo); com mais de 60, ignora todas;
 - legenda do TikTok: até 2.200 caracteres (título + hashtags cabem com folga; a etapa 16
-  confere de novo ao montar a legenda).
+  corta nesse limite ao montar a legenda: ``config.LIMITE_LEGENDA_TIKTOK``).
 """
 
 import re

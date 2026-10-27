@@ -19,7 +19,10 @@ export interface Publicacao {
   formato: string;
   /** Sobe como Short (vertical de até 3 min). */
   short: boolean;
-  /** pendente (na fila: U cancela), enviando (subindo agora), agendada (já no YouTube) ou erro. */
+  /**
+   * pendente (na fila: U cancela), enviando (subindo agora), agendada (já no YouTube),
+   * na_pasta ou rascunho (TikTok) ou erro.
+   */
   status: string;
   agendada_para: string | null;
   link: string | null;
@@ -86,6 +89,8 @@ export interface Config {
   duracao_maxima_s: number;
   formatos: string[];
   plataformas: string[];
+  /** Para onde cada formato pode ir (o TikTok só recebe os verticais). */
+  plataformas_por_formato: Record<string, string[]>;
   destinos_padrao: Record<string, string[]>;
   max_hashtags: number;
   limite_titulo: number;

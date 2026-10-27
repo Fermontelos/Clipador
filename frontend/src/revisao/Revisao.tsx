@@ -548,7 +548,7 @@ export function Revisao({ visivel = true }: { visivel?: boolean }) {
                 <span className={escolhidas.length ? "" : "text-[var(--texto-fraco)] line-through"}>
                   {config.formatos.indexOf(f) + 1} · {NOMES_DOS_FORMATOS[f] ?? f}
                 </span>
-                {config.plataformas.map((p) => (
+                {(config.plataformas_por_formato[f] ?? config.plataformas).map((p) => (
                   <label key={p} className="flex items-center gap-1">
                     <input
                       type="checkbox"
@@ -614,7 +614,7 @@ function EstadoDaDecisao({ momento }: { momento: Momento }) {
   const decisao = momento.decisao;
   let estado;
   if (momento.publicado) {
-    estado = <p className="text-sm">📤 Já foi para o YouTube: a decisão não muda mais.</p>;
+    estado = <p className="text-sm">📤 Já foi enviado (veja abaixo): a decisão não muda mais.</p>;
   } else if (!decisao) {
     estado = <p className="text-sm text-[var(--texto-fraco)]">● Pendente</p>;
   } else if (decisao.aprovado) {

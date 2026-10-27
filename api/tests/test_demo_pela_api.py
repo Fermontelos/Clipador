@@ -89,11 +89,18 @@ def test_revisar_a_demo_inteira(tmp_path, monkeypatch):
         assert mudou == {"aprovados": len(momentos) - 1, "recusados": 1}
         assert depois["decisao"]["ajuste_fim_s"] == 3
         assert cliente.get("/api/dias").json()[0]["pendentes"] == 0  # a live da demo
-        # A publicação simulada da demo (etapa 15): os aprovados foram "enviados" ao YouTube
-        # falso; o 1º, que ganhou um corte novo, espera o recorte (5 min) antes de subir.
+        # A publicação da demo (etapas 15 e 16): os aprovados foram "enviados" ao YouTube
+        # falso, e os verticais foram para a pasta do TikTok; o 1º, que ganhou um corte novo,
+        # espera o recorte (5 min) antes de sair.
+        esperado = {"youtube": "agendada", "tiktok": "na_pasta"}
         for momento in momentos[1:-1]:
             publicacoes = cliente.get(f"/api/momentos/{momento['id']}").json()["publicacoes"]
-            assert publicacoes and all(p["status"] == "agendada" for p in publicacoes)
+            assert {p["plataforma"] for p in publicacoes} == {"youtube", "tiktok"}
+            assert all(p["status"] == esperado[p["plataforma"]] for p in publicacoes)
+        # Cada um desses tem 2 verticais (A e B): vídeo + .txt da legenda para cada.
+        verticais = (len(momentos) - 2) * 2
+        exportados = sorted(p.suffix for p in cfg.pasta_exportar_tiktok.iterdir())
+        assert exportados == [".mp4"] * verticais + [".txt"] * verticais
         assert all(p["status"] == "pendente" for p in depois["publicacoes"])
         ultimo_dele = cliente.get(f"/api/momentos/{ultimo['id']}").json()
         assert ultimo_dele["publicacoes"] == []  # recusado: nada a publicar

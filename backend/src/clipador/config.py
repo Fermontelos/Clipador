@@ -404,7 +404,49 @@ class ConfigDesligamento(BaseModel):
 
 
 PLATAFORMAS = ("youtube", "tiktok")
+# O TikTok é vertical: o horizontal não vai para lá (etapa 16).
+FORMATOS_DO_TIKTOK = ("vertical_a", "vertical_b")
+LIMITE_LEGENDA_TIKTOK = 2200
 HORARIO = r"^([01]\d|2[0-3]):[0-5]\d$"  # "18:00"
+
+
+class ConfigTiktok(BaseModel):
+    """Publicação no TikTok (etapa 16, ADR 0011)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    modo: Literal["pasta", "rascunho"] = Field(
+        default="pasta",
+        description=(
+            "pasta = o vertical e um .txt com a legenda vão para a pasta de exportação (você "
+            "posta pelo celular); rascunho = também vão para a caixa de entrada do app do "
+            "TikTok (precisa do app no TikTok for Developers e de 'clipador tiktok-entrar')."
+        ),
+    )
+    pasta: Path | None = Field(
+        default=None,
+        description=(
+            "Para onde vão o vídeo e o .txt. Vazio = <pasta_dados>/exportar/tiktok. Uma pasta "
+            "sincronizada com o celular (ex.: Google Drive) evita copiar à mão."
+        ),
+    )
+    legenda: str = Field(
+        default="{titulo}\n\n{hashtags}",
+        description=(
+            "Modelo da legenda (o .txt): {titulo} = o título aprovado, {hashtags} = as "
+            "hashtags aprovadas, {data} = o dia da live. O TikTok aceita até 2.200 caracteres."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _legenda_valida(self) -> "ConfigTiktok":
+        try:
+            self.legenda.format(titulo="", hashtags="", data="")
+        except (KeyError, IndexError, ValueError) as erro:
+            raise ValueError(
+                f"[tiktok] legenda: só valem {{titulo}}, {{hashtags}} e {{data}} ({erro})."
+            ) from erro
+        return self
 
 
 class ConfigYoutube(BaseModel):
@@ -515,6 +557,11 @@ class ConfigRevisao(BaseModel):
                     f"[revisao] destinos_padrao.{formato}: {desconhecidas} não existe "
                     f"(use {', '.join(PLATAFORMAS)})."
                 )
+            if "tiktok" in destinos and formato not in FORMATOS_DO_TIKTOK:
+                raise ValueError(
+                    f"[revisao] destinos_padrao.{formato}: o TikTok é vertical (só "
+                    f"{' e '.join(FORMATOS_DO_TIKTOK)})."
+                )
         return self
 
 
@@ -591,11 +638,22 @@ class Config(BaseSettings):
         default_factory=ConfigYoutube,
         description="Publicação no YouTube: horários, descrição, tags e avisos aos inscritos.",
     )
+    tiktok: ConfigTiktok = Field(
+        default_factory=ConfigTiktok,
+        description="Publicação no TikTok: pasta de exportação ou rascunho no app.",
+    )
     pasta_segredos: Path = Field(
         default=Path("segredos"),
         description=(
-            "Pasta (fora do git) com a credencial do app no Google Cloud e o seu login no "
-            "YouTube. Só o pacote das integrações lê o que tem dentro."
+            "Pasta (fora do git) com a credencial do app no Google Cloud e os seus logins no "
+            "YouTube e no TikTok. Só o pacote das integrações lê o que tem dentro."
+        ),
+    )
+    arquivo_chaves: Path = Field(
+        default=Path(".env"),
+        description=(
+            "Arquivo (fora do git) com as chaves do app do TikTok. O backend só passa o "
+            "caminho: quem lê é o pacote das integrações."
         ),
     )
     revisao: ConfigRevisao = Field(
@@ -644,6 +702,11 @@ class Config(BaseSettings):
     def pasta_clipes(self) -> Path:
         """Os clipes prontos para revisar (e as thumbnails)."""
         return self.pasta_dados / "clipes"
+
+    @property
+    def pasta_exportar_tiktok(self) -> Path:
+        """Onde ficam os verticais aprovados para o TikTok (com o .txt da legenda)."""
+        return self.tiktok.pasta or self.pasta_dados / "exportar" / "tiktok"
 
     @property
     def pasta_modelos(self) -> Path:
@@ -714,8 +777,12 @@ def config_sem_arquivo(**valores: Any) -> Config:
 def _resolver_caminhos(cfg: Config, base: Path) -> Config:
     """Troca os caminhos relativos por absolutos, contados a partir de ``base``."""
     absolutos = {}
-    for nome in ("pasta_gravacoes", "pasta_dados", "pasta_backups", "pasta_segredos"):
+    for nome in (
+        "pasta_gravacoes", "pasta_dados", "pasta_backups", "pasta_segredos", "arquivo_chaves"
+    ):  # fmt: skip
         valor: Path | None = getattr(cfg, nome)
         if valor is not None and not valor.is_absolute():
             absolutos[nome] = base / valor
+    if cfg.tiktok.pasta is not None and not cfg.tiktok.pasta.is_absolute():
+        absolutos["tiktok"] = cfg.tiktok.model_copy(update={"pasta": base / cfg.tiktok.pasta})
     return cfg.model_copy(update=absolutos)

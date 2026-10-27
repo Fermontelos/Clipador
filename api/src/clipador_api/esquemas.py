@@ -17,11 +17,12 @@ class PublicacaoSaida(BaseModel):
     id: int
     plataforma: str
     formato: str
-    short: bool = Field(description="Sobe como Short (vertical de até 3 min).")
+    short: bool = Field(description="Sobe como Short no YouTube (vertical de até 3 min).")
     status: str = Field(
         description=(
             "pendente (na fila: desfazer cancela), enviando (subindo agora), agendada (já no "
-            "YouTube, vai ao ar em agendada_para) ou erro (veja a fila)."
+            "YouTube, vai ao ar em agendada_para), na_pasta (TikTok: na pasta de exportação), "
+            "rascunho (TikTok: na caixa de entrada do app) ou erro (veja a fila)."
         )
     )
     agendada_para: datetime | None = Field(description="Quando vai ao ar (a plataforma publica).")
@@ -175,6 +176,9 @@ class ConfigSaida(BaseModel):
     duracao_maxima_s: float
     formatos: list[str] = Field(description="Formatos cortados, na ordem das teclas 1, 2 e 3.")
     plataformas: list[str]
+    plataformas_por_formato: dict[str, list[str]] = Field(
+        description="Para onde cada formato pode ir (o TikTok só recebe os verticais)."
+    )
     destinos_padrao: dict[str, list[str]]
     max_hashtags: int = Field(description="Quantas hashtags o YouTube recomenda (só aviso).")
     limite_titulo: int

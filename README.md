@@ -33,7 +33,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 13 · Interface da revisão | Revisar os clipes pelo teclado, no navegador | ✅ |
 | 14 · Aprendizado | Ajustar a nota com as suas aprovações | ✅ (falta o gráfico de uma live real) |
 | 15 · YouTube | Publicar os clipes aprovados, com agendamento | 🟡 pronto e testado com o YouTube simulado; falta o 1º envio real |
-| 16 · TikTok | Publicar no TikTok (pasta, rascunho e post) | ⏳ próxima |
+| 16 · TikTok | Publicar no TikTok (pasta, rascunho e post) | 🟡 pasta pronta; rascunho pronto e testado com o TikTok simulado, falta o teste no sandbox; post direto fora (ADR 0011) |
+| 17 · Métricas | Engajamento dos cortes publicados ensina a nota | ⏳ próxima |
 
 ## Experimente em uns 3 minutos (modo demo)
 
@@ -51,6 +52,7 @@ uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo 
 uv run clipador momentos --demo   # os 4 melhores momentos, com nota, motivo e título
 uv run clipador web --demo        # revisa a demo no navegador (veja abaixo)
 # os clipes da demo ficam em dados/demo/clipes/ (horizontal, verticais A e B, thumbnail)
+# os aprovados para o TikTok vão para dados/demo/exportar/tiktok/ (vídeo + legenda .txt)
 ```
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
@@ -227,6 +229,18 @@ cd frontend; npm ci; npm run build; cd ..
   com erro (`clipador refazer` tenta de novo).
 - `clipador youtube-entrar`: liga o app ao seu canal (uma vez; veja
   [publicar no YouTube](#publicar-no-youtube-configuração-uma-vez)).
+- Publicação no TikTok ([ADR 0011](docs/adr/0011-tiktok-pasta-e-rascunho.md)): só os
+  verticais (o TikTok é vertical). Depois dos mesmos 10 min para desfazer, o vídeo e um
+  `.txt` com a legenda (título + hashtags, modelo em `[tiktok] legenda`) vão para
+  `dados/exportar/tiktok/` (ou a `[tiktok] pasta`; uma pasta sincronizada com o celular
+  evita copiar à mão), e você posta pelo celular. Com `[tiktok] modo = "rascunho"`, o
+  vídeo também vai para a **caixa de entrada do app do TikTok**: chega uma notificação, e
+  você finaliza lá (o rascunho chega sem legenda: ela está no `.txt`). O TikTok aceita no
+  máximo 5 rascunhos pendentes a cada 24 h; o sexto espera na fila. O post direto, sem
+  passar pelo celular, não foi feito: sem a auditoria do TikTok os posts ficam privados, e
+  as diretrizes dele não aceitam na auditoria uma ferramenta para as suas próprias contas.
+- `clipador tiktok-entrar`: liga o app à sua conta do TikTok, para os rascunhos (uma vez;
+  veja [publicar no TikTok](#publicar-no-tiktok-configuração-uma-vez)).
 - `clipador calibrar`: salva um quadro da live mais recente em `dados/calibracao.png`,
   com uma grade a cada 100 px e as regiões do vertical B desenhadas (verde: o recorte do
   jogo; vermelho: a câmera). É de onde saem os números de `[cortes.vertical_b] camera`
@@ -289,6 +303,29 @@ git: a credencial e o login ficam em `segredos/`, lidos só pelo pacote das inte
 
 Quer ver o fluxo sem enviar nada? `[youtube] modo = "simulado"` finge os envios (a demo
 já vem assim).
+
+## Publicar no TikTok (configuração, uma vez)
+
+O modo padrão (`[tiktok] modo = "pasta"`) não precisa de nada: os verticais aprovados vão
+para a pasta de exportação. Para mandar rascunhos direto para o app do TikTok:
+
+1. Crie uma conta no [TikTok for Developers](https://developers.tiktok.com/) e, em
+   **Manage apps**, um app. Adicione os produtos **Login Kit** e **Content Posting API**,
+   com a permissão `video.upload`.
+2. No Login Kit, cadastre o endereço de retorno de app de computador
+   `http://127.0.0.1:*/callback/` (o `*` deixa o app usar uma porta livre; o TikTok só
+   aceita `localhost` ou `127.0.0.1`).
+3. Mude o app para **Sandbox**, crie um sandbox e adicione a sua conta do TikTok em
+   **Target users**. No sandbox, tudo funciona só para essas contas, sem análise do TikTok.
+4. Copie o **Client key** e o **Client secret** para o `.env` (veja o `.env.example`), na
+   pasta do `config.toml`. O `.env` fica fora do git e só o pacote das integrações o lê.
+5. No `config.toml`: `[tiktok] modo = "rascunho"`. Rode `uv run clipador tiktok-entrar`:
+   o navegador abre, você entra na conta e autoriza. O login vale 365 dias (o app avisa no
+   log quando faltar um mês) e o acesso se renova sozinho.
+
+Fora do sandbox (para qualquer conta), o TikTok precisa **aprovar o app numa análise**: ele
+pede ícone, descrição e páginas de Termos de Uso e Política de Privacidade. Esse pedido não
+é feito pelo app.
 
 ## Como restaurar um backup
 
@@ -358,7 +395,7 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     demo/       roteiro e gerador da live falsa
     revisao/    regras da revisão: momentos do dia, decisões, ajuste do corte e cota
     aprendizado/ métricas, pesos da nota (regressão logística) e janela do corte
-    publicacao/ fila, agenda, pedido, cota e envio ao YouTube
+    publicacao/ fila, agenda, pedido, cota e envio ao YouTube e ao TikTok
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
   tests/
 api/            API local da revisão, FastAPI (etapa 12) e o comando clipador web
@@ -390,6 +427,7 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 - [ADR 0008: vertical B com a câmera em cima e o jogo embaixo](docs/adr/0008-vertical-b-camera-e-jogo.md)
 - [ADR 0009: regressão logística para aprender os pesos da nota](docs/adr/0009-regressao-logistica.md)
 - [ADR 0010: publicação agendada no YouTube, com tempo para desfazer](docs/adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)
+- [ADR 0011: TikTok pela pasta e por rascunho, post direto só após a auditoria](docs/adr/0011-tiktok-pasta-e-rascunho.md)
 
 ## Licença
 

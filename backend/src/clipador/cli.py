@@ -5,6 +5,7 @@ import logging
 import sys
 import threading
 import time
+import webbrowser
 from datetime import datetime
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -716,6 +717,39 @@ def youtube_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
         raise typer.Exit(code=1) from erro
     typer.echo(f"Pronto: login salvo em {cliente.arquivo_do_token} (fora do git).")
     typer.echo("As publicações que esperavam o login: 'clipador status' e 'clipador refazer N'.")
+
+
+@app.command("tiktok-entrar")
+def tiktok_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Liga o app à sua conta do TikTok (para enviar rascunhos): abre o navegador."""
+    from clipador_integracoes import tiktok
+
+    cfg = _carregar_ou_sair(arquivo)
+    cliente = tiktok.ClienteTiktok(cfg.pasta_segredos, cfg.arquivo_chaves)
+    typer.echo("Abrindo o navegador: entre na sua conta do TikTok e autorize o app.")
+
+    def abrir(endereco: str) -> None:
+        typer.echo("Se o navegador não abrir, cole este endereço nele (vale 5 min):")
+        typer.echo(endereco)
+        webbrowser.open(endereco)
+
+    try:
+        cliente.entrar(abrir=abrir)
+    except tiktok.CredencialDoAppAusenteError as erro:
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
+    except Exception as erro:  # recusou no navegador, fechou a aba, demorou mais de 5 min...
+        typer.echo(f"Erro: o login não terminou ({erro}). Nada foi salvo; tente de novo.", err=True)
+        raise typer.Exit(code=1) from erro
+    vale_ate = cliente.login_vale_ate()
+    typer.echo(f"Pronto: login salvo em {cliente.arquivo_do_token} (fora do git).")
+    if vale_ate is not None:
+        typer.echo(
+            f"Ele vale até {vale_ate.astimezone():%d/%m/%Y} (365 dias); o app avisa no log "
+            "quando faltar um mês."
+        )
+    if cfg.tiktok.modo != "rascunho":
+        typer.echo('Para os vídeos irem ao app como rascunho: [tiktok] modo = "rascunho".')
 
 
 @app.command("instalar-servico")

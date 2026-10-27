@@ -1,15 +1,15 @@
 """Da decisão aprovada às publicações na fila (etapa 15).
 
 - **Aprovar** um momento cria uma ``Publicacao`` pendente para cada formato aprovado com
-  destino YouTube (o horizontal sobe como vídeo normal; o vertical, como Short) e uma
-  tarefa ``publicar`` para cada uma. O horário de publicação já sai planejado (``agenda``)
-  para aparecer na revisão; o envio confere de novo na hora de subir.
+  destino YouTube (o horizontal sobe como vídeo normal; o vertical de até 3 min, como Short)
+  ou TikTok (só os verticais), e uma tarefa ``publicar`` para cada uma. No YouTube, o horário
+  de publicação já sai planejado (``agenda``) para aparecer na revisão; o envio confere de
+  novo na hora de subir. O TikTok não tem horário: o vídeo vai para a pasta (e, no modo
+  rascunho, para o app), e você posta quando quiser.
 - O envio espera ``[youtube] minutos_para_desfazer`` (10 min): até lá, desfazer ou mudar a
   decisão **cancela** as publicações pendentes (e as tarefas delas) sem nada ter saído do PC.
 - Depois que o envio começa (tarefa em andamento) ou termina, a publicação **trava** a
   decisão: mudar aqui não mudaria o que já está no YouTube.
-- O TikTok (etapa 16) ainda não publica: o destino fica salvo na decisão, e as publicações
-  dele serão criadas quando a etapa 16 chegar.
 """
 
 import logging
@@ -30,7 +30,7 @@ from clipador.banco.modelos import (
     TipoTarefa,
     agora,
 )
-from clipador.config import Config
+from clipador.config import FORMATOS_DO_TIKTOK, Config
 from clipador.publicacao import agenda
 
 log = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ log = logging.getLogger(__name__)
 # Publicações que já saíram do PC (ou estão saindo): não dá mais para cancelar.
 JA_ENVIADAS = (StatusPublicacao.ENVIADA, StatusPublicacao.AGENDADA, StatusPublicacao.PUBLICADA)
 # Plataformas que o app já sabe publicar.
-PUBLICAVEIS = (Plataforma.YOUTUBE,)
+PUBLICAVEIS = (Plataforma.YOUTUBE, Plataforma.TIKTOK)
 
 
 class EnvioComecouError(RuntimeError):
@@ -73,6 +73,8 @@ def travada(sessao: Session, publicacao: Publicacao) -> bool:
 
 
 ENVIANDO = "enviando"  # só na revisão: pendente com a tarefa em andamento
+NA_PASTA = "na_pasta"  # TikTok enviado só para a pasta de exportação
+RASCUNHO = "rascunho"  # TikTok na caixa de entrada do app (você finaliza no celular)
 
 
 def status_visivel(sessao: Session, publicacao: Publicacao) -> str:
@@ -83,6 +85,8 @@ def status_visivel(sessao: Session, publicacao: Publicacao) -> str:
 
     Os dois não ficam gravados na ``Publicacao``: vêm da tarefa. Assim, ``clipador refazer``
     devolve a tarefa à fila e a publicação volta a aparecer como pendente, sem mais nada a mudar.
+
+    Uma do TikTok já enviada aparece como ``na_pasta`` ou ``rascunho`` (com o ``publish_id``).
     """
     if publicacao.status is StatusPublicacao.PENDENTE:
         tarefa = _tarefa_da(sessao, publicacao)
@@ -90,6 +94,8 @@ def status_visivel(sessao: Session, publicacao: Publicacao) -> str:
             return ENVIANDO
         if tarefa is not None and tarefa.status is StatusTarefa.ERRO:
             return StatusPublicacao.ERRO.value
+    if publicacao.plataforma is Plataforma.TIKTOK and publicacao.status is StatusPublicacao.ENVIADA:
+        return RASCUNHO if publicacao.id_na_plataforma else NA_PASTA
     return publicacao.status.value
 
 
@@ -161,7 +167,13 @@ def planejar(sessao: Session, momento: Momento, decisao: Decisao, cfg: Config) -
         for plataforma in plataformas:
             if clipe is None or plataforma not in PUBLICAVEIS:
                 continue
-            quando = agenda.proximo_horario(comeca_em, horarios_ocupados(sessao), cfg.youtube)
+            if plataforma == Plataforma.TIKTOK and formato not in FORMATOS_DO_TIKTOK:
+                continue  # a revisão já recusa; aqui é só garantia
+            quando = (
+                agenda.proximo_horario(comeca_em, horarios_ocupados(sessao), cfg.youtube)
+                if plataforma == Plataforma.YOUTUBE
+                else None  # o TikTok não tem data de publicação: você posta pelo celular
+            )
             publicacao = Publicacao(
                 clipe_id=clipe.id, plataforma=Plataforma(plataforma), agendada_para=quando
             )
@@ -179,7 +191,7 @@ def planejar(sessao: Session, momento: Momento, decisao: Decisao, cfg: Config) -
             criadas.append(publicacao)
     if criadas:
         log.info(
-            "Momento %s: %d publicação(ões) no YouTube na fila (envio a partir de %s).",
+            "Momento %s: %d publicação(ões) na fila (envio a partir de %s).",
             momento.id, len(criadas), comeca_em.astimezone().strftime("%H:%M"),
         )  # fmt: skip
     return criadas

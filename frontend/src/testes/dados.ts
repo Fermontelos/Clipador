@@ -7,6 +7,7 @@ export const CONFIG: Config = {
   duracao_maxima_s: 60,
   formatos: ["horizontal", "vertical_a"],
   plataformas: ["youtube", "tiktok"],
+  plataformas_por_formato: { horizontal: ["youtube"], vertical_a: ["youtube", "tiktok"] },
   destinos_padrao: {
     horizontal: ["youtube"],
     vertical_a: ["youtube", "tiktok"],

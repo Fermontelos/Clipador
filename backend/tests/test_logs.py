@@ -30,6 +30,16 @@ def test_chamar_duas_vezes_nao_duplica_as_linhas(tmp_path):
     assert arquivo.read_text(encoding="utf-8").count("linha unica") == 1
 
 
+def test_o_log_das_integracoes_vai_para_o_mesmo_arquivo(tmp_path):
+    # Ex.: o aviso de que o login do TikTok vai vencer (o serviço roda sem janela).
+    arquivo = configurar_logs(tmp_path, "INFO", nome_arquivo="servico.log")
+    logging.getLogger("clipador_integracoes.tiktok").warning("login vence em breve")
+    logging.getLogger("httpx").info("HTTP Request: PUT https://up?upload_token=segredo")
+    conteudo = arquivo.read_text(encoding="utf-8")
+    assert "login vence em breve" in conteudo
+    assert "segredo" not in conteudo  # bibliotecas ficam fora do log
+
+
 def test_cada_processo_pode_ter_o_seu_arquivo(tmp_path):
     arquivo = configurar_logs(tmp_path, "INFO", nome_arquivo="servico.log")
     logging.getLogger("clipador.teste").info("linha do servico")

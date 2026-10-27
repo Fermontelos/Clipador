@@ -36,6 +36,11 @@ def test_config_para_a_interface(cliente):
         "duracao_maxima_s": 60,
         "formatos": ["horizontal", "vertical_a", "vertical_b"],
         "plataformas": ["youtube", "tiktok"],
+        "plataformas_por_formato": {  # o TikTok é vertical (etapa 16)
+            "horizontal": ["youtube"],
+            "vertical_a": ["youtube", "tiktok"],
+            "vertical_b": ["youtube", "tiktok"],
+        },
         "destinos_padrao": {
             "horizontal": ["youtube"],
             "vertical_a": ["youtube", "tiktok"],

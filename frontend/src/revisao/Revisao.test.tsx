@@ -317,13 +317,15 @@ describe("navegação e formatos", () => {
   it("depois de clicar numa caixa de marcar, os atalhos continuam valendo", async () => {
     const usuario = await abrir();
     await usuario.keyboard(" ");
+    // O TikTok é vertical: só o vertical A tem a caixa dele (etapa 16).
     const caixas = screen.getAllByRole("checkbox", { name: /TikTok/ });
-    await usuario.click(caixas[0]!); // põe o horizontal no TikTok
+    expect(caixas).toHaveLength(1);
+    await usuario.click(caixas[0]!); // tira o vertical A do TikTok
     expect(caixas[0]).toHaveFocus();
     await usuario.keyboard("a");
     await waitFor(() => expect(decisoes()).toHaveLength(1));
     expect(decisoes()[0]!.corpo).toMatchObject({
-      destinos: { horizontal: ["youtube", "tiktok"], vertical_a: ["youtube", "tiktok"] },
+      destinos: { horizontal: ["youtube"], vertical_a: ["youtube"] },
     });
   });
 });

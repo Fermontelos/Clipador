@@ -28,7 +28,7 @@ from clipador.banco.modelos import (
     TipoTarefa,
     agora,
 )
-from clipador.config import Config
+from clipador.config import FORMATOS_DO_TIKTOK, Config
 from clipador.cortes.cortar import DURACAO_MINIMA_S
 from clipador.publicacao import planejar
 from clipador.revisao.consultas import EM_PROCESSAMENTO, clipes_do_momento, publicado
@@ -120,6 +120,11 @@ def _validar_destinos(
             raise DecisaoInvalidaError(
                 f"Plataforma desconhecida: {desconhecidas} "
                 f"(use {', '.join(p.value for p in Plataforma)})."
+            )
+        if Plataforma.TIKTOK in unicas and formato not in FORMATOS_DO_TIKTOK:
+            raise DecisaoInvalidaError(
+                f"O TikTok é vertical: o formato '{formato}' não vai para lá (use "
+                f"{' ou '.join(FORMATOS_DO_TIKTOK)})."
             )
         validos[formato] = unicas
     if not validos:

@@ -22,11 +22,11 @@ from clipador.banco.modelos import (
     Tarefa,
     TipoTarefa,
 )
-from clipador.config import ConfigYoutube, config_sem_arquivo
+from clipador.config import ConfigRevisao, ConfigTiktok, ConfigYoutube, config_sem_arquivo
 from clipador.cortes.cortar import caminho_da_thumbnail
 from clipador.publicacao import agenda, cota, pedido, planejar, publicar
 from clipador.revisao import decisoes
-from clipador_integracoes import youtube
+from clipador_integracoes import tiktok, youtube
 
 
 def local(*partes) -> datetime:
@@ -205,17 +205,19 @@ def tarefas_publicar(sessao) -> list[Tarefa]:
 # ------------------------------------------------------------------ planejar (pela revisão)
 
 
-def test_aprovar_poe_as_publicacoes_do_youtube_na_fila(sessao, momento, cfg):
+def test_aprovar_poe_as_publicacoes_na_fila(sessao, momento, cfg):
     antes = datetime.now(UTC)
     aprovar(sessao, momento, cfg)
     pubs = publicacoes(sessao)
     assert [p.plataforma for p in pubs] == [
-        Plataforma.YOUTUBE,
-        Plataforma.YOUTUBE,
-    ]  # TikTok: etapa 16
+        Plataforma.YOUTUBE,  # horizontal
+        Plataforma.YOUTUBE,  # vertical A
+        Plataforma.TIKTOK,  # vertical A
+    ]
     assert all(p.status is StatusPublicacao.PENDENTE for p in pubs)
-    # Horários diferentes, a pelo menos 2 h um do outro (intervalo mínimo padrão).
+    # YouTube: horários diferentes, a pelo menos 2 h um do outro (intervalo mínimo padrão).
     assert abs(pubs[0].agendada_para - pubs[1].agendada_para) >= timedelta(hours=2)
+    assert pubs[2].agendada_para is None  # o TikTok não tem horário: você posta pelo celular
     tarefas = tarefas_publicar(sessao)
     assert {t.publicacao_id for t in tarefas} == {p.id for p in pubs}
     # O envio espera 10 min: dá para desfazer antes de qualquer coisa sair do PC.
@@ -280,7 +282,7 @@ def test_envio_que_comeca_durante_o_desfazer_trava_em_vez_de_sumir(sessao, momen
         mp.setattr(decisoes, "_exigir_nao_publicado", confere_e_o_servico_pega)
         with pytest.raises(decisoes.RevisaoBloqueadaError, match="já começou"):
             decisoes.desfazer(sessao, momento.id)
-    assert len(publicacoes(sessao)) == 2  # nada foi apagado
+    assert len(publicacoes(sessao)) == 3  # nada foi apagado
     assert sessao.exec(select(Decisao)).first() is not None
 
 
@@ -297,7 +299,7 @@ def test_cancelar_nao_apaga_tarefa_que_o_servico_acabou_de_pegar(sessao, momento
         with pytest.raises(planejar.EnvioComecouError, match="acabou de começar"):
             planejar.cancelar(sessao, momento.id)
     sessao.rollback()
-    assert len(publicacoes(sessao)) == 2
+    assert len(publicacoes(sessao)) == 3
 
 
 def test_sem_config_so_grava_a_decisao(sessao, momento):
@@ -526,3 +528,158 @@ def test_servico_tem_o_executor_de_publicar():
     from clipador.sistema.servico import EXECUTORES
 
     assert EXECUTORES[TipoTarefa.PUBLICAR] is publicar.publicar
+
+
+# ------------------------------------------------------------------ TikTok (etapa 16)
+
+
+class TiktokFalso:
+    def __init__(self, erro=None):
+        self.erro = erro
+        self.enviados: list[Path] = []
+
+    def enviar_rascunho(self, arquivo):
+        if self.erro:
+            raise self.erro
+        self.enviados.append(arquivo)
+        return tiktok.Rascunho(publish_id=f"v_inbox_file~{len(self.enviados)}")
+
+
+@pytest.fixture
+def tt(monkeypatch):
+    falso_tt = TiktokFalso()
+    monkeypatch.setattr(publicar, "criar_enviador_tiktok", lambda cfg: falso_tt)
+    return falso_tt
+
+
+def tarefa_tiktok(sessao) -> Tarefa:
+    for tarefa in tarefas_publicar(sessao):
+        if sessao.get(Publicacao, tarefa.publicacao_id).plataforma is Plataforma.TIKTOK:
+            return tarefa
+    raise AssertionError("sem tarefa do TikTok")
+
+
+def com_rascunho(cfg):
+    return cfg.model_copy(update={"tiktok": ConfigTiktok(modo="rascunho")})
+
+
+def test_tiktok_na_pasta_com_a_legenda(sessao, momento, cfg, tt):
+    aprovar(sessao, momento, cfg)
+    tarefa = tarefa_tiktok(sessao)
+    publicar.publicar(sessao, tarefa, cfg)
+    video = cfg.pasta_dados / "exportar" / "tiktok" / "vertical_a.mp4"
+    assert video.read_bytes() == b"video"
+    assert video.with_suffix(".txt").read_text(encoding="utf-8") == "NÃO ACREDITO\n\n#lol\n"
+    assert list(video.parent.glob("*.parcial*")) == []  # nada pela metade
+    pub = sessao.get(Publicacao, tarefa.publicacao_id)
+    assert pub.status is StatusPublicacao.ENVIADA and pub.id_na_plataforma is None
+    assert planejar.status_visivel(sessao, pub) == "na_pasta"
+    assert tt.enviados == []  # no modo pasta, nada vai para a internet
+
+
+def test_tiktok_rascunho_vai_para_o_app_e_para_a_pasta(sessao, momento, cfg, tt):
+    cfg = com_rascunho(cfg)
+    aprovar(sessao, momento, cfg)
+    tarefa = tarefa_tiktok(sessao)
+    publicar.publicar(sessao, tarefa, cfg)
+    pub = sessao.get(Publicacao, tarefa.publicacao_id)
+    assert pub.id_na_plataforma == "v_inbox_file~1" and pub.enviada_em is not None
+    assert planejar.status_visivel(sessao, pub) == "rascunho"
+    assert tt.enviados == [Path(sessao.get(Clipe, pub.clipe_id).arquivo)]
+    # O rascunho chega sem legenda: o .txt continua sendo o jeito de levá-la.
+    assert (cfg.pasta_exportar_tiktok / "vertical_a.txt").is_file()
+
+
+def test_tiktok_no_maximo_5_rascunhos_a_cada_24h(sessao, momento, cfg, tt):
+    cfg = com_rascunho(cfg)
+    aprovar(sessao, momento, cfg)
+    tarefa = tarefa_tiktok(sessao)
+    clipe_id = sessao.get(Publicacao, tarefa.publicacao_id).clipe_id
+    agora_ = datetime.now(UTC)
+    for horas in (23, 20, 10, 5, 1):  # 5 rascunhos nas últimas 24 h (de outros momentos)
+        sessao.add(Publicacao(clipe_id=clipe_id, plataforma=Plataforma.TIKTOK,
+                              status=StatusPublicacao.ENVIADA, id_na_plataforma=f"x{horas}",
+                              enviada_em=agora_ - timedelta(hours=horas)))  # fmt: skip
+    sessao.add(
+        Publicacao(
+            clipe_id=clipe_id,
+            plataforma=Plataforma.TIKTOK,  # só na pasta:
+            status=StatusPublicacao.ENVIADA,
+            enviada_em=agora_,
+        )
+    )  # não conta
+    sessao.commit()
+    with pytest.raises(fila.TentarDepois, match="5 rascunhos") as espera:
+        publicar.publicar(sessao, tarefa, cfg)
+    # Volta quando o mais antigo sair da janela de 24 h (+ a folga).
+    assert espera.value.quando == pytest.approx(
+        agora_ + timedelta(hours=1) + publicar.FOLGA_DEPOIS_DA_COTA, abs=timedelta(seconds=5)
+    )
+    assert tt.enviados == []
+    # Enquanto espera, o vídeo e a legenda já estão na pasta (dá para postar pelo celular).
+    assert (cfg.pasta_exportar_tiktok / "vertical_a.mp4").is_file()
+
+
+@pytest.mark.parametrize(
+    ("erro", "volta_em"),
+    [
+        (tiktok.LimiteDeRascunhosError("5 pendentes"), timedelta(hours=6)),
+        (tiktok.MuitosPedidosError("6 por minuto"), publicar.ESPERA_POR_MUITOS_PEDIDOS),
+    ],
+)
+def test_tiktok_recusa_por_limite_espera(sessao, momento, cfg, tt, erro, volta_em):
+    cfg = com_rascunho(cfg)
+    aprovar(sessao, momento, cfg)
+    tt.erro = erro
+    antes = datetime.now(UTC)
+    with pytest.raises(fila.TentarDepois) as espera:
+        publicar.publicar(sessao, tarefa_tiktok(sessao), cfg)
+    assert antes + volta_em <= espera.value.quando <= datetime.now(UTC) + volta_em
+
+
+@pytest.mark.parametrize(
+    "erro",
+    [
+        tiktok.PrecisaEntrarError("rode 'clipador tiktok-entrar'."),
+        tiktok.CredencialDoAppAusenteError("falta TIKTOK_CLIENT_KEY"),
+        tiktok.ProibidoDePostarError("bloqueado"),
+    ],
+)
+def test_tiktok_sem_login_explica_e_o_video_ja_esta_na_pasta(sessao, momento, cfg, tt, erro):
+    cfg = com_rascunho(cfg)
+    aprovar(sessao, momento, cfg)
+    tt.erro = erro
+    tarefa = tarefa_tiktok(sessao)
+    with pytest.raises(fila.FalhaDefinitivaError, match=f"clipador refazer {tarefa.id}"):
+        publicar.publicar(sessao, tarefa, cfg)
+    assert (cfg.pasta_exportar_tiktok / "vertical_a.mp4").is_file()
+    assert sessao.get(Publicacao, tarefa.publicacao_id).status is StatusPublicacao.PENDENTE
+
+
+def test_tiktok_so_recebe_vertical(sessao, momento, cfg):
+    with pytest.raises(decisoes.DecisaoInvalidaError, match="TikTok é vertical"):
+        aprovar(sessao, momento, cfg, destinos={"horizontal": ["youtube", "tiktok"]})
+    assert publicacoes(sessao) == []
+
+
+def test_config_recusa_tiktok_no_horizontal():
+    with pytest.raises(ValueError, match="TikTok é vertical"):
+        ConfigRevisao(destinos_padrao={"horizontal": ["tiktok"]})
+
+
+def test_legenda_do_tiktok_com_campo_desconhecido_da_erro():
+    with pytest.raises(ValueError, match=r"\[tiktok\] legenda"):
+        ConfigTiktok(legenda="{titulo} {canal}")
+
+
+def test_legenda_do_tiktok_respeita_o_limite(tmp_path, cfg):
+    arquivo = tmp_path / "v.mp4"
+    arquivo.write_bytes(b"v")
+    destino = publicar.exportar_para_o_tiktok(arquivo, "t" * 3000, [], datetime.now(UTC), cfg)
+    assert len(destino.with_suffix(".txt").read_text(encoding="utf-8").strip()) == 2200
+
+
+def test_criar_enviador_tiktok_usa_os_caminhos_do_config(cfg):
+    cliente = publicar.criar_enviador_tiktok(cfg)
+    assert isinstance(cliente, tiktok.ClienteTiktok)
+    assert cliente.pasta == cfg.pasta_segredos and cliente.arquivo_env == cfg.arquivo_chaves
