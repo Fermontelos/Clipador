@@ -56,7 +56,8 @@ from clipador.banco.modelos import (
 )
 from clipador.config import Config
 from clipador.cortes.cortar import caminho_da_thumbnail
-from clipador.revisao import consultas, cota, decisoes
+from clipador.publicacao import cota, planejar
+from clipador.revisao import consultas, decisoes
 from clipador.titulos.texto import LIMITE_TITULO_YOUTUBE
 from clipador_api import esquemas
 
@@ -171,6 +172,7 @@ def montar_momento(
     clipes = consultas.clipes_do_momento(sessao, momento.id)
     decisao = sessao.exec(select(Decisao).where(Decisao.momento_id == momento.id)).first()
     formatos = [clipe.formato.value for clipe in clipes]
+    formato_do_clipe = {clipe.id: clipe.formato.value for clipe in clipes}
     return esquemas.MomentoSaida(
         id=momento.id,
         gravacao_id=momento.gravacao_id,
@@ -209,6 +211,18 @@ def montar_momento(
         else None,
         recortando=consultas.recorte_pendente(sessao, momento.id),
         publicado=consultas.publicado(sessao, momento.id),
+        publicacoes=[
+            esquemas.PublicacaoSaida(
+                id=p.id,
+                plataforma=p.plataforma.value,
+                formato=formato_do_clipe.get(p.clipe_id, "?"),
+                status=planejar.status_visivel(sessao, p).value,
+                agendada_para=p.agendada_para,
+                link=p.link,
+                enviada_em=p.enviada_em,
+            )
+            for p in planejar.publicacoes_do_momento(sessao, momento.id)
+        ],
     )
 
 
@@ -307,6 +321,7 @@ def _registrar_rotas(app: FastAPI) -> None:
             titulo=pedido.titulo,
             hashtags=pedido.hashtags,
             tipo_titulo=pedido.tipo_titulo,
+            cfg=cfg,  # a aprovação já põe as publicações na fila (etapa 15)
         )
         return ver_momento(momento_id, sessao, cfg)
 

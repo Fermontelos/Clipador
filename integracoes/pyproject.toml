@@ -10,6 +10,8 @@ authors = [
 requires-python = ">=3.12"
 # Sem dependência do resto do app: as integrações não conhecem banco, fila nem API.
 dependencies = [
+    "google-api-python-client>=2.201.0",
+    "google-auth-oauthlib>=1.5.0",
     "httpx>=0.28.1",
 ]
 

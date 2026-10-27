@@ -13,6 +13,7 @@ import {
   proximoPendente,
   rascunhoInicial,
   trocarMomento,
+  textoDaPublicacao,
   trocarSugestao,
 } from "./estado";
 import { LinhaDoTempo } from "./LinhaDoTempo";
@@ -606,13 +607,41 @@ export function Revisao({ visivel = true }: { visivel?: boolean }) {
 }
 
 function EstadoDaDecisao({ momento }: { momento: Momento }) {
-  if (momento.publicado) return <p className="text-sm">📤 Já foi para a publicação.</p>;
   const decisao = momento.decisao;
-  if (!decisao) return <p className="text-sm text-[var(--texto-fraco)]">● Pendente</p>;
-  return decisao.aprovado ? (
-    <p className="text-sm text-[var(--bom)]">✓ Aprovado (aprovar de novo troca a decisão)</p>
-  ) : (
-    <p className="text-sm text-[var(--erro)]">✗ Recusado</p>
+  let estado;
+  if (momento.publicado) {
+    estado = <p className="text-sm">📤 Já foi para o YouTube: a decisão não muda mais.</p>;
+  } else if (!decisao) {
+    estado = <p className="text-sm text-[var(--texto-fraco)]">● Pendente</p>;
+  } else if (decisao.aprovado) {
+    estado = (
+      <p className="text-sm text-[var(--bom)]">✓ Aprovado (aprovar de novo troca a decisão)</p>
+    );
+  } else {
+    estado = <p className="text-sm text-[var(--erro)]">✗ Recusado</p>;
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      {estado}
+      {momento.publicacoes.length > 0 && (
+        <ul className="text-xs text-[var(--texto-2)]" aria-label="Publicações">
+          {momento.publicacoes.map((p) => (
+            <li key={p.id}>
+              {NOMES_DAS_PLATAFORMAS[p.plataforma] ?? p.plataforma}
+              {p.formato.startsWith("vertical") ? " Shorts" : ""}: {textoDaPublicacao(p)}
+              {p.link && (
+                <>
+                  {" · "}
+                  <a href={p.link} target="_blank" rel="noreferrer" className="underline">
+                    abrir
+                  </a>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

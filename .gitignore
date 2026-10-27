@@ -16,6 +16,9 @@ wheels/
 # Configuração e segredos do seu PC (o repositório só tem os .example)
 config.toml
 .env
+# Credencial do app no Google Cloud e o token do seu login no YouTube (etapa 15)
+segredos/
+client_secret*.json
 
 # Dados do app: banco, logs, clipes, exportações
 dados/

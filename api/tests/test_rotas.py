@@ -259,8 +259,14 @@ def test_desfazer(cliente, sessao, um_momento):
 
 
 def _publicar(sessao, momento_id: int) -> None:
+    """Uma publicação já enviada ao YouTube (uma pendente não trava: ver test_planejar)."""
     clipe = sessao.exec(select(Clipe).where(Clipe.momento_id == momento_id)).first()
-    sessao.add(Publicacao(clipe_id=clipe.id, plataforma=Plataforma.YOUTUBE))
+    sessao.add(
+        Publicacao(
+            clipe_id=clipe.id, plataforma=Plataforma.YOUTUBE, status=StatusPublicacao.AGENDADA,
+            id_na_plataforma="abc", enviada_em=datetime.now(UTC),
+        )
+    )  # fmt: skip
     sessao.commit()
 
 
@@ -446,6 +452,7 @@ def test_status(cliente, sessao, um_momento):
             plataforma=Plataforma.YOUTUBE,
             status=StatusPublicacao.AGENDADA,
             unidades_cota=1650,
+            enviada_em=datetime.now(UTC),  # a cota conta pelo horário do envio
         )
     )
     sessao.add(Publicacao(clipe_id=clipe.id, plataforma=Plataforma.TIKTOK, unidades_cota=0))

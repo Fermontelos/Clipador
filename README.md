@@ -32,7 +32,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 12 · API da revisão | Serve os clipes e grava as suas decisões | ✅ |
 | 13 · Interface da revisão | Revisar os clipes pelo teclado, no navegador | ✅ |
 | 14 · Aprendizado | Ajustar a nota com as suas aprovações | ✅ (falta o gráfico de uma live real) |
-| 15 · YouTube | Publicar os clipes aprovados, com agendamento | ⏳ próxima |
+| 15 · YouTube | Publicar os clipes aprovados, com agendamento | 🟡 pronto e testado com o YouTube simulado; falta o 1º envio real |
+| 16 · TikTok | Publicar no TikTok (pasta, rascunho e post) | ⏳ próxima |
 
 ## Experimente em uns 3 minutos (modo demo)
 
@@ -210,6 +211,21 @@ cd frontend; npm ci; npm run build; cd ..
   detecção (os momentos já detectados ficam como estão). **Limitação**: só os momentos que
   você revisou têm decisão, e quase todos são os de maior nota do dia; o modelo aprende
   entre os que o detector já achou bons, não sobre a live inteira.
+- Publicação no YouTube ([ADR 0010](docs/adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)):
+  aprovar um momento com destino YouTube põe na fila um envio para cada formato (o
+  horizontal sobe como vídeo normal; o vertical, como Short). O envio espera 10 min
+  (`minutos_para_desfazer`): até lá, desfazer (`U`) cancela sem nada sair do PC. O vídeo
+  sobe **privado, com data de publicação**, e o YouTube o publica sozinho no próximo dos
+  `[youtube] horarios` (12h, 18h e 21h), com 2 h entre uma publicação e outra. Vai com o
+  título que você aprovou, as hashtags na descrição (modelo em `[youtube] descricao`), as
+  tags do config, a categoria Jogos e a declaração "não é conteúdo para crianças"; o
+  horizontal leva a thumbnail do pico. A cota do dia (100 envios e 10.000 unidades,
+  renovada à meia-noite no Pacífico, 4h–5h em Brasília) é conferida antes de cada envio:
+  sem cota, a fila espera ela renovar. Durante uma live, o envio espera (para não disputar a
+  internet com a transmissão), e um clipe com um novo corte na fila espera o corte. Na
+  revisão, cada momento mostra as publicações: na fila, enviada (com o link) ou com erro.
+- `clipador youtube-entrar`: liga o app ao seu canal (uma vez; veja
+  [publicar no YouTube](#publicar-no-youtube-configuração-uma-vez)).
 - `clipador calibrar`: salva um quadro da live mais recente em `dados/calibracao.png`,
   com uma grade a cada 100 px e as regiões do vertical B desenhadas (verde: o recorte do
   jogo; vermelho: a câmera). É de onde saem os números de `[cortes.vertical_b] camera`
@@ -248,6 +264,27 @@ Se as faixas de áudio do seu OBS não seguirem o padrão (1 = mistura, 2 = voz,
 4 = música), ajuste a seção `[faixas]`.
 Caminhos relativos no `config.toml` (como `pasta_dados = "dados"`) são contados a partir da
 pasta do próprio `config.toml`.
+
+## Publicar no YouTube (configuração, uma vez)
+
+O app só envia com uma credencial sua no Google Cloud (gratuita). Nada disso vai para o
+git: a credencial e o login ficam em `segredos/`, lidos só pelo pacote das integrações.
+
+1. No [Google Cloud Console](https://console.cloud.google.com/): crie um projeto e ative a
+   **YouTube Data API v3** (em "APIs e serviços").
+2. Em "Tela de consentimento OAuth": tipo **Externo**, adicione a permissão
+   `youtube.upload` e **publique o app ("Em produção")**. Em "Teste", o Google cancela o
+   login a cada 7 dias.
+3. Em "Credenciais": crie um **ID do cliente OAuth** do tipo **App para computador** e baixe
+   o JSON. Salve como `segredos/client_secret.json` (na pasta do `config.toml`).
+4. Rode `uv run clipador youtube-entrar`: o navegador abre, você entra na conta do canal e
+   autoriza. O Google avisa que o app "não foi verificado": para uso pessoal, continue em
+   "Avançado". O login fica salvo e se renova sozinho.
+5. Confira num envio de teste: aprove um momento só com o YouTube e veja o vídeo aparecer
+   como agendado no YouTube Studio (gasta 1 dos 100 envios do dia).
+
+Quer ver o fluxo sem enviar nada? `[youtube] modo = "simulado"` finge os envios (a demo
+já vem assim).
 
 ## Como restaurar um backup
 
@@ -317,6 +354,7 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     demo/       roteiro e gerador da live falsa
     revisao/    regras da revisão: momentos do dia, decisões, ajuste do corte e cota
     aprendizado/ métricas, pesos da nota (regressão logística) e janela do corte
+    publicacao/ fila, agenda, pedido, cota e envio ao YouTube
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
   tests/
 api/            API local da revisão, FastAPI (etapa 12) e o comando clipador web
@@ -347,6 +385,7 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 - [ADR 0007: API da revisão local, sem senha](docs/adr/0007-api-local-sem-senha.md)
 - [ADR 0008: vertical B com a câmera em cima e o jogo embaixo](docs/adr/0008-vertical-b-camera-e-jogo.md)
 - [ADR 0009: regressão logística para aprender os pesos da nota](docs/adr/0009-regressao-logistica.md)
+- [ADR 0010: publicação agendada no YouTube, com tempo para desfazer](docs/adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)
 
 ## Licença
 

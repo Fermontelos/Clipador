@@ -48,6 +48,7 @@ from clipador.config import (
     ConfigCortes,
     ConfigTitulos,
     ConfigVerticalB,
+    ConfigYoutube,
     Regiao,
     config_sem_arquivo,
 )
@@ -85,6 +86,9 @@ def config_da_demo(pasta_dados: Path) -> Config:
         pasta_dados=pasta,
         titulos=ConfigTitulos(fonte="demo"),
         cortes=ConfigCortes(vertical_b=ConfigVerticalB(camera=CAMERA_DA_DEMO)),
+        # Na demo, o YouTube é simulado: aprovar mostra o fluxo inteiro sem internet e sem
+        # nenhum risco de publicar a live falsa no seu canal.
+        youtube=ConfigYoutube(modo="simulado", minutos_para_desfazer=0),
     )
 
 

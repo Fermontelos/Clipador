@@ -11,6 +11,7 @@ import {
   proximoPendente,
   rascunhoInicial,
   separarHashtags,
+  textoDaPublicacao,
   trocarMomento,
   trocarSugestao,
 } from "./estado";
@@ -165,5 +166,33 @@ describe("pedido de aprovação", () => {
   it("separarHashtags aceita espaço e vírgula", () => {
     expect(separarHashtags(" a,b  #c ,, ")).toEqual(["#a", "#b", "#c"]);
     expect(separarHashtags("")).toEqual([]);
+  });
+});
+
+describe("publicação", () => {
+  const base = {
+    id: 1,
+    plataforma: "youtube",
+    formato: "vertical_a",
+    link: null,
+    enviada_em: null,
+    agendada_para: "2026-10-28T21:00:00Z",
+  };
+  const agora = new Date("2026-10-28T12:00:00Z");
+
+  it("na fila, ainda dá para cancelar", () => {
+    expect(textoDaPublicacao({ ...base, status: "pendente" }, agora)).toMatch(
+      /^na fila, vai ao ar .*\(U ainda cancela\)$/,
+    );
+  });
+
+  it("enviada: vai ao ar no horário; depois dele, publicada", () => {
+    const enviada = { ...base, status: "agendada" };
+    expect(textoDaPublicacao(enviada, agora)).toMatch(/^enviado, vai ao ar /);
+    expect(textoDaPublicacao(enviada, new Date("2026-10-29T00:00:00Z"))).toMatch(/^publicado em /);
+  });
+
+  it("erro aponta para a tela da fila", () => {
+    expect(textoDaPublicacao({ ...base, status: "erro" }, agora)).toContain("Fila e status");
   });
 });

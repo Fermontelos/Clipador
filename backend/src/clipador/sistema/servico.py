@@ -55,6 +55,7 @@ from clipador.detectores import detectar
 from clipador.ingestao import audio
 from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
 from clipador.jogo.coletor import iniciar_em_segundo_plano as iniciar_coletor_do_lol
+from clipador.publicacao import publicar
 from clipador.sistema.desligamento import HORIZONTE as HORIZONTE_DA_FILA
 from clipador.sistema.desligamento import Desligamento
 from clipador.sistema.energia import ManterAcordado
@@ -75,6 +76,7 @@ EXECUTORES: dict[TipoTarefa, Executor] = {
     TipoTarefa.CORTAR: cortar.cortar,
     TipoTarefa.RECORTAR: cortar.recortar,
     TipoTarefa.GERAR_TITULOS: gerar.gerar_titulos,
+    TipoTarefa.PUBLICAR: publicar.publicar,
 }
 
 
@@ -87,6 +89,7 @@ class ResultadoPasso:
     tarefa_executada: str | None = None
     tarefa_falhou: bool = False
     tarefa_pausada: bool = False
+    motivo_da_pausa: str | None = None  # TentarDepois: por que e até quando espera
 
 
 class Servico:
@@ -201,9 +204,16 @@ class Servico:
             contexto = fila.Contexto(deve_pausar=self.ha_gravacao_em_andamento)
             try:
                 self.executores[tarefa.tipo](sessao, tarefa, self.cfg, contexto)
-            except fila.TarefaPausada:
+            except fila.TarefaPausada as pausa:
                 sessao.rollback()  # o que a tarefa salvou antes de pausar já está gravado
-                fila.devolver(sessao, tarefa)
+                quando = getattr(pausa, "quando", None)  # TentarDepois: volta só nessa hora
+                if quando is not None:
+                    log.info("Tarefa %s (%s) espera até %s: %s", tarefa.id, tarefa.tipo.value,
+                             quando.astimezone().strftime("%d/%m %H:%M"), pausa)  # fmt: skip
+                    resultado.motivo_da_pausa = (
+                        f"espera até {quando.astimezone().strftime('%d/%m %H:%M')}: {pausa}"
+                    )
+                fila.devolver(sessao, tarefa, quando)
                 resultado.tarefa_pausada = True
             except Exception as erro:
                 log.error("Tarefa %s (%s) falhou:\n%s", tarefa.id, tarefa.tipo.value,

@@ -1,16 +1,15 @@
-"""Quanto da cota diária da API do YouTube já foi usado hoje (para o painel da revisão).
+"""A cota diária da API do YouTube: quanto já foi usado hoje e se ainda cabe um envio.
 
-Conferido na documentação oficial em 2026-10-14:
+Conferido na documentação oficial (em 2026-10-14 e de novo em 2026-10-27):
 
-- os envios de vídeo têm uma cota própria: 100 por dia;
+- os envios de vídeo (``videos.insert``) têm uma cota própria: 100 por dia;
 - as outras chamadas dividem 10.000 unidades por dia (ex.: trocar a thumbnail = 50);
-- o dia da cota vira à meia-noite do horário do Pacífico (Califórnia), e não no nosso.
+- o dia da cota vira à meia-noite do horário do Pacífico (Califórnia), e não no nosso:
+  4h (horário de verão de lá) ou 5h em Brasília.
 
-A publicação (etapa 15) grava em cada ``Publicacao`` as unidades que gastou; aqui só se soma.
-
-Limitação até a etapa 15: o dia de cada publicação é o da criação (``criada_em``). Se ela
-for criada num dia e enviada em outro (ex.: esperou a cota renovar), conta no dia errado. A
-etapa 15 precisa gravar o horário do envio e somar por ele.
+Cada ``Publicacao`` guarda quando o envio terminou (``enviada_em``) e as unidades que
+gastou; a cota do dia soma pelo **horário do envio**, e não pelo da aprovação (um envio
+que esperou a cota renovar conta no dia em que de fato subiu).
 """
 
 from dataclasses import dataclass
@@ -19,13 +18,12 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, col, func, select
 
-from clipador.banco.modelos import Plataforma, Publicacao, StatusPublicacao
+from clipador.banco.modelos import Plataforma, Publicacao
 
 FUSO_DA_COTA = ZoneInfo("America/Los_Angeles")
 LIMITE_DE_ENVIOS = 100
 LIMITE_DE_UNIDADES = 10_000
-# Publicações que chegaram a subir o vídeo (as pendentes e as com erro não gastaram envio).
-SUBIRAM = (StatusPublicacao.ENVIADA, StatusPublicacao.AGENDADA, StatusPublicacao.PUBLICADA)
+CUSTO_DA_THUMBNAIL = 50
 
 
 @dataclass(frozen=True)
@@ -35,6 +33,10 @@ class CotaYoutube:
     unidades: int
     limite_unidades: int
     renova_em: datetime  # UTC
+
+    def cabe(self, unidades: int = 0) -> bool:
+        """Cabe mais um envio (e mais estas unidades) hoje?"""
+        return self.envios < self.limite_envios and self.unidades + unidades <= self.limite_unidades
 
 
 def inicio_do_dia_da_cota(agora: datetime) -> datetime:
@@ -47,13 +49,9 @@ def cota_youtube(sessao: Session, agora: datetime) -> CotaYoutube:
     inicio = inicio_do_dia_da_cota(agora)
     do_dia = (
         Publicacao.plataforma == Plataforma.YOUTUBE,
-        col(Publicacao.criada_em) >= inicio,
+        col(Publicacao.enviada_em) >= inicio,
     )
-    envios = sessao.exec(
-        select(func.count())
-        .select_from(Publicacao)
-        .where(*do_dia, col(Publicacao.status).in_(SUBIRAM))
-    ).one()
+    envios = sessao.exec(select(func.count()).select_from(Publicacao).where(*do_dia)).one()
     unidades = sessao.exec(
         select(func.coalesce(func.sum(Publicacao.unidades_cota), 0)).where(*do_dia)
     ).one()

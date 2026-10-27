@@ -28,7 +28,9 @@ from clipador.banco.modelos import (
     TipoTarefa,
     agora,
 )
+from clipador.config import Config
 from clipador.cortes.cortar import DURACAO_MINIMA_S
+from clipador.publicacao import planejar
 from clipador.revisao.consultas import EM_PROCESSAMENTO, clipes_do_momento, publicado
 from clipador.titulos.texto import LIMITE_TITULO_YOUTUBE, TIPOS_DE_TITULO
 
@@ -143,11 +145,16 @@ def decidir(
     titulo: str | None = None,
     hashtags: list[str] | None = None,
     tipo_titulo: str | None = None,
+    cfg: Config | None = None,
 ) -> Decisao:
     """Aprova ou recusa o momento (troca a decisão anterior, se houver).
 
     Aprovar exige ao menos um formato já cortado com um destino, e um título de até 100
     caracteres. Recusar não guarda formatos, destinos nem título.
+
+    Com ``cfg``, as publicações seguem a decisão no mesmo commit (etapa 15): as pendentes de
+    uma decisão anterior são canceladas, e uma aprovação cria as novas. Sem ``cfg`` (testes
+    da revisão em si), só a decisão é gravada.
     """
     momento = _momento(sessao, momento_id)
     _exigir_nao_publicado(sessao, momento_id, "mudar a decisão")
@@ -164,6 +171,8 @@ def decidir(
                 f"O título tem {len(titulo)} caracteres; o YouTube aceita até "
                 f"{LIMITE_TITULO_YOUTUBE}."
             )
+        if "<" in titulo or ">" in titulo:  # o YouTube recusa o envio com eles
+            raise DecisaoInvalidaError("O YouTube não aceita '<' nem '>' no título.")
         if tipo_titulo is not None and tipo_titulo not in TIPOS_DE_TITULO:
             # Os tipos são os da etapa 10; a etapa 17 compara o engajamento de cada um.
             raise DecisaoInvalidaError(
@@ -182,6 +191,10 @@ def decidir(
     decisao.ajuste_inicio_s, decisao.ajuste_fim_s = _ajustes(momento)
     decisao.decidida_em = agora()
     sessao.add(decisao)
+    if cfg is not None:
+        # Decisão e publicações no mesmo commit: nunca fica uma aprovação sem a fila dela.
+        planejar.cancelar(sessao, momento_id)
+        planejar.planejar(sessao, momento, decisao, cfg)
     sessao.commit()
     sessao.refresh(decisao)
     log.info("Momento %s %s na revisão.", momento_id, "aprovado" if aprovado else "recusado")
@@ -195,8 +208,11 @@ def desfazer(sessao: Session, momento_id: int) -> None:
     decisao = sessao.exec(select(Decisao).where(Decisao.momento_id == momento_id)).first()
     if decisao is None:
         raise DecisaoNaoEncontradaError(f"O momento {momento_id} ainda não tem decisão.")
+    canceladas = planejar.cancelar(sessao, momento_id)  # as que ainda não saíram do PC
     sessao.delete(decisao)
     sessao.commit()
+    if canceladas:
+        log.info("%d publicação(ões) do momento %s cancelada(s).", canceladas, momento_id)
     log.info("Decisão do momento %s desfeita.", momento_id)
 
 

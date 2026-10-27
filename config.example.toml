@@ -4,8 +4,8 @@
 #
 # Qualquer valor também pode vir de uma variável de ambiente com o prefixo CLIPADOR_
 # (ex.: CLIPADOR_NIVEL_LOG=DEBUG), que tem prioridade sobre este arquivo.
-# Chaves e tokens (YouTube, TikTok) NÃO ficam aqui: ficam no .env, que só as
-# integrações leem (veja o .env.example).
+# Chaves e tokens NÃO ficam aqui: o login do YouTube fica em pasta_segredos e as chaves do
+# TikTok no .env, que só as integrações leem (veja o .env.example).
 
 # Pasta onde o OBS salva as gravações. O ideal é uma pasta só para elas: o serviço coloca
 # na fila os vídeos que encontrar aqui.
@@ -39,6 +39,10 @@ nivel_log = "INFO"
 # Se ficar comentada, usa <pasta_dados>/backups. O ideal é outro disco ou uma pasta
 # sincronizada com o Google Drive, para o backup sobreviver se este disco falhar.
 # pasta_backups = "D:/Backups/Clipador"
+
+# Pasta (fora do git) com o client_secret.json do Google Cloud e o seu login no YouTube
+# (etapa 15). Só o pacote das integrações lê o que tem dentro.
+pasta_segredos = "segredos"
 
 # Em qual faixa de áudio do OBS está cada fonte, contando a partir de 1 como no OBS
 # (Configurações > Saída > Gravação > Faixas de áudio). A faixa 1 é a mistura completa
@@ -176,6 +180,31 @@ modo_teste = true
 # Se você estava usando o PC quando a fila acabou, o app espera você sair de perto por até
 # este tempo; depois desiste até a próxima noite (não desliga de tarde, no seu almoço).
 espera_maxima_horas = 4
+
+# Publicação no YouTube (etapa 15). Antes do 1º envio: o passo a passo do Google no README
+# e "clipador youtube-entrar". Nada sobe sem a sua aprovação na revisão.
+[youtube]
+# real = envia ao YouTube; simulado = finge (sem internet nem cota), para testar o fluxo.
+modo = "real"
+# O vídeo sobe privado e o YouTube o publica sozinho no próximo destes horários (relógio do
+# PC) que fique a pelo menos antecedencia_min do envio e a intervalo_minimo_min de outra
+# publicação.
+horarios = ["12:00", "18:00", "21:00"]
+intervalo_minimo_min = 120
+antecedencia_min = 60
+# Depois de aprovar, o envio espera este tempo: até lá, desfazer (U) cancela sem nada sair.
+minutos_para_desfazer = 10
+# Avisar os inscritos: muitos Shorts por dia viram notificação demais.
+notificar_inscritos_shorts = false
+notificar_inscritos_videos = true
+# Descrição: {titulo} = o título aprovado, {hashtags} = as aprovadas, {data} = o dia da live.
+descricao = "{titulo}\n\n{hashtags}"
+# Tags de todo vídeo (as hashtags aprovadas entram também, sem o #).
+tags = ["League of Legends", "LoL"]
+# 20 = Jogos.
+categoria = 20
+# Thumbnail do pico nos vídeos horizontais (gasta 50 das 10.000 unidades diárias).
+thumbnail = true
 
 # A revisão no navegador ("clipador web"). A API só escuta em 127.0.0.1 (este PC).
 [revisao]

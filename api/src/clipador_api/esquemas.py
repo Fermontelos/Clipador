@@ -13,6 +13,16 @@ class ClipeSaida(BaseModel):
     disponivel: bool = Field(description="O arquivo existe (falso se foi apagado ou movido).")
 
 
+class PublicacaoSaida(BaseModel):
+    id: int
+    plataforma: str
+    formato: str
+    status: str = Field(description="pendente (na fila), agendada (já no YouTube) ou erro.")
+    agendada_para: datetime | None = Field(description="Quando vai ao ar (a plataforma publica).")
+    link: str | None
+    enviada_em: datetime | None
+
+
 class DecisaoSaida(BaseModel):
     aprovado: bool
     formatos: list[str]
@@ -53,7 +63,12 @@ class MomentoSaida(BaseModel):
     )
     decisao: DecisaoSaida | None
     recortando: bool = Field(description="Há um novo corte na fila (depois de um ajuste).")
-    publicado: bool = Field(description="Já foi para a publicação: não muda mais.")
+    publicado: bool = Field(
+        description="Algum clipe já foi enviado (ou está sendo): a decisão não muda mais."
+    )
+    publicacoes: list[PublicacaoSaida] = Field(
+        description="As publicações do momento (as pendentes somem se você desfizer)."
+    )
 
 
 class ListaMomentos(BaseModel):

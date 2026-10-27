@@ -223,7 +223,11 @@ class Decisao(SQLModel, table=True):
 
 
 class Publicacao(SQLModel, table=True):
-    """Envio de um clipe para uma plataforma (etapas 15 e 16)."""
+    """Envio de um clipe para uma plataforma (etapas 15 e 16).
+
+    Criada (pendente) quando você aprova; vira ``agendada`` quando o vídeo sobe com data de
+    publicação. Uma pendente ainda pode ser cancelada (desfazer); depois de enviada, não.
+    """
 
     id: int | None = Field(default=None, primary_key=True)
     clipe_id: int = Field(foreign_key="clipe.id", index=True)
@@ -231,9 +235,11 @@ class Publicacao(SQLModel, table=True):
     id_na_plataforma: str | None = Field(default=None, index=True)
     status: StatusPublicacao = Field(default=StatusPublicacao.PENDENTE)
     link: str | None = None
-    agendada_para: datetime | None = None
+    agendada_para: datetime | None = None  # quando vai ao ar (a plataforma publica sozinha)
     unidades_cota: int = 0
     criada_em: datetime = Field(default_factory=agora)
+    # Quando o envio terminou: é por ele que se conta a cota do dia (etapa 15).
+    enviada_em: datetime | None = Field(default=None, index=True)
 
 
 class PesosNota(SQLModel, table=True):

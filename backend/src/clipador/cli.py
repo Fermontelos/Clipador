@@ -386,7 +386,8 @@ def processar(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -
             if resultado.tarefa_executada is None:
                 break
             if resultado.tarefa_pausada:
-                typer.echo(f"  {resultado.tarefa_executada}: pausada (começou uma gravação)")
+                motivo = resultado.motivo_da_pausa or "pausada (começou uma gravação)"
+                typer.echo(f"  {resultado.tarefa_executada}: {motivo}")
             elif resultado.tarefa_falhou:
                 falhas += 1
                 typer.echo(f"  {resultado.tarefa_executada}: falhou (veja 'clipador status')")
@@ -692,6 +693,26 @@ def aprender(
             )
     finally:
         engine.dispose()
+
+
+@app.command("youtube-entrar")
+def youtube_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
+    """Liga o app ao seu canal do YouTube (uma vez): abre o navegador para você autorizar."""
+    from clipador_integracoes import youtube
+
+    cfg = _carregar_ou_sair(arquivo)
+    cliente = youtube.ClienteYoutube(cfg.pasta_segredos)
+    typer.echo(
+        "Abrindo o navegador: entre na conta do canal e autorize o app (o Google avisa que o "
+        "app não é verificado; para uso pessoal, continue em 'Avançado')."
+    )
+    try:
+        cliente.entrar()
+    except youtube.CredencialDoAppAusenteError as erro:
+        typer.echo(f"Erro: {erro}", err=True)
+        raise typer.Exit(code=1) from erro
+    typer.echo(f"Pronto: login salvo em {cliente.arquivo_do_token} (fora do git).")
+    typer.echo("As publicações que esperavam o login: 'clipador status' e 'clipador refazer N'.")
 
 
 @app.command("instalar-servico")

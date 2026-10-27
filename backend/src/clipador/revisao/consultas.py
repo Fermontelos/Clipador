@@ -19,12 +19,12 @@ from clipador.banco.modelos import (
     Decisao,
     Gravacao,
     Momento,
-    Publicacao,
     StatusGravacao,
     StatusTarefa,
     Tarefa,
     TipoTarefa,
 )
+from clipador.publicacao.planejar import momento_travado
 
 # Gravações cujos momentos ainda podem mudar.
 EM_PROCESSAMENTO = (StatusGravacao.NOVA, StatusGravacao.PROCESSANDO)
@@ -110,17 +110,12 @@ def recorte_pendente(sessao: Session, momento_id: int) -> bool:
 
 
 def publicado(sessao: Session, momento_id: int) -> bool:
-    """Algum clipe do momento já foi para a publicação (em qualquer situação, até com erro)?
+    """Algum clipe do momento já foi enviado (ou está sendo enviado agora)?
 
-    Uma publicação com erro também trava a revisão: o reenvio é cuidado na etapa 15.
+    Isso trava a revisão: mudar a decisão não mudaria o que já está no YouTube. Uma
+    publicação ainda na fila não trava: desfazer ou mudar a decisão a cancela (etapa 15).
     """
-    publicacao = sessao.exec(
-        select(Publicacao.id)
-        .join(Clipe, col(Clipe.id) == col(Publicacao.clipe_id))
-        .where(Clipe.momento_id == momento_id)
-        .limit(1)
-    ).first()
-    return publicacao is not None
+    return momento_travado(sessao, momento_id)
 
 
 @dataclass

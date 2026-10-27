@@ -15,6 +15,7 @@ programas abertos sozinhos no login (etapa 4, ADR 0004) costumam começar em
 ``C:\\Windows\\System32``: sem isso, o banco iria parar lá.
 """
 
+import re
 import tomllib
 from contextvars import ContextVar
 from datetime import UTC, date, datetime
@@ -403,6 +404,83 @@ class ConfigDesligamento(BaseModel):
 
 
 PLATAFORMAS = ("youtube", "tiktok")
+HORARIO = r"^([01]\d|2[0-3]):[0-5]\d$"  # "18:00"
+
+
+class ConfigYoutube(BaseModel):
+    """Publicação no YouTube (etapa 15): agenda, textos e avisos aos inscritos."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    modo: Literal["real", "simulado"] = Field(
+        default="real",
+        description=(
+            "real = envia ao YouTube; simulado = finge o envio (sem internet nem cota), para a "
+            "demo e para testar o fluxo."
+        ),
+    )
+    horarios: list[str] = Field(
+        default_factory=lambda: ["12:00", "18:00", "21:00"],
+        min_length=1,
+        description="Horários do dia (no relógio do PC) em que os clipes são publicados.",
+    )
+    intervalo_minimo_min: int = Field(
+        default=120,
+        ge=0,
+        le=24 * 60,
+        description="Tempo mínimo entre duas publicações, para não soltar tudo de uma vez.",
+    )
+    antecedencia_min: int = Field(
+        default=60,
+        ge=15,
+        le=24 * 60,
+        description=(
+            "Uma publicação fica pelo menos este tempo depois do envio (o vídeo precisa "
+            "terminar de processar no YouTube antes de ir ao ar)."
+        ),
+    )
+    minutos_para_desfazer: int = Field(
+        default=10,
+        ge=0,
+        le=24 * 60,
+        description="Depois de aprovar, o envio espera este tempo: dá para desfazer antes.",
+    )
+    notificar_inscritos_shorts: bool = Field(
+        default=False,
+        description="Avisar os inscritos a cada Short (muitos por dia viram notificação demais).",
+    )
+    notificar_inscritos_videos: bool = Field(
+        default=True, description="Avisar os inscritos a cada vídeo horizontal."
+    )
+    descricao: str = Field(
+        default="{titulo}\n\n{hashtags}",
+        description=(
+            "Modelo da descrição: {titulo} = o título aprovado, {hashtags} = as hashtags "
+            "aprovadas, {data} = o dia da live (ex.: 23/10/2026)."
+        ),
+    )
+    tags: list[str] = Field(
+        default_factory=lambda: ["League of Legends", "LoL"],
+        description="Tags de todo vídeo (as hashtags aprovadas entram também, sem o #).",
+    )
+    categoria: int = Field(default=20, ge=1, description="Categoria do YouTube (20 = Jogos).")
+    thumbnail: bool = Field(
+        default=True,
+        description="Enviar a thumbnail do pico nos vídeos horizontais (gasta 50 unidades).",
+    )
+
+    @model_validator(mode="after")
+    def _horarios_validos(self) -> "ConfigYoutube":
+        errados = [h for h in self.horarios if not re.match(HORARIO, h)]
+        if errados:
+            raise ValueError(f"[youtube] horarios: {errados} não são horas no formato 18:00.")
+        try:
+            self.descricao.format(titulo="", hashtags="", data="")
+        except (KeyError, IndexError, ValueError) as erro:
+            raise ValueError(
+                f"[youtube] descricao: só valem {{titulo}}, {{hashtags}} e {{data}} ({erro})."
+            ) from erro
+        return self
 
 
 class ConfigRevisao(BaseModel):
@@ -508,6 +586,17 @@ class Config(BaseSettings):
     desligamento: ConfigDesligamento = Field(
         default_factory=ConfigDesligamento,
         description="Desligar o PC sozinho depois do processamento da noite.",
+    )
+    youtube: ConfigYoutube = Field(
+        default_factory=ConfigYoutube,
+        description="Publicação no YouTube: horários, descrição, tags e avisos aos inscritos.",
+    )
+    pasta_segredos: Path = Field(
+        default=Path("segredos"),
+        description=(
+            "Pasta (fora do git) com a credencial do app no Google Cloud e o seu login no "
+            "YouTube. Só o pacote das integrações lê o que tem dentro."
+        ),
     )
     revisao: ConfigRevisao = Field(
         default_factory=ConfigRevisao,
@@ -625,7 +714,7 @@ def config_sem_arquivo(**valores: Any) -> Config:
 def _resolver_caminhos(cfg: Config, base: Path) -> Config:
     """Troca os caminhos relativos por absolutos, contados a partir de ``base``."""
     absolutos = {}
-    for nome in ("pasta_gravacoes", "pasta_dados", "pasta_backups"):
+    for nome in ("pasta_gravacoes", "pasta_dados", "pasta_backups", "pasta_segredos"):
         valor: Path | None = getattr(cfg, nome)
         if valor is not None and not valor.is_absolute():
             absolutos[nome] = base / valor

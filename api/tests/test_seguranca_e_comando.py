@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from clipador import cli
 from clipador.config import ConfigRevisao
-from clipador.revisao import cota
+from clipador.publicacao import cota
 from clipador_api import comando
 
 # ----------------------------------------------------------------- segurança

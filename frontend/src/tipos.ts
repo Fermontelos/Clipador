@@ -13,6 +13,17 @@ export interface Sugestao {
   tipo?: string;
 }
 
+export interface Publicacao {
+  id: number;
+  plataforma: string;
+  formato: string;
+  /** pendente (na fila, ainda dá para desfazer), agendada (já no YouTube) ou erro. */
+  status: string;
+  agendada_para: string | null;
+  link: string | null;
+  enviada_em: string | null;
+}
+
 export interface Decisao {
   aprovado: boolean;
   formatos: string[];
@@ -48,6 +59,7 @@ export interface Momento {
   decisao: Decisao | null;
   recortando: boolean;
   publicado: boolean;
+  publicacoes: Publicacao[];
 }
 
 export interface ListaMomentos {

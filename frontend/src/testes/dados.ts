@@ -47,5 +47,6 @@ export function momentoDeTeste(id: number, nota = 90 - id): Momento {
     decisao: null,
     recortando: false,
     publicado: false,
+    publicacoes: [],
   };
 }

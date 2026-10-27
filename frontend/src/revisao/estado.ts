@@ -1,6 +1,6 @@
 // O estado da revisão em funções puras (sem React): o contador, o próximo momento, o
 // rascunho de cada momento e a pilha do desfazer.
-import type { Config, Momento, Rascunho } from "../tipos";
+import type { Config, Momento, Publicacao, Rascunho } from "../tipos";
 
 /** "7 de 15 revisados": os decididos entre os que estão na tela. */
 export function contador(momentos: Momento[]): { revisados: number; total: number } {
@@ -115,4 +115,21 @@ export function empilhar(pilha: number[], id: number): number[] {
 export function desempilhar(pilha: number[]): { id: number | null; pilha: number[] } {
   if (pilha.length === 0) return { id: null, pilha };
   return { id: pilha[pilha.length - 1]!, pilha: pilha.slice(0, -1) };
+}
+
+function quando(iso: string | null): string {
+  if (!iso) return "?";
+  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
+
+/** "na fila (vai ao ar 28/10 18:00)", "agendado para 28/10 18:00" ou "publicado em ...". */
+export function textoDaPublicacao(p: Publicacao, agora: Date = new Date()): string {
+  if (p.status === "pendente") {
+    return `na fila, vai ao ar ${quando(p.agendada_para)} (U ainda cancela)`;
+  }
+  if (p.status === "erro") return "erro no envio (veja a tela Fila e status)";
+  if (p.agendada_para && new Date(p.agendada_para) <= agora) {
+    return `publicado em ${quando(p.agendada_para)}`;
+  }
+  return `enviado, vai ao ar ${quando(p.agendada_para)}`;
 }

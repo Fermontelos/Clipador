@@ -62,6 +62,18 @@ class TarefaPausada(Exception):  # noqa: N818 (não é um erro: é uma pausa com
     """
 
 
+class TentarDepois(TarefaPausada):  # noqa: N818 (também é uma pausa combinada)
+    """A tarefa não pode rodar agora, mas vai poder às ``quando`` (sem contar tentativa).
+
+    Ex.: a cota do YouTube acabou (volta quando ela renovar) ou o clipe ainda vai ser cortado
+    de novo (volta daqui a pouco).
+    """
+
+    def __init__(self, motivo: str, quando: datetime) -> None:
+        super().__init__(motivo)
+        self.quando = quando
+
+
 class FalhaDefinitivaError(RuntimeError):
     """Erro que não adianta tentar de novo: a tarefa vai direto para "erro".
 
@@ -225,11 +237,14 @@ def falhar(sessao: Session, tarefa: Tarefa, erro: str, definitiva: bool = False)
     return tarefa
 
 
-def devolver(sessao: Session, tarefa: Tarefa) -> Tarefa:
-    """Põe de volta na fila uma tarefa que pausou (``TarefaPausada``), sem contar tentativa."""
+def devolver(sessao: Session, tarefa: Tarefa, quando: datetime | None = None) -> Tarefa:
+    """Põe de volta na fila uma tarefa que pausou (``TarefaPausada``), sem contar tentativa.
+
+    ``quando``: só roda de novo a partir dessa hora (``TentarDepois``); sem ela, já.
+    """
     _exigir_em_andamento(tarefa, "devolver")
     tarefa.status = StatusTarefa.PENDENTE
-    tarefa.executar_a_partir_de = agora()
+    tarefa.executar_a_partir_de = quando or agora()
     tarefa.atualizada_em = agora()
     sessao.add(tarefa)
     sessao.commit()
