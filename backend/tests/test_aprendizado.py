@@ -306,3 +306,30 @@ def test_clipador_aprender_pergunta_em_portugues(tmp_path, escrever_config):
     with nova_sessao(engine) as sessao:
         assert sessao.exec(select(PesosNota)).one().versao == 1
     engine.dispose()
+
+
+def test_clipador_config_avisa_que_vale_a_versao_aceita(tmp_path, escrever_config):
+    from typer.testing import CliRunner
+
+    from clipador.banco.conexao import abrir_banco, nova_sessao
+    from clipador.cli import app
+
+    config = escrever_config(
+        f'pasta_gravacoes = "{(tmp_path / "g").as_posix()}"\n'
+        f'pasta_dados = "{(tmp_path / "d").as_posix()}"\n'
+    )
+    runner = CliRunner()
+    # Sem banco: nada de aviso (e o comando não cria o banco).
+    assert "Atenção: vale a versão" not in runner.invoke(app, ["config", "-a", str(config)]).output
+    assert not (tmp_path / "d" / "clipador.db").exists()
+
+    engine = abrir_banco(tmp_path / "d" / "clipador.db")
+    with nova_sessao(engine) as sessao:
+        sessao.add(
+            PesosNota(versao=2, valores={"fala": 0.6}, segundos_antes=12.5, segundos_depois=5)
+        )
+        sessao.commit()
+    engine.dispose()
+    saida = runner.invoke(app, ["config", "-a", str(config)]).output
+    assert "Atenção: vale a versão 2 do aprendizado" in saida
+    assert "janela 12,5 s / 5 s" in saida

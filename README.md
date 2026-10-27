@@ -34,7 +34,7 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 14 · Aprendizado | Ajustar a nota com as suas aprovações | ✅ (falta o gráfico de uma live real) |
 | 15 · YouTube | Publicar os clipes aprovados, com agendamento | ⏳ próxima |
 
-## Experimente em 2 minutos (modo demo)
+## Experimente em uns 3 minutos (modo demo)
 
 Não precisa de placa de vídeo, de contas no YouTube ou no TikTok, nem de configurar nada.
 Só do Git, do [uv](https://docs.astral.sh/uv/) e do FFmpeg (`winget install Gyan.FFmpeg`).
@@ -49,7 +49,7 @@ uv run clipador processar --demo  # áudio, legenda, momentos, 12 clipes e títu
 uv run clipador eventos --demo    # os eventos do LoL da demo, no segundo certo do vídeo
 uv run clipador momentos --demo   # os 4 melhores momentos, com nota, motivo e título
 uv run clipador web --demo        # revisa a demo no navegador (veja abaixo)
-# os clipes da demo ficam em dados/demo/clipes/ (horizontal, vertical e thumbnail)
+# os clipes da demo ficam em dados/demo/clipes/ (horizontal, verticais A e B, thumbnail)
 ```
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
@@ -73,7 +73,8 @@ cd frontend; npm ci; npm run build; cd ..
 ## O que já funciona
 
 - `clipador versao`: mostra a versão.
-- `clipador config`: confere se o `config.toml` é válido e mostra os valores carregados.
+- `clipador config`: confere se o `config.toml` é válido e mostra os valores carregados
+  (e avisa quando uma versão aceita no aprendizado vale no lugar dos pesos e da janela).
   Um valor errado (ex.: limite diário negativo, campo com nome digitado errado) gera um
   erro claro.
 - `clipador status`: mostra se o serviço está rodando e a fila de tarefas (quantas
@@ -111,7 +112,8 @@ cd frontend; npm ci; npm run build; cd ..
   por 1 s), expressões e fala acelerada na transcrição ("meu Deus", "não acredito"...) e
   os eventos do LoL (pentakill > barão > abate; os seus valem mais). Sinais próximos viram
   um momento, com uma janela de 15 a 60 s e uma nota de 0 a 100 (média ponderada dos
-  sinais; pesos em `[deteccao]` no `config.toml`). Ficam os 30 melhores.
+  sinais; pesos em `[deteccao]` no `config.toml`, ou os da versão aceita no aprendizado,
+  veja abaixo). Ficam os 30 melhores.
 - Cortes: cada momento vira um clipe MP4 em `dados/clipes/`, nos formatos de
   `[cortes] formatos`: horizontal (16:9), vertical A (9:16, com o vídeo no centro e o
   fundo desfocado) e vertical B (9:16, a sua câmera no terço de cima e o centro do jogo
@@ -147,7 +149,7 @@ cd frontend; npm ci; npm run build; cd ..
     | `A` / `R` | aprova / recusa (e vai para o próximo pendente) |
     | `U` | desfaz a última decisão (de novo: a penúltima...) |
     | `←` `→` / `Espaço` | momento anterior, próximo / pausa |
-    | `1` `2` `3` | troca o formato exibido (horizontal, vertical) |
+    | `1` `2` `3` | troca o formato exibido (horizontal, vertical A, vertical B) |
     | `Shift` + `1` `2` `3` | tira ou põe o formato na aprovação |
     | `T` / `Tab` | edita o título / troca entre as 3 sugestões |
     | `H` | edita as hashtags |

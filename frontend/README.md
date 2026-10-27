@@ -44,6 +44,8 @@ src/
   telas/
     Fila.tsx       fila, erros e cota do YouTube (atualiza a cada 5 s)
     Estatisticas.tsx  precisão e gráficos (carrega só ao abrir a tela)
+    Aprendizado.tsx   o painel da etapa 14: precisão por dia, pesos e janela sugeridos e o
+                      aceite (em dois cliques), dentro das Estatísticas
   testes/          preparação do Vitest e dados de exemplo
 ```
 

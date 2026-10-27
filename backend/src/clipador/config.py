@@ -142,7 +142,12 @@ class ConfigDetector(BaseModel):
 class ConfigVolumeVoz(ConfigDetector):
     """Picos de volume da sua voz (o sinal principal)."""
 
-    peso: float = Field(default=0.5, ge=0, le=1)
+    peso: float = Field(
+        default=0.5,
+        ge=0,
+        le=1,
+        description="Peso deste sinal na nota (uma versão aceita no aprendizado vale no lugar).",
+    )
     db_acima_do_normal: float = Field(
         default=10, gt=0, le=40, description="Quantos dB acima do seu volume normal é um pico."
     )
@@ -154,7 +159,12 @@ class ConfigVolumeVoz(ConfigDetector):
 class ConfigFala(ConfigDetector):
     """Expressões faladas e fala acelerada, pela transcrição."""
 
-    peso: float = Field(default=0.25, ge=0, le=1)
+    peso: float = Field(
+        default=0.25,
+        ge=0,
+        le=1,
+        description="Peso deste sinal na nota (uma versão aceita no aprendizado vale no lugar).",
+    )
     expressoes: list[str] = Field(
         default_factory=lambda: list(EXPRESSOES_PADRAO),
         description="Expressões suas que costumam marcar um momento bom.",
@@ -170,7 +180,12 @@ class ConfigFala(ConfigDetector):
 class ConfigLolDetector(ConfigDetector):
     """Eventos da partida de LoL (abates, objetivos)."""
 
-    peso: float = Field(default=0.25, ge=0, le=1)
+    peso: float = Field(
+        default=0.25,
+        ge=0,
+        le=1,
+        description="Peso deste sinal na nota (uma versão aceita no aprendizado vale no lugar).",
+    )
 
 
 class ConfigDeteccao(BaseModel):
@@ -178,7 +193,12 @@ class ConfigDeteccao(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    max_momentos_por_live: int = Field(default=30, ge=1, le=200)
+    max_momentos_por_live: int = Field(
+        default=30,
+        ge=1,
+        le=200,
+        description="Quantos momentos, no máximo, cada live gera (os de maior nota).",
+    )
     nota_minima: float = Field(
         default=10,
         ge=0,
@@ -206,9 +226,18 @@ class ConfigDeteccao(BaseModel):
     juntar_ate_s: float = Field(
         default=8, ge=0, le=60, description="Sinais a menos disto um do outro viram um momento só."
     )
-    volume_voz: ConfigVolumeVoz = Field(default_factory=ConfigVolumeVoz)
-    fala: ConfigFala = Field(default_factory=ConfigFala)
-    lol: ConfigLolDetector = Field(default_factory=ConfigLolDetector)
+    volume_voz: ConfigVolumeVoz = Field(
+        default_factory=ConfigVolumeVoz,
+        description="Detector de picos de volume da sua voz (o sinal principal).",
+    )
+    fala: ConfigFala = Field(
+        default_factory=ConfigFala,
+        description="Detector de expressões e de fala acelerada, pela transcrição.",
+    )
+    lol: ConfigLolDetector = Field(
+        default_factory=ConfigLolDetector,
+        description="Detector de eventos da partida de LoL.",
+    )
 
     @model_validator(mode="after")
     def _duracoes_coerentes(self) -> "ConfigDeteccao":
@@ -316,7 +345,16 @@ class ConfigTitulos(BaseModel):
         default="qwen3:1.7b", description="Modelo menor, usado se faltar memória na placa."
     )
     endereco: str = Field(default="http://127.0.0.1:11434", description="Onde o Ollama atende.")
-    tempo_limite_s: float = Field(default=180, gt=0, le=1800)
+    tempo_limite_s: float = Field(
+        default=180,
+        gt=0,
+        le=1800,
+        description=(
+            "Quanto esperar a resposta do Ollama para um momento, em segundos. Passou disso, "
+            "esse momento e os seguintes da live ficam com o título simples (o plano B): uma "
+            "IA travada não pode custar esse tempo a cada momento."
+        ),
+    )
     hashtags_fixas: list[str] = Field(
         default_factory=lambda: ["#leagueoflegends", "#lolbr"],
         description="Hashtags que entram em todo clipe (o resto o modelo sugere).",

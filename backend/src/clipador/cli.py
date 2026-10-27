@@ -169,6 +169,24 @@ def config(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     typer.echo(f"Banco: {cfg.caminho_banco}")
     typer.echo(f"Backups: {cfg.pasta_backups_efetiva}")
     typer.echo(f"Log em: {cfg.pasta_dados / 'logs' / 'clipador.log'}")
+    if cfg.caminho_banco.is_file():  # sem banco ainda, não há versão aceita
+        engine = abrir_banco_ou_sair(cfg)
+        try:
+            with nova_sessao(engine) as sessao:
+                versao = aprendizado.versao_atual(sessao)
+        finally:
+            engine.dispose()
+        if versao is not None:
+            janela = (
+                f"janela {_br(versao.segundos_antes)} s / {_br(versao.segundos_depois or 0)} s"
+                if versao.segundos_antes is not None
+                else "janela do config"
+            )
+            typer.echo(
+                f"Atenção: vale a versão {versao.versao} do aprendizado (pesos "
+                f"{versao.valores or 'do config'}, {janela}), no lugar dos de [deteccao]. "
+                "Veja com 'clipador aprender'."
+            )
     if not cfg.pasta_gravacoes.is_dir():
         typer.echo(f"Aviso: a pasta de gravações {cfg.pasta_gravacoes} ainda não existe.", err=True)
 

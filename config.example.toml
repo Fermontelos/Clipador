@@ -73,12 +73,16 @@ coletar = true
 
 # Como achar os melhores momentos e dar a nota (0 a 100). Nota = 100 × média ponderada
 # dos sinais dos detectores ligados (cada sinal vai de 0 a 1).
+# Atenção: os pesos (peso) e a janela (segundos_antes, segundos_depois) abaixo valem até você
+# aceitar uma sugestão do aprendizado (etapa 14, "clipador aprender"). Depois, vale a versão
+# aceita, e mudar estes números aqui não tem efeito.
 [deteccao]
 max_momentos_por_live = 30
 # Momentos com nota abaixo disto são descartados como ruído (ex.: só a torre de um aliado).
 nota_minima = 10
 # Janela do clipe: começa este tanto antes do 1º sinal e termina este tanto depois do último,
-# com duração entre a mínima e a máxima. A etapa 14 ajusta isso pelos seus ajustes de corte.
+# com duração entre a mínima e a máxima. O aprendizado (etapa 14) sugere uma janela nova a
+# partir dos seus ajustes de corte.
 segundos_antes = 10
 segundos_depois = 5
 # Duração mínima e máxima do clipe, em segundos. Valem também para o ajuste do corte na
@@ -152,6 +156,11 @@ modelo_reserva = "qwen3:1.7b"
 # O YouTube recomenda de 3 a 5, sempre ligadas ao vídeo (mais de 60, ele ignora todas).
 hashtags_fixas = ["#leagueoflegends", "#lolbr"]
 max_hashtags = 5
+# Onde o Ollama atende (o padrão dele, neste PC). Só mude se o Ollama estiver em outra porta.
+# endereco = "http://127.0.0.1:11434"
+# Quanto esperar a resposta para um momento (s); passou disso, o resto da live vai com o
+# título simples (sem IA).
+# tempo_limite_s = 180
 # Quantos títulos que você escolheu na revisão entram como exemplo do seu estilo.
 exemplos = 10
 
