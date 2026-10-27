@@ -683,3 +683,26 @@ def test_criar_enviador_tiktok_usa_os_caminhos_do_config(cfg):
     cliente = publicar.criar_enviador_tiktok(cfg)
     assert isinstance(cliente, tiktok.ClienteTiktok)
     assert cliente.pasta == cfg.pasta_segredos and cliente.arquivo_env == cfg.arquivo_chaves
+
+
+def test_desfazer_tira_da_pasta_o_que_esperava_o_rascunho(sessao, momento, cfg, tt):
+    # O rascunho espera o limite de 5, mas o vídeo já foi para a pasta: desfazer tira de lá.
+    cfg = com_rascunho(cfg)
+    aprovar(sessao, momento, cfg)
+    tt.erro = tiktok.LimiteDeRascunhosError("5 pendentes")
+    with pytest.raises(fila.TentarDepois):
+        publicar.publicar(sessao, tarefa_tiktok(sessao), cfg)
+    video = cfg.pasta_exportar_tiktok / "vertical_a.mp4"
+    assert video.is_file() and video.with_suffix(".txt").is_file()
+    decisoes.desfazer(sessao, momento.id, cfg)
+    assert not video.exists() and not video.with_suffix(".txt").exists()
+
+
+def test_recusar_tira_da_pasta_e_mantem_o_que_ja_saiu(sessao, momento, cfg, tt):
+    aprovar(sessao, momento, cfg)
+    pasta = cfg.pasta_exportar_tiktok
+    pasta.mkdir(parents=True)
+    (pasta / "vertical_a.mp4").write_bytes(b"v")  # deixado por uma tentativa que esperou
+    (pasta / "outro_momento.mp4").write_bytes(b"v")  # de outro momento: não é tocado
+    decisoes.decidir(sessao, momento.id, aprovado=False, cfg=cfg)
+    assert sorted(p.name for p in pasta.iterdir()) == ["outro_momento.mp4"]

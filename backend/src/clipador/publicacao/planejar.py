@@ -14,6 +14,7 @@
 
 import logging
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import delete
 from sqlmodel import Session, col, select
@@ -137,6 +138,27 @@ def cancelar(sessao: Session, momento_id: int) -> int:
         sessao.flush()
         canceladas += 1
     return canceladas
+
+
+def exportados_pendentes(sessao: Session, momento_id: int, cfg: Config) -> list[Path]:
+    """O vídeo e o ``.txt`` que já estão na pasta do TikTok para publicações ainda pendentes.
+
+    A pasta é o primeiro passo do envio ao TikTok, e um rascunho que espera (o limite de 5 em
+    24 h, o login) deixa a publicação pendente com os arquivos já lá. Cancelar a publicação
+    tem de tirá-los da pasta: senão eles parecem aprovados (e a pasta pode estar no celular).
+    Quem chama apaga só depois do commit do cancelamento.
+    """
+    arquivos = []
+    for publicacao in publicacoes_do_momento(sessao, momento_id):
+        if publicacao.plataforma is not Plataforma.TIKTOK:
+            continue
+        if publicacao.status is not StatusPublicacao.PENDENTE:
+            continue
+        video = (
+            cfg.pasta_exportar_tiktok / Path(sessao.get(Clipe, publicacao.clipe_id).arquivo).name
+        )
+        arquivos += [p for p in (video, video.with_suffix(".txt")) if p.is_file()]
+    return arquivos
 
 
 def horarios_ocupados(sessao: Session, sem: int | None = None) -> list[datetime]:

@@ -236,7 +236,8 @@ cd frontend; npm ci; npm run build; cd ..
   evita copiar à mão), e você posta pelo celular. Com `[tiktok] modo = "rascunho"`, o
   vídeo também vai para a **caixa de entrada do app do TikTok**: chega uma notificação, e
   você finaliza lá (o rascunho chega sem legenda: ela está no `.txt`). O TikTok aceita no
-  máximo 5 rascunhos pendentes a cada 24 h; o sexto espera na fila. O post direto, sem
+  máximo 5 rascunhos pendentes a cada 24 h; o sexto espera na fila (já com o vídeo na
+  pasta; desfazer enquanto ele espera também o tira da pasta). O post direto, sem
   passar pelo celular, não foi feito: sem a auditoria do TikTok os posts ficam privados, e
   as diretrizes dele não aceitam na auditoria uma ferramenta para as suas próprias contas.
 - `clipador tiktok-entrar`: liga o app à sua conta do TikTok, para os rascunhos (uma vez;

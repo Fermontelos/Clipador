@@ -47,6 +47,7 @@ from clipador.banco.conexao import abrir_banco, nova_sessao
 from clipador.banco.modelos import (
     Clipe,
     Decisao,
+    FormatoClipe,
     Gravacao,
     Momento,
     Plataforma,
@@ -334,7 +335,7 @@ def _registrar_rotas(app: FastAPI) -> None:
         "/api/momentos/{momento_id}/decisao", tags=["revisão"], summary="Desfazer a decisão"
     )
     def desfazer(momento_id: int, sessao: Sessao, cfg: Cfg) -> esquemas.MomentoSaida:
-        decisoes.desfazer(sessao, momento_id)
+        decisoes.desfazer(sessao, momento_id, cfg)
         return ver_momento(momento_id, sessao, cfg)
 
     @app.post("/api/momentos/{momento_id}/ajuste", tags=["revisão"], summary="Ajustar o corte")
@@ -425,7 +426,7 @@ def _registrar_rotas(app: FastAPI) -> None:
                     for p in Plataforma
                     if p is not Plataforma.TIKTOK or f in FORMATOS_DO_TIKTOK
                 ]
-                for f in cfg.cortes.formatos
+                for f in (formato.value for formato in FormatoClipe)  # até os fora do config
             },
             destinos_padrao={f: list(d) for f, d in cfg.revisao.destinos_padrao.items()},
             max_hashtags=cfg.titulos.max_hashtags,

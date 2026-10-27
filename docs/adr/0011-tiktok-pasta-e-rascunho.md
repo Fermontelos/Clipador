@@ -41,6 +41,10 @@ A etapa 16 leva os verticais aprovados ao TikTok. A Content Posting API tem dois
 - **Limite de 5 em 24 h**: o app conta os rascunhos que ele mesmo enviou e nem pede o
   sexto (a tarefa espera, sem gastar tentativa). Se o TikTok recusar mesmo assim (rascunhos
   enviados por fora), a tarefa espera 6 h.
+- **A pasta é o primeiro passo**: mesmo com o rascunho esperando (o limite, o login), o
+  vídeo e a legenda já ficam na pasta. Enquanto a publicação está pendente, desfazer ou
+  mudar a decisão a cancela **e tira os dois arquivos da pasta** (depois do commit do
+  cancelamento), para nada parecer aprovado no celular.
 - **Login de app de computador**: retorno em `http://127.0.0.1:{porta}/callback/` e PKCE
   com o desafio em SHA-256 **hexadecimal** (o do Google é Base64URL). Chaves do app no
   `.env` (`arquivo_chaves`), token em `segredos/tiktok_token.json`; os dois lidos só por

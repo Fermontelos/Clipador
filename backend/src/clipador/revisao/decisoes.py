@@ -15,6 +15,7 @@ Regras:
 
 import logging
 import re
+from pathlib import Path
 
 from sqlmodel import Session, col, select
 
@@ -70,13 +71,26 @@ def _exigir_nao_publicado(sessao: Session, momento_id: int, acao: str) -> None:
         )
 
 
-def _cancelar_publicacoes(sessao: Session, momento_id: int, acao: str) -> int:
-    """``planejar.cancelar``; se o envio começou no meio do caminho, desfaz tudo e trava."""
+def _cancelar_publicacoes(
+    sessao: Session, momento_id: int, acao: str, cfg: Config | None
+) -> tuple[int, list[Path]]:
+    """``planejar.cancelar``; se o envio começou no meio do caminho, desfaz tudo e trava.
+
+    Devolve quantas foram canceladas e os arquivos que elas já tinham deixado na pasta do
+    TikTok, para apagar **depois** do commit (se o commit falhar, eles continuam valendo).
+    """
+    exportados = planejar.exportados_pendentes(sessao, momento_id, cfg) if cfg else []
     try:
-        return planejar.cancelar(sessao, momento_id)
+        return planejar.cancelar(sessao, momento_id), exportados
     except planejar.EnvioComecouError as erro:
         sessao.rollback()  # nada desta decisão fica pela metade na sessão
         raise RevisaoBloqueadaError(f"{erro} Não dá para {acao}.") from erro
+
+
+def _apagar(arquivos: list[Path]) -> None:
+    for arquivo in arquivos:
+        arquivo.unlink(missing_ok=True)
+        log.info("Tirado da pasta do TikTok (publicação cancelada): %s", arquivo.name)
 
 
 def normalizar_hashtags(hashtags: list[str]) -> list[str]:
@@ -207,24 +221,28 @@ def decidir(
     sessao.add(decisao)
     if cfg is not None:
         # Decisão e publicações no mesmo commit: nunca fica uma aprovação sem a fila dela.
-        _cancelar_publicacoes(sessao, momento_id, "mudar a decisão")
+        _, exportados = _cancelar_publicacoes(sessao, momento_id, "mudar a decisão", cfg)
         planejar.planejar(sessao, momento, decisao, cfg)
     sessao.commit()
+    if cfg is not None:
+        _apagar(exportados)
     sessao.refresh(decisao)
     log.info("Momento %s %s na revisão.", momento_id, "aprovado" if aprovado else "recusado")
     return decisao
 
 
-def desfazer(sessao: Session, momento_id: int) -> None:
+def desfazer(sessao: Session, momento_id: int, cfg: Config | None = None) -> None:
     """Apaga a decisão: o momento volta a ficar pendente. Não mexe num ajuste do corte."""
     _momento(sessao, momento_id)
     _exigir_nao_publicado(sessao, momento_id, "desfazer a decisão")
     decisao = sessao.exec(select(Decisao).where(Decisao.momento_id == momento_id)).first()
     if decisao is None:
         raise DecisaoNaoEncontradaError(f"O momento {momento_id} ainda não tem decisão.")
-    canceladas = _cancelar_publicacoes(sessao, momento_id, "desfazer")  # as que não saíram
+    # As que ainda não saíram (com ``cfg``, também os arquivos já na pasta do TikTok).
+    canceladas, exportados = _cancelar_publicacoes(sessao, momento_id, "desfazer", cfg)
     sessao.delete(decisao)
     sessao.commit()
+    _apagar(exportados)
     if canceladas:
         log.info("%d publicação(ões) do momento %s cancelada(s).", canceladas, momento_id)
     log.info("Decisão do momento %s desfeita.", momento_id)

@@ -204,6 +204,7 @@ def test_entrar_pelo_navegador_de_ponta_a_ponta(tmp_path, env, falso):
             parametros["redirect_uri"],
             params={"code": "c1", "state": parametros["state"], "scopes": "video.upload"},
         )
+        httpx.get(parametros["redirect_uri"])  # recarregou a página: não pode estragar o login
 
     cli.entrar(abrir=navegador)
     assert cli.tem_login()

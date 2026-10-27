@@ -183,7 +183,10 @@ class _Retorno(BaseHTTPRequestHandler):
         if endereco.path.rstrip("/") != "/callback":
             self.send_error(404)
             return
-        type(self).resultado = {k: v[0] for k, v in parse_qs(endereco.query).items()}
+        # O primeiro retorno vale: um segundo pedido (você recarregou a página, ou o navegador
+        # pediu de novo) não pode trocar o resultado antes de o app lê-lo.
+        if not type(self).pronto.is_set():
+            type(self).resultado = {k: v[0] for k, v in parse_qs(endereco.query).items()}
         corpo = MENSAGEM_DO_NAVEGADOR.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
