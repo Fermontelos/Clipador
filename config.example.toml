@@ -211,5 +211,6 @@ thumbnail = true
 porta = 8765
 abrir_navegador = true
 # Para onde vai cada formato quando você aprova (dá para mudar na hora, clipe a clipe).
-# youtube = vídeo normal no horizontal e Shorts no vertical.
+# youtube = vídeo normal no horizontal e Short no vertical (o YouTube só trata como Short o
+# vertical de até 3 min; um mais longo sobe como vídeo normal).
 destinos_padrao = { horizontal = ["youtube"], vertical_a = ["youtube", "tiktok"], vertical_b = ["youtube", "tiktok"] }

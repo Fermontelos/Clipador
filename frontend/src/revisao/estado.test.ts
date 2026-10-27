@@ -10,6 +10,7 @@ import {
   pedidoDeAprovacao,
   proximoPendente,
   rascunhoInicial,
+  ehShort,
   separarHashtags,
   textoDaPublicacao,
   trocarMomento,
@@ -174,6 +175,7 @@ describe("publicação", () => {
     id: 1,
     plataforma: "youtube",
     formato: "vertical_a",
+    short: true,
     link: null,
     enviada_em: null,
     agendada_para: "2026-10-28T21:00:00Z",
@@ -190,6 +192,19 @@ describe("publicação", () => {
     const enviada = { ...base, status: "agendada" };
     expect(textoDaPublicacao(enviada, agora)).toMatch(/^enviado, vai ao ar /);
     expect(textoDaPublicacao(enviada, new Date("2026-10-29T00:00:00Z"))).toMatch(/^publicado em /);
+  });
+
+  it("só o vertical de até 3 min é Short", () => {
+    expect(ehShort("vertical_a", 59)).toBe(true);
+    expect(ehShort("vertical_b", 180)).toBe(true);
+    expect(ehShort("vertical_b", 181)).toBe(false);
+    expect(ehShort("horizontal", 30)).toBe(false);
+  });
+
+  it("subindo agora: já não cancela", () => {
+    const texto = textoDaPublicacao({ ...base, status: "enviando" }, agora);
+    expect(texto).toMatch(/^enviando agora, vai ao ar /);
+    expect(texto).not.toContain("cancela");
   });
 
   it("erro aponta para a tela da fila", () => {

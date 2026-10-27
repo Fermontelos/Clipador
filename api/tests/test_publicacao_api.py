@@ -15,9 +15,9 @@ def test_aprovar_mostra_as_publicacoes_e_desfazer_cancela(cliente, sessao, um_mo
     rota = f"/api/momentos/{um_momento.id}"
     momento = cliente.post(f"{rota}/decisao", json=APROVACAO).json()
     publicacoes = momento["publicacoes"]
-    assert {(p["plataforma"], p["formato"]) for p in publicacoes} == {
-        ("youtube", "vertical_a"),
-        ("youtube", "horizontal"),
+    assert {(p["plataforma"], p["formato"], p["short"]) for p in publicacoes} == {
+        ("youtube", "vertical_a", True),
+        ("youtube", "horizontal", False),
     }  # o TikTok fica para a etapa 16
     assert all(p["status"] == "pendente" and p["agendada_para"] for p in publicacoes)
     assert momento["publicado"] is False  # pendente não trava: ainda dá para desfazer

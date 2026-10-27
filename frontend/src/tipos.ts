@@ -17,7 +17,9 @@ export interface Publicacao {
   id: number;
   plataforma: string;
   formato: string;
-  /** pendente (na fila, ainda dá para desfazer), agendada (já no YouTube) ou erro. */
+  /** Sobe como Short (vertical de até 3 min). */
+  short: boolean;
+  /** pendente (na fila: U cancela), enviando (subindo agora), agendada (já no YouTube) ou erro. */
   status: string;
   agendada_para: string | null;
   link: string | null;

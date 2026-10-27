@@ -711,6 +711,9 @@ def youtube_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     except youtube.CredencialDoAppAusenteError as erro:
         typer.echo(f"Erro: {erro}", err=True)
         raise typer.Exit(code=1) from erro
+    except Exception as erro:  # recusou no navegador, fechou a aba, credencial do app inválida...
+        typer.echo(f"Erro: o login não terminou ({erro}). Nada foi salvo; tente de novo.", err=True)
+        raise typer.Exit(code=1) from erro
     typer.echo(f"Pronto: login salvo em {cliente.arquivo_do_token} (fora do git).")
     typer.echo("As publicações que esperavam o login: 'clipador status' e 'clipador refazer N'.")
 

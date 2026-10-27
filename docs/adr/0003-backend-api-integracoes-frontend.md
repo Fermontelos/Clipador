@@ -34,7 +34,9 @@ frontend ──(HTTP)──> api ──> backend ──> integracoes ──> You
 Regras de segurança:
 
 - **Só as integrações leem o `.env`**, onde ficam as chaves e os tokens. O backend lê
-  apenas o `config.toml` e variáveis de ambiente.
+  apenas o `config.toml` e variáveis de ambiente. (Etapa 15: os arquivos do Google, a
+  credencial do app e o token do login, ficam em `segredos/`, e a regra é a mesma: o
+  backend só passa a pasta.)
 - **A API nunca chama as integrações direto**: publicar vira uma tarefa na fila, que o
   backend executa.
 - **O frontend nunca guarda chaves**: tudo o que vai para o navegador pode ser lido por
@@ -47,7 +49,7 @@ um único `uv.lock`. O frontend fica fora do workspace, com o próprio `package.
 
 As regras são conferidas automaticamente em `tests/test_arquitetura.py`, que lê o código
 de cada parte e falha se, por exemplo, a API importar as integrações ou o backend ler o
-`.env`.
+`.env` ou os arquivos de `segredos/`.
 
 ## Alternativas consideradas
 
@@ -62,5 +64,9 @@ de cada parte e falha se, por exemplo, a API importar as integrações ou o back
 - Separar pastas, sozinho, não deixa o projeto seguro. O que protege são as regras acima,
   e a separação torna essas regras **fáceis de seguir e de conferir**.
 - O backend deixou de ler o `.env` (antes lia, para "chaves futuras"). Quando a primeira
-  chave aparecer (etapa 15), as integrações ganham a própria configuração que lê o `.env`.
+  chave aparecer, as integrações ganham a própria configuração que lê o `.env`.
+  Atualização (etapa 15): o YouTube não precisou do `.env`. O Google entrega a credencial
+  do app como um arquivo JSON, e o login também vira um arquivo, então os dois ficam em
+  `segredos/` (fora do git), lidos só por `integracoes/youtube.py`. O `.env` fica para o
+  TikTok (etapa 16).
 - Os comandos continuam sendo rodados da raiz (`uv run clipador ...`, `uv run pytest`).

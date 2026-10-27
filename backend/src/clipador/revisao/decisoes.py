@@ -70,6 +70,15 @@ def _exigir_nao_publicado(sessao: Session, momento_id: int, acao: str) -> None:
         )
 
 
+def _cancelar_publicacoes(sessao: Session, momento_id: int, acao: str) -> int:
+    """``planejar.cancelar``; se o envio começou no meio do caminho, desfaz tudo e trava."""
+    try:
+        return planejar.cancelar(sessao, momento_id)
+    except planejar.EnvioComecouError as erro:
+        sessao.rollback()  # nada desta decisão fica pela metade na sessão
+        raise RevisaoBloqueadaError(f"{erro} Não dá para {acao}.") from erro
+
+
 def normalizar_hashtags(hashtags: list[str]) -> list[str]:
     """``lol`` vira ``#lol``; repetidas (sem diferenciar maiúsculas) saem."""
     resultado: list[str] = []
@@ -193,7 +202,7 @@ def decidir(
     sessao.add(decisao)
     if cfg is not None:
         # Decisão e publicações no mesmo commit: nunca fica uma aprovação sem a fila dela.
-        planejar.cancelar(sessao, momento_id)
+        _cancelar_publicacoes(sessao, momento_id, "mudar a decisão")
         planejar.planejar(sessao, momento, decisao, cfg)
     sessao.commit()
     sessao.refresh(decisao)
@@ -208,7 +217,7 @@ def desfazer(sessao: Session, momento_id: int) -> None:
     decisao = sessao.exec(select(Decisao).where(Decisao.momento_id == momento_id)).first()
     if decisao is None:
         raise DecisaoNaoEncontradaError(f"O momento {momento_id} ainda não tem decisão.")
-    canceladas = planejar.cancelar(sessao, momento_id)  # as que ainda não saíram do PC
+    canceladas = _cancelar_publicacoes(sessao, momento_id, "desfazer")  # as que não saíram
     sessao.delete(decisao)
     sessao.commit()
     if canceladas:

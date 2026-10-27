@@ -117,16 +117,27 @@ export function desempilhar(pilha: number[]): { id: number | null; pilha: number
   return { id: pilha[pilha.length - 1]!, pilha: pilha.slice(0, -1) };
 }
 
+/** O YouTube trata como Short o vídeo vertical de até 3 min (os clipes podem ser maiores). */
+export const DURACAO_MAXIMA_DO_SHORT_S = 180;
+
+export function ehShort(formato: string, duracaoS: number | null): boolean {
+  return formato.startsWith("vertical") && (duracaoS === null || duracaoS <= DURACAO_MAXIMA_DO_SHORT_S);
+}
+
 function quando(iso: string | null): string {
   if (!iso) return "?";
   return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
-/** "na fila (vai ao ar 28/10 18:00)", "agendado para 28/10 18:00" ou "publicado em ...". */
+/**
+ * Ex.: "na fila, vai ao ar 28/10/2026, 18:00 (U ainda cancela)", "enviando agora...",
+ * "enviado, vai ao ar 28/10/2026, 18:00", "publicado em ..." ou o aviso de erro.
+ */
 export function textoDaPublicacao(p: Publicacao, agora: Date = new Date()): string {
   if (p.status === "pendente") {
     return `na fila, vai ao ar ${quando(p.agendada_para)} (U ainda cancela)`;
   }
+  if (p.status === "enviando") return `enviando agora, vai ao ar ${quando(p.agendada_para)}`;
   if (p.status === "erro") return "erro no envio (veja a tela Fila e status)";
   if (p.agendada_para && new Date(p.agendada_para) <= agora) {
     return `publicado em ${quando(p.agendada_para)}`;

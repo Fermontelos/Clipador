@@ -4,11 +4,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from sqlmodel import select
+from sqlalchemy import update
+from sqlmodel import col, select
 
 from clipador.banco import fila
 from clipador.banco.modelos import (
     Clipe,
+    Decisao,
     FormatoClipe,
     Gravacao,
     Momento,
@@ -256,6 +258,48 @@ def test_publicacao_enviada_ou_saindo_trava_a_decisao(sessao, momento, cfg):
         decisoes.decidir(sessao, momento.id, aprovado=False, cfg=cfg)
 
 
+def _servico_pega(sessao, publicacao_id):
+    """O serviço (em outro processo) marca a tarefa da publicação como em andamento."""
+    sessao.exec(
+        update(Tarefa)
+        .where(col(Tarefa.publicacao_id) == publicacao_id)
+        .values(status=StatusTarefa.EM_ANDAMENTO)
+    )
+
+
+def test_envio_que_comeca_durante_o_desfazer_trava_em_vez_de_sumir(sessao, momento, cfg):
+    # O serviço pega a tarefa logo depois de o desfazer conferir que nada saiu: a decisão e
+    # a publicação ficam (o vídeo vai subir), e o desfazer avisa que não deu.
+    aprovar(sessao, momento, cfg)
+    primeira = publicacoes(sessao)[0]
+
+    def confere_e_o_servico_pega(sessao_, momento_id, acao):
+        _servico_pega(sessao_, primeira.id)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(decisoes, "_exigir_nao_publicado", confere_e_o_servico_pega)
+        with pytest.raises(decisoes.RevisaoBloqueadaError, match="já começou"):
+            decisoes.desfazer(sessao, momento.id)
+    assert len(publicacoes(sessao)) == 2  # nada foi apagado
+    assert sessao.exec(select(Decisao)).first() is not None
+
+
+def test_cancelar_nao_apaga_tarefa_que_o_servico_acabou_de_pegar(sessao, momento, cfg):
+    # O pior caso: o serviço pega a tarefa entre a leitura e a remoção. A remoção só vale
+    # para tarefa fora de andamento, então nada some.
+    from clipador.publicacao import planejar
+
+    aprovar(sessao, momento, cfg)
+    primeira = publicacoes(sessao)[0]
+    _servico_pega(sessao, primeira.id)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(planejar, "travada", lambda sessao_, publicacao: False)  # leu antes
+        with pytest.raises(planejar.EnvioComecouError, match="acabou de começar"):
+            planejar.cancelar(sessao, momento.id)
+    sessao.rollback()
+    assert len(publicacoes(sessao)) == 2
+
+
 def test_sem_config_so_grava_a_decisao(sessao, momento):
     decisoes.decidir(sessao, momento.id, aprovado=True, titulo="t",
                      destinos={"horizontal": ["youtube"]})  # fmt: skip
@@ -386,9 +430,13 @@ def test_sem_login_explica_como_resolver(sessao, momento, cfg, falso):
     tarefa.status = StatusTarefa.ERRO
     sessao.add(tarefa)
     sessao.commit()
-    assert planejar.status_visivel(sessao, pub) is StatusPublicacao.ERRO
+    assert planejar.status_visivel(sessao, pub) == "erro"
     fila.refazer(sessao, tarefa.id)
-    assert planejar.status_visivel(sessao, pub) is StatusPublicacao.PENDENTE
+    assert planejar.status_visivel(sessao, pub) == "pendente"
+    tarefa.status = StatusTarefa.EM_ANDAMENTO  # o serviço pegou: o vídeo está subindo
+    sessao.add(tarefa)
+    sessao.commit()
+    assert planejar.status_visivel(sessao, pub) == "enviando"
 
 
 def test_horario_que_passou_e_remarcado(sessao, momento, cfg, falso):

@@ -56,7 +56,7 @@ from clipador.banco.modelos import (
 )
 from clipador.config import Config
 from clipador.cortes.cortar import caminho_da_thumbnail
-from clipador.publicacao import cota, planejar
+from clipador.publicacao import cota, pedido, planejar
 from clipador.revisao import consultas, decisoes
 from clipador.titulos.texto import LIMITE_TITULO_YOUTUBE
 from clipador_api import esquemas
@@ -172,7 +172,7 @@ def montar_momento(
     clipes = consultas.clipes_do_momento(sessao, momento.id)
     decisao = sessao.exec(select(Decisao).where(Decisao.momento_id == momento.id)).first()
     formatos = [clipe.formato.value for clipe in clipes]
-    formato_do_clipe = {clipe.id: clipe.formato.value for clipe in clipes}
+    clipe_por_id = {clipe.id: clipe for clipe in clipes}
     return esquemas.MomentoSaida(
         id=momento.id,
         gravacao_id=momento.gravacao_id,
@@ -215,8 +215,12 @@ def montar_momento(
             esquemas.PublicacaoSaida(
                 id=p.id,
                 plataforma=p.plataforma.value,
-                formato=formato_do_clipe.get(p.clipe_id, "?"),
-                status=planejar.status_visivel(sessao, p).value,
+                formato=clipe_por_id[p.clipe_id].formato.value,
+                short=pedido.e_short(
+                    clipe_por_id[p.clipe_id].formato.value.startswith("vertical"),
+                    clipe_por_id[p.clipe_id].duracao_s,
+                ),
+                status=planejar.status_visivel(sessao, p),
                 agendada_para=p.agendada_para,
                 link=p.link,
                 enviada_em=p.enviada_em,

@@ -63,6 +63,11 @@ def tags(fixas: list[str], hashtags: list[str]) -> list[str]:
     return resultado
 
 
+def e_short(vertical: bool, duracao_s: float | None) -> bool:
+    """O YouTube trata como Short o vídeo vertical de até 3 min (os clipes vão até 10 min)."""
+    return vertical and (duracao_s is None or duracao_s <= DURACAO_MAXIMA_DO_SHORT_S)
+
+
 def montar(
     titulo: str,
     hashtags: list[str],
@@ -78,7 +83,7 @@ def montar(
         data=dia_da_live.astimezone().strftime("%d/%m/%Y"),
     ).strip()
     descricao = descricao.replace("<", "‹").replace(">", "›")
-    short = vertical and (duracao_s is None or duracao_s <= DURACAO_MAXIMA_DO_SHORT_S)
+    short = e_short(vertical, duracao_s)
     corpo = {
         "snippet": {
             "title": titulo,

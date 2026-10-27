@@ -28,6 +28,15 @@ PROIBIDO = {
 }
 # Sinais de que um código está lendo o .env (onde ficam as chaves).
 LEITURA_DO_ENV = ("DotEnvSettingsSource", "env_file", "load_dotenv", "dotenv_values")
+# Sinais de que um código está mexendo nos segredos do Google (etapa 15): a credencial do app,
+# o token do login e as bibliotecas que os leem. Só as integrações podem.
+LEITURA_DOS_SEGREDOS = (
+    "client_secret",
+    "youtube_token",
+    "google.oauth2",
+    "google_auth_oauthlib",
+    "googleapiclient",
+)
 
 
 def _arquivos(pacote: str) -> list[Path]:
@@ -70,6 +79,18 @@ def test_so_as_integracoes_leem_o_env(pacote):
         if sinal in arquivo.read_text(encoding="utf-8")
     ]
     assert violacoes == [], "Só as integrações podem ler o .env (chaves):\n" + "\n".join(violacoes)
+
+
+@pytest.mark.parametrize("pacote", ["clipador", "clipador_api"])
+def test_so_as_integracoes_leem_os_segredos_do_google(pacote):
+    # O backend só passa a pasta (pasta_segredos); o que tem dentro é das integrações.
+    violacoes = [
+        f"{arquivo.relative_to(RAIZ)} usa {sinal}"
+        for arquivo in _arquivos(pacote)
+        for sinal in LEITURA_DOS_SEGREDOS
+        if sinal in arquivo.read_text(encoding="utf-8")
+    ]
+    assert violacoes == [], "Só as integrações podem ler segredos/:\n" + "\n".join(violacoes)
 
 
 def test_frontend_nao_guarda_chaves():

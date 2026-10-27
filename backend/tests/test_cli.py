@@ -235,3 +235,35 @@ def test_eventos_sem_gravacao_explica(config_valida):
     resultado = runner.invoke(app, ["eventos", "--arquivo", str(config_valida)])
     assert resultado.exit_code == 1
     assert "Nenhuma gravação" in resultado.output
+
+
+# ------------------------------------------------------------------ youtube-entrar (etapa 15)
+
+
+def test_youtube_entrar_sem_a_credencial_do_app_explica(config_valida):
+    resultado = runner.invoke(app, ["youtube-entrar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "client_secret.json" in resultado.output and "README" in resultado.output
+
+
+def test_youtube_entrar_que_nao_termina_explica_sem_traceback(config_valida, monkeypatch):
+    from clipador_integracoes import youtube
+
+    def recusou(self):
+        raise RuntimeError("access_denied")
+
+    monkeypatch.setattr(youtube.ClienteYoutube, "entrar", recusou)
+    resultado = runner.invoke(app, ["youtube-entrar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 1
+    assert "o login não terminou (access_denied)" in resultado.output
+
+
+def test_youtube_entrar_salva_o_login_na_pasta_de_segredos(config_valida, monkeypatch):
+    from clipador_integracoes import youtube
+
+    pastas = []
+    monkeypatch.setattr(youtube.ClienteYoutube, "entrar", lambda self: pastas.append(self.pasta))
+    resultado = runner.invoke(app, ["youtube-entrar", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 0, resultado.output
+    assert pastas == [config_valida.parent / "segredos"]  # relativo à pasta do config.toml
+    assert "youtube_token.json" in resultado.output

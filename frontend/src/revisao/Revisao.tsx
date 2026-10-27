@@ -13,6 +13,7 @@ import {
   proximoPendente,
   rascunhoInicial,
   trocarMomento,
+  ehShort,
   textoDaPublicacao,
   trocarSugestao,
 } from "./estado";
@@ -555,7 +556,10 @@ export function Revisao({ visivel = true }: { visivel?: boolean }) {
                       onChange={() => mudarRascunho((r) => alternarPlataforma(r, f, p))}
                     />
                     {NOMES_DAS_PLATAFORMAS[p] ?? p}
-                    {p === "youtube" && f.startsWith("vertical") ? " Shorts" : ""}
+                    {p === "youtube" &&
+                    ehShort(f, momento?.clipes.find((c) => c.formato === f)?.duracao_s ?? null)
+                      ? " Shorts"
+                      : ""}
                   </label>
                 ))}
               </div>
@@ -628,7 +632,7 @@ function EstadoDaDecisao({ momento }: { momento: Momento }) {
           {momento.publicacoes.map((p) => (
             <li key={p.id}>
               {NOMES_DAS_PLATAFORMAS[p.plataforma] ?? p.plataforma}
-              {p.formato.startsWith("vertical") ? " Shorts" : ""}: {textoDaPublicacao(p)}
+              {p.short ? " Shorts" : ""}: {textoDaPublicacao(p)}
               {p.link && (
                 <>
                   {" · "}

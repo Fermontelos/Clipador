@@ -213,7 +213,7 @@ cd frontend; npm ci; npm run build; cd ..
   entre os que o detector já achou bons, não sobre a live inteira.
 - Publicação no YouTube ([ADR 0010](docs/adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)):
   aprovar um momento com destino YouTube põe na fila um envio para cada formato (o
-  horizontal sobe como vídeo normal; o vertical, como Short). O envio espera 10 min
+  horizontal sobe como vídeo normal; o vertical de até 3 min, como Short). O envio espera 10 min
   (`minutos_para_desfazer`): até lá, desfazer (`U`) cancela sem nada sair do PC. O vídeo
   sobe **privado, com data de publicação**, e o YouTube o publica sozinho no próximo dos
   `[youtube] horarios` (12h, 18h e 21h), com 2 h entre uma publicação e outra. Vai com o
@@ -223,7 +223,8 @@ cd frontend; npm ci; npm run build; cd ..
   renovada à meia-noite no Pacífico, 4h–5h em Brasília) é conferida antes de cada envio:
   sem cota, a fila espera ela renovar. Durante uma live, o envio espera (para não disputar a
   internet com a transmissão), e um clipe com um novo corte na fila espera o corte. Na
-  revisão, cada momento mostra as publicações: na fila, enviada (com o link) ou com erro.
+  revisão, cada momento mostra as publicações: na fila, enviando, enviada (com o link) ou
+  com erro (`clipador refazer` tenta de novo).
 - `clipador youtube-entrar`: liga o app ao seu canal (uma vez; veja
   [publicar no YouTube](#publicar-no-youtube-configuração-uma-vez)).
 - `clipador calibrar`: salva um quadro da live mais recente em `dados/calibracao.png`,
@@ -270,13 +271,16 @@ pasta do próprio `config.toml`.
 O app só envia com uma credencial sua no Google Cloud (gratuita). Nada disso vai para o
 git: a credencial e o login ficam em `segredos/`, lidos só pelo pacote das integrações.
 
-1. No [Google Cloud Console](https://console.cloud.google.com/): crie um projeto e ative a
-   **YouTube Data API v3** (em "APIs e serviços").
-2. Em "Tela de consentimento OAuth": tipo **Externo**, adicione a permissão
-   `youtube.upload` e **publique o app ("Em produção")**. Em "Teste", o Google cancela o
-   login a cada 7 dias.
-3. Em "Credenciais": crie um **ID do cliente OAuth** do tipo **App para computador** e baixe
-   o JSON. Salve como `segredos/client_secret.json` (na pasta do `config.toml`).
+1. No [Google Cloud Console](https://console.cloud.google.com/): crie um projeto e, na
+   Biblioteca de APIs, ative a **YouTube Data API v3**.
+2. No **Google Auth Platform** (o antigo "Tela de consentimento OAuth"): preencha o nome do
+   app e o seu e-mail; em **Público-alvo**, escolha o tipo **Externo** e **publique o app
+   (status "Em produção")**. Em "Teste", o Google cancela o login a cada 7 dias. Em
+   **Acesso a dados**, adicione a permissão `youtube.upload`.
+3. Em **Clientes**: **Criar cliente**, tipo **App para computador**, e baixe o JSON. Salve
+   como `segredos/client_secret.json` (na pasta do `config.toml`). O login volta para o
+   próprio PC (`http://127.0.0.1` numa porta livre), e a biblioteca usa PKCE, como o
+   Google recomenda para apps de computador.
 4. Rode `uv run clipador youtube-entrar`: o navegador abre, você entra na conta do canal e
    autoriza. O Google avisa que o app "não foi verificado": para uso pessoal, continue em
    "Avançado". O login fica salvo e se renova sozinho.

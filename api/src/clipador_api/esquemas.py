@@ -17,7 +17,13 @@ class PublicacaoSaida(BaseModel):
     id: int
     plataforma: str
     formato: str
-    status: str = Field(description="pendente (na fila), agendada (já no YouTube) ou erro.")
+    short: bool = Field(description="Sobe como Short (vertical de até 3 min).")
+    status: str = Field(
+        description=(
+            "pendente (na fila: desfazer cancela), enviando (subindo agora), agendada (já no "
+            "YouTube, vai ao ar em agendada_para) ou erro (veja a fila)."
+        )
+    )
     agendada_para: datetime | None = Field(description="Quando vai ao ar (a plataforma publica).")
     link: str | None
     enviada_em: datetime | None

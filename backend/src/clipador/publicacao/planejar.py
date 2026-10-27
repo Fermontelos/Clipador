@@ -15,6 +15,7 @@
 import logging
 from datetime import datetime, timedelta
 
+from sqlalchemy import delete
 from sqlmodel import Session, col, select
 
 from clipador.banco.modelos import (
@@ -38,6 +39,10 @@ log = logging.getLogger(__name__)
 JA_ENVIADAS = (StatusPublicacao.ENVIADA, StatusPublicacao.AGENDADA, StatusPublicacao.PUBLICADA)
 # Plataformas que o app já sabe publicar.
 PUBLICAVEIS = (Plataforma.YOUTUBE,)
+
+
+class EnvioComecouError(RuntimeError):
+    """O serviço começou o envio enquanto você cancelava: a publicação não pode mais sair."""
 
 
 def publicacoes_do_momento(sessao: Session, momento_id: int) -> list[Publicacao]:
@@ -67,17 +72,25 @@ def travada(sessao: Session, publicacao: Publicacao) -> bool:
     return tarefa is not None and tarefa.status is StatusTarefa.EM_ANDAMENTO
 
 
-def status_visivel(sessao: Session, publicacao: Publicacao) -> StatusPublicacao:
-    """O status que a revisão mostra: uma pendente cuja tarefa falhou de vez aparece como erro.
+ENVIANDO = "enviando"  # só na revisão: pendente com a tarefa em andamento
 
-    O erro não fica gravado na ``Publicacao``: ``clipador refazer`` devolve a tarefa à fila,
-    e ela volta a aparecer como pendente sem mais nada a mudar.
+
+def status_visivel(sessao: Session, publicacao: Publicacao) -> str:
+    """O status que a revisão mostra. Uma pendente aparece como:
+
+    - ``enviando``, se a tarefa está em andamento (o vídeo está subindo: já não cancela);
+    - ``erro``, se a tarefa falhou de vez.
+
+    Os dois não ficam gravados na ``Publicacao``: vêm da tarefa. Assim, ``clipador refazer``
+    devolve a tarefa à fila e a publicação volta a aparecer como pendente, sem mais nada a mudar.
     """
     if publicacao.status is StatusPublicacao.PENDENTE:
         tarefa = _tarefa_da(sessao, publicacao)
+        if tarefa is not None and tarefa.status is StatusTarefa.EM_ANDAMENTO:
+            return ENVIANDO
         if tarefa is not None and tarefa.status is StatusTarefa.ERRO:
-            return StatusPublicacao.ERRO
-    return publicacao.status
+            return StatusPublicacao.ERRO.value
+    return publicacao.status.value
 
 
 def momento_travado(sessao: Session, momento_id: int) -> bool:
@@ -87,18 +100,33 @@ def momento_travado(sessao: Session, momento_id: int) -> bool:
 def cancelar(sessao: Session, momento_id: int) -> int:
     """Apaga as publicações ainda não enviadas do momento (e as tarefas). Sem commit.
 
-    Devolve quantas foram canceladas. Quem chama confere antes que nada está travado.
+    Devolve quantas foram canceladas. Quem chama confere antes que nada está travado; mesmo
+    assim, o serviço pode pegar a tarefa entre essa conferência e o cancelamento. Por isso
+    uma publicação travada aqui é erro (``EnvioComecouError``, e quem chama desfaz tudo), e
+    nunca é pulada: pular deixaria o vídeo subir com a decisão já apagada. E a tarefa só é
+    apagada **se não estiver em andamento**, numa instrução só (como a fila faz ao pegá-la),
+    para o serviço não pegá-la entre a leitura e a remoção.
     """
     canceladas = 0
     for publicacao in publicacoes_do_momento(sessao, momento_id):
         if travada(sessao, publicacao):
-            continue
+            raise EnvioComecouError(
+                f"O envio da publicação {publicacao.id} já começou: não dá mais para cancelar."
+            )
         tarefa = _tarefa_da(sessao, publicacao)
         if tarefa is not None:
-            sessao.delete(tarefa)
-            # A tarefa aponta para a publicação (chave estrangeira): ela tem de sair do banco
-            # antes. Sem este flush, o SQLAlchemy pode apagar as duas na ordem errada.
-            sessao.flush()
+            # A tarefa sai antes da publicação (ela aponta para a publicação: chave estrangeira).
+            apagadas = sessao.exec(
+                delete(Tarefa)
+                .where(col(Tarefa.id) == tarefa.id)
+                .where(col(Tarefa.status) != StatusTarefa.EM_ANDAMENTO)
+            ).rowcount
+            if apagadas != 1:
+                raise EnvioComecouError(
+                    f"O envio da publicação {publicacao.id} acabou de começar: não dá mais "
+                    "para cancelar."
+                )
+            sessao.expunge(tarefa)  # já saiu do banco: a sessão não tenta apagá-la de novo
         sessao.delete(publicacao)
         sessao.flush()
         canceladas += 1
