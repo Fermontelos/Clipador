@@ -140,6 +140,8 @@ function textoDoTiktok(p: Publicacao): string {
       return "na pasta de exportação, com a legenda no .txt: poste pelo celular";
     case "rascunho":
       return "rascunho no app do TikTok: finalize pela notificação (a legenda está no .txt)";
+    case "publicada":
+      return "publicado no TikTok (as métricas vêm em 24 h, 72 h e 7 dias)";
     case "erro":
       return "erro no envio (veja a tela Fila e status)";
     default:

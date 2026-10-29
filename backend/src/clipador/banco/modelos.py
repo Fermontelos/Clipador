@@ -259,11 +259,24 @@ class PesosNota(SQLModel, table=True):
     # Janela do corte aprendida dos seus ajustes (vazio = a do config).
     segundos_antes: float | None = None
     segundos_depois: float | None = None
+    # De onde veio: "gosto" (etapa 14, só as decisões) ou "engajamento" (etapa 17, a mistura
+    # do gosto com o engajamento previsto). Nas de engajamento, as precisões medem o acerto
+    # em "ficou acima da mediana do canal".
+    origem: str = Field(default="gosto", sa_column_kwargs={"server_default": "gosto"})
+    # As duas partes da nota (etapa 17): ``valores`` é a mistura delas, com a [engajamento]
+    # mistura do momento do aceite. Cada aceite troca só a parte dele e copia a outra.
+    # Vazias nas versões de antes da etapa 17 (ali, ``valores`` era só o gosto).
+    pesos_do_gosto: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
+    pesos_do_engajamento: dict[str, float] | None = Field(default=None, sa_column=Column(JSON))
     criada_em: datetime = Field(default_factory=agora)
 
 
 class Metrica(SQLModel, table=True):
-    """Métricas de engajamento de uma publicação, numa das coletas (etapa 17)."""
+    """Métricas de engajamento de uma publicação, numa das coletas (etapa 17).
+
+    Cada coleta (24 h, 72 h, 7 dias depois de o vídeo ir ao ar) é uma linha. Um campo vazio
+    é um número que a plataforma não dá (ex.: retenção no TikTok) ou ainda não tinha.
+    """
 
     __table_args__ = (UniqueConstraint("publicacao_id", "coleta"),)
 
@@ -274,5 +287,6 @@ class Metrica(SQLModel, table=True):
     curtidas: int | None = None
     comentarios: int | None = None
     compartilhamentos: int | None = None
-    retencao: float | None = None
+    retencao: float | None = None  # fração média do vídeo assistida (0 a 1; YouTube Analytics)
+    duracao_media_s: float | None = None  # segundos assistidos em média (YouTube Analytics)
     coletada_em: datetime = Field(default_factory=agora)

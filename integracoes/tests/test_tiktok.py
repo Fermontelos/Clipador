@@ -22,6 +22,7 @@ class TiktokFalso:
         self.respostas_dos_pedacos: list[int | Exception] = []
         self.erro_do_inicio: tuple[int, str] | None = None
         self.token_novo = "act.novo"
+        self.videos: list[dict] = []
 
     def __call__(self, pedido: httpx.Request) -> httpx.Response:
         self.pedidos.append(pedido)
@@ -58,6 +59,18 @@ class TiktokFalso:
             if isinstance(proxima, Exception):
                 raise proxima
             return httpx.Response(proxima)
+        if url.startswith((tiktok.URL_DA_LISTA, tiktok.URL_DA_CONSULTA)):
+            assert pedido.url.params["fields"] == tiktok.CAMPOS_DO_VIDEO
+            if url.startswith(tiktok.URL_DA_CONSULTA):
+                pedidos = json.loads(pedido.content)["filters"]["video_ids"]
+                videos = [v for v in self.videos if v["id"] in pedidos]
+                return httpx.Response(200, json={"data": {"videos": videos},
+                                                 "error": {"code": "ok"}})  # fmt: skip
+            return httpx.Response(
+                200,
+                json={"data": {"videos": self.videos, "cursor": 123, "has_more": True},
+                      "error": {"code": "ok"}},
+            )  # fmt: skip
         if url == tiktok.URL_DO_STATUS:
             return httpx.Response(
                 200, json={"data": {"status": "SEND_TO_USER_INBOX"}, "error": {"code": "ok"}}
@@ -90,7 +103,12 @@ def cliente(tmp_path, env, falso, agora=AGORA, esperas=None):
     )
 
 
-def salvar_token(cli, acesso_vence_em, renovacao_vence_em=AGORA + timedelta(days=300)):
+def salvar_token(
+    cli,
+    acesso_vence_em,
+    renovacao_vence_em=AGORA + timedelta(days=300),
+    scope="video.upload,video.list",
+):
     cli.pasta.mkdir(parents=True, exist_ok=True)
     cli.arquivo_do_token.write_text(
         json.dumps(
@@ -98,7 +116,7 @@ def salvar_token(cli, acesso_vence_em, renovacao_vence_em=AGORA + timedelta(days
                 "access_token": "act.velho",
                 "refresh_token": "rft.velho",
                 "open_id": "eu",
-                "scope": "video.upload",
+                "scope": scope,
                 "acesso_vence_em": acesso_vence_em.isoformat(),
                 "renovacao_vence_em": renovacao_vence_em.isoformat(),
             }
@@ -148,16 +166,17 @@ def test_sem_credencial_do_app_explica(tmp_path, falso):
 # ------------------------------------------------------------------ login
 
 
-def test_endereco_de_login_tem_pkce_state_e_so_video_upload(tmp_path, env, falso):
+def test_endereco_de_login_tem_pkce_state_e_as_permissoes_pedidas(tmp_path, env, falso):
     cli = cliente(tmp_path, env, falso)
     pkce = tiktok.novo_pkce()
-    url = urlparse(cli.endereco_de_login("http://127.0.0.1:5000/callback/", "abc", pkce))
+    pedidas = (tiktok.PERMISSAO_DE_RASCUNHO, tiktok.PERMISSAO_DE_LEITURA)
+    url = urlparse(cli.endereco_de_login("http://127.0.0.1:5000/callback/", "abc", pkce, pedidas))
     assert f"{url.scheme}://{url.netloc}{url.path}" == tiktok.URL_DE_LOGIN
     parametros = {k: v[0] for k, v in parse_qs(url.query).items()}
     assert parametros == {
         "client_key": "chave",
         "response_type": "code",
-        "scope": "video.upload",
+        "scope": "video.upload,video.list",
         "redirect_uri": "http://127.0.0.1:5000/callback/",
         "state": "abc",
         "code_challenge": pkce.desafio,
@@ -333,3 +352,51 @@ def test_status_do_rascunho(tmp_path, env, falso):
     cli = cliente(tmp_path, env, falso)
     salvar_token(cli, AGORA + timedelta(hours=10))
     assert cli.status("v_inbox_file~1")["status"] == "SEND_TO_USER_INBOX"
+
+
+# ------------------------------------------------------------------ métricas (etapa 17)
+
+VIDEO = {"id": "7300", "create_time": 1761700000, "title": "NÃO ACREDITO #lol",
+         "view_count": 900, "like_count": 70, "comment_count": 4, "share_count": 9}  # fmt: skip
+
+
+def test_listar_os_videos_publicos(tmp_path, env, falso):
+    cli = cliente(tmp_path, env, falso)
+    salvar_token(cli, AGORA + timedelta(hours=10))
+    falso.videos = [VIDEO]
+    videos, cursor, tem_mais = cli.listar_videos(antes_de_ms=1_761_800_000_000)
+    assert (videos, cursor, tem_mais) == ([VIDEO], 123, True)
+    (pedido,) = falso.dos(tiktok.URL_DA_LISTA)
+    assert json.loads(pedido.content) == {"max_count": 20, "cursor": 1_761_800_000_000}
+
+
+def test_consultar_videos_pelo_id(tmp_path, env, falso):
+    cli = cliente(tmp_path, env, falso)
+    salvar_token(cli, AGORA + timedelta(hours=10))
+    falso.videos = [VIDEO]
+    assert cli.consultar_videos(["7300", "apagado"]) == {"7300": VIDEO}
+    with pytest.raises(ValueError):
+        cli.consultar_videos([str(i) for i in range(21)])
+
+
+def test_sem_a_permissao_de_leitura_pede_para_entrar_de_novo(tmp_path, env, falso):
+    cli = cliente(tmp_path, env, falso)
+    salvar_token(cli, AGORA + timedelta(hours=10), scope="video.upload")
+    with pytest.raises(tiktok.PrecisaEntrarError, match="video.list"):
+        cli.listar_videos()
+    assert falso.dos(tiktok.URL_DA_LISTA) == []
+
+
+def test_sem_a_permissao_de_rascunho_nao_envia(tmp_path, env, falso):
+    cli = cliente(tmp_path, env, falso)
+    salvar_token(cli, AGORA + timedelta(hours=10), scope="video.list")
+    with pytest.raises(tiktok.PrecisaEntrarError, match="video.upload"):
+        cli.enviar_rascunho(video(tmp_path, MB))
+
+
+def test_login_com_parte_das_permissoes_vale(tmp_path, env, falso):
+    cli = cliente(tmp_path, env, falso)
+    pedidas = (tiktok.PERMISSAO_DE_RASCUNHO, tiktok.PERMISSAO_DE_LEITURA)
+    retorno = {"code": "c", "state": "abc", "scopes": "video.list"}
+    cli.concluir_login(retorno, "abc", tiktok.novo_pkce(), "http://127.0.0.1:1/callback/", pedidas)
+    assert cli.tem_login()  # cada ação confere a permissão dela

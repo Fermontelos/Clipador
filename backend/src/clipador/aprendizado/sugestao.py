@@ -3,6 +3,12 @@
 Nada muda sozinho: a sugestão é recalculada a cada vez que você olha (leva milissegundos) e
 só vale depois de aceita, como uma nova versão na tabela ``PesosNota``. A próxima detecção
 (etapa 8) já usa a versão mais nova; os momentos já detectados ficam como estavam.
+
+**As duas partes da nota (etapa 17).** Os pesos que valem são a mistura do seu **gosto**
+(este arquivo, das decisões) com o **engajamento** (``aprendizado.engajamento``, das métricas).
+Cada versão guarda as duas partes separadas (``componentes``): aceitar uma sugestão do gosto
+troca só o gosto e mistura de novo com o engajamento que já valia, e vice-versa. Assim um
+aceite não apaga o outro, nem mistura o que já estava misturado.
 """
 
 import logging
@@ -27,6 +33,17 @@ class NadaParaAceitarError(RuntimeError):
     pass
 
 
+def componentes(sessao: Session, cfg: Config) -> tuple[dict[str, float], dict[str, float] | None]:
+    """(pesos do seu gosto, pesos do engajamento ou ``None``) da versão que vale agora."""
+    do_config = nota.pesos_do_config(cfg.deteccao)
+    atual = versao_atual(sessao)
+    if atual is None:
+        return do_config, None
+    # Antes da etapa 17, as versões só tinham o gosto, e ele estava em ``valores``.
+    gosto = atual.pesos_do_gosto if atual.pesos_do_gosto is not None else atual.valores
+    return {**do_config, **gosto}, atual.pesos_do_engajamento
+
+
 @dataclass
 class Sugestao:
     decisoes: int
@@ -34,7 +51,9 @@ class Sugestao:
     minimo_para_pesos: int
     versao_atual: int | None
     pesos_atuais: dict[str, float]
-    pesos_novos: dict[str, float] | None = None
+    pesos_novos: dict[str, float] | None = None  # o que vale se aceitar (já misturado)
+    pesos_do_gosto_novos: dict[str, float] | None = None  # só a parte do gosto
+    pesos_do_engajamento: dict[str, float] | None = None  # a parte que continua (etapa 17)
     precisao_antes: float | None = None
     precisao_depois: float | None = None
     sem_pesos_porque: str | None = None
@@ -69,13 +88,22 @@ def sugerir(sessao: Session, cfg: Config) -> Sugestao:
         versoes=_historico(sessao),
     )
     nomes = metricas.detectores(lista)
+    gosto, engajamento = componentes(sessao, cfg)
+    sugestao.pesos_do_engajamento = engajamento
+    mistura = cfg.engajamento.mistura
+
+    def com_o_engajamento(do_gosto: dict[str, float]) -> dict[str, float]:
+        return pesos.misturar(do_gosto, engajamento, mistura)
+
     try:
-        novos = pesos.treinar(lista, nomes, atuais)
+        novos_gosto = pesos.treinar(lista, nomes, gosto)
         sugestao.precisao_antes, sugestao.precisao_depois = pesos.validacao_cruzada(
-            lista, nomes, atuais
+            lista, nomes, atuais, base=gosto, final=com_o_engajamento
         )
+        novos = com_o_engajamento(novos_gosto)
         if novos != atuais:
             sugestao.pesos_novos = novos
+            sugestao.pesos_do_gosto_novos = novos_gosto
         else:
             sugestao.sem_pesos_porque = "Os pesos aprendidos são iguais aos atuais."
     except (pesos.PoucasDecisoesError, pesos.SemSinalUtilError) as erro:
@@ -124,6 +152,7 @@ def _historico(sessao: Session) -> list[dict]:
             "decisoes": v.decisoes,
             "segundos_antes": v.segundos_antes,
             "segundos_depois": v.segundos_depois,
+            "origem": v.origem,  # "gosto" (etapa 14) ou "engajamento" (etapa 17)
         }
         for v in sessao.exec(select(PesosNota).order_by(col(PesosNota.versao))).all()
     ]
@@ -145,10 +174,13 @@ def aceitar(sessao: Session, cfg: Config, decisoes_vistas: int) -> PesosNota:
         raise NadaParaAceitarError("Não há sugestão para aceitar agora.")
     atual = versao_atual(sessao)
     nova_janela = sugestao.janela_nova
+    gosto, engajamento = componentes(sessao, cfg)
     versao = PesosNota(
         versao=(atual.versao if atual else 0) + 1,
         # Uma versão guarda tudo o que vale a partir dela: o que não mudou vem da anterior.
         valores=sugestao.pesos_novos or (dict(atual.valores) if atual else {}),
+        pesos_do_gosto=sugestao.pesos_do_gosto_novos or (gosto if atual else None),
+        pesos_do_engajamento=engajamento,
         precisao=sugestao.precisao_depois if sugestao.pesos_novos else None,
         precisao_antes=sugestao.precisao_antes if sugestao.pesos_novos else None,
         decisoes=sugestao.decisoes,

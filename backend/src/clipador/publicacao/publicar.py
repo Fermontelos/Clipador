@@ -49,6 +49,7 @@ from clipador.banco.modelos import (
 )
 from clipador.config import LIMITE_LEGENDA_TIKTOK, Config
 from clipador.cortes.cortar import caminho_da_thumbnail
+from clipador.engajamento import coleta
 from clipador.publicacao import agenda, cota, pedido
 from clipador.publicacao.planejar import horarios_ocupados
 from clipador.revisao.consultas import recorte_pendente
@@ -84,6 +85,16 @@ class YoutubeSimulado:
 
     def definir_thumbnail(self, video_id: str, imagem: Path) -> None:
         pass
+
+    def estatisticas(self, video_ids: list[str]) -> dict[str, dict[str, int]]:
+        # Números inventados, mas sempre os mesmos para o mesmo vídeo (etapa 17).
+        return {
+            v: {"visualizacoes": 100 + len(v) * 37, "curtidas": 9, "comentarios": 2}
+            for v in video_ids
+        }
+
+    def retencao(self, video_id: str, desde: object, ate: object) -> dict[str, float]:
+        return {"duracao_media_s": 12.0, "retencao": 0.55, "compartilhamentos": 1}
 
 
 def criar_enviador(cfg: Config) -> Enviador:
@@ -182,6 +193,7 @@ def publicar(
     publicacao.status = StatusPublicacao.AGENDADA
     publicacao.enviada_em = agora()
     sessao.add(publicacao)
+    coleta.agendar(sessao, publicacao, cfg)  # as métricas (etapa 17), no mesmo commit
     sessao.commit()
     log.info(
         "Momento %s (%s) enviado ao YouTube: %s, vai ao ar %s.",
@@ -237,6 +249,9 @@ def _rascunhos_recentes(sessao: Session, agora_: datetime) -> list[datetime]:
             select(Publicacao.enviada_em)
             .where(
                 Publicacao.plataforma == Plataforma.TIKTOK,
+                # Ainda pendente no app: um rascunho que você postou (a etapa 17 o acha e o
+                # marca como publicado) já não conta no limite do TikTok.
+                Publicacao.status == StatusPublicacao.ENVIADA,
                 col(Publicacao.id_na_plataforma).is_not(None),
                 col(Publicacao.enviada_em) >= agora_ - JANELA_DOS_RASCUNHOS,
             )
@@ -293,6 +308,7 @@ def _publicar_no_tiktok(
     publicacao.status = StatusPublicacao.ENVIADA
     publicacao.enviada_em = agora()
     sessao.add(publicacao)
+    coleta.agendar(sessao, publicacao, cfg)  # achar o vídeo e as métricas (etapa 17)
     sessao.commit()
     if publish_id:
         log.info("Rascunho no TikTok (%s): finalize pela notificação do app.", publish_id)

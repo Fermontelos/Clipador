@@ -211,6 +211,29 @@ categoria = 20
 # Thumbnail do pico nos vídeos horizontais (gasta 50 das 10.000 unidades diárias).
 thumbnail = true
 
+# Métricas dos cortes publicados e o que a nota aprende com elas (etapa 17). Precisa das
+# permissões de leitura: "clipador youtube-entrar" e "clipador tiktok-entrar" de novo.
+[engajamento]
+# Coletar as métricas 24 h, 72 h e 7 dias depois de cada vídeo ir ao ar.
+coletar = true
+# Na nota final, quanto vale o engajamento previsto (o resto é o seu gosto, da etapa 14):
+# 0 = só o seu gosto, 1 = só o engajamento. Só vale depois de aceitar a sugestão.
+mistura = 0.5
+# Cortes com a métrica de 7 dias antes de o app sugerir pesos pelo engajamento.
+minimo_cortes = 50
+# Vídeos com uma hashtag (ou tipo de título) antes de o app tirar conclusões dela.
+minimo_usos = 5
+# Chance de testar uma hashtag ou tipo de título pouco usado em vez do melhor conhecido.
+exploracao = 0.1
+# Por quantos dias procurar no TikTok o vídeo que você postou (da pasta ou do rascunho).
+dias_para_achar_no_tiktok = 14
+
+# O índice de engajamento: cada medida comparada com a mediana da rede no seu canal.
+[engajamento.pesos]
+alcance = 0.5    # visualizações
+interacao = 0.3  # (curtidas + comentários + compartilhamentos) ÷ visualizações
+retencao = 0.2   # quanto do vídeo as pessoas assistem (só no YouTube)
+
 # Publicação no TikTok (etapa 16). Só os verticais vão para lá. Nada sai sem a sua aprovação.
 [tiktok]
 # pasta = o vídeo e um .txt com a legenda vão para a pasta abaixo, e você posta pelo celular.

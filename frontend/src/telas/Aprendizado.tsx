@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, ErroDaApi } from "../api";
+import { br, porcento } from "../numeros";
 import type { Aprendizado as Dados } from "../tipos";
 
 const NOMES: Record<string, string> = {
@@ -9,18 +10,6 @@ const NOMES: Record<string, string> = {
   lol: "Eventos do LoL",
 };
 const EIXO = { stroke: "var(--texto-fraco)", fontSize: 12, tickLine: false };
-
-/** Número no padrão brasileiro (vírgula decimal): 11,5 e 0,62. */
-function br(valor: number, casas = 1, fixas = false): string {
-  return valor.toLocaleString("pt-BR", {
-    minimumFractionDigits: fixas ? casas : 0,
-    maximumFractionDigits: casas,
-  });
-}
-
-function porcento(valor: number | null): string {
-  return valor === null ? "—" : `${Math.round(valor * 100)}%`;
-}
 
 function dataCurta(dia: string): string {
   const [, mes, d] = dia.split("-");
@@ -222,7 +211,9 @@ export function Aprendizado() {
             {dados.versoes.map((v) => (
               <li key={v.versao}>
                 Versão {v.versao}, {new Date(v.criada_em).toLocaleDateString("pt-BR")}:{" "}
-                {v.decisoes} decisões
+                {v.origem === "engajamento"
+                  ? `pelo engajamento, ${v.decisoes} cortes`
+                  : `${v.decisoes} decisões`}
                 {v.precisao !== null && `, precisão ${porcento(v.precisao_antes)} → ${porcento(v.precisao)}`}
                 {v.segundos_antes !== null &&
                   `, janela ${br(v.segundos_antes)} s / ${br(v.segundos_depois ?? 0)} s`}

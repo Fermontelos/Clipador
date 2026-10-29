@@ -583,7 +583,7 @@ def test_clipes_da_demo(tmp_path, monkeypatch):
 
     from clipador.banco.conexao import abrir_banco, nova_sessao
     from clipador.cli import app
-    from clipador.demo import roteiro
+    from clipador.demo import historico, roteiro
 
     runner = CliRunner()
     sem_config = str(tmp_path / "config.toml")
@@ -594,7 +594,8 @@ def test_clipes_da_demo(tmp_path, monkeypatch):
     engine = abrir_banco(pasta / "clipador.db")
     with nova_sessao(engine) as sessao:
         momentos = {m.id: m for m in sessao.exec(select(Momento)).all()}
-        lista = sessao.exec(select(Clipe)).all()
+        # Só os da live da demo: as lives antigas (etapas 14 e 17) têm clipes só no banco.
+        lista = [c for c in sessao.exec(select(Clipe)).all() if historico.PREFIXO not in c.arquivo]
         palavras = sessao.exec(select(Transcricao)).one().palavras
     engine.dispose()
 

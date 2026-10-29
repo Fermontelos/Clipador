@@ -111,6 +111,9 @@ class Sugestoes:
     titulos: list[dict[str, str]]  # [{"titulo": ..., "tipo": ...}]
     hashtags: list[str]
     origem: str  # "ollama (qwen3:4b)", "simples" ou "demo"
+    # Todas as hashtags que a IA sugeriu para o clipe, antes do corte em max_hashtags: a
+    # etapa 17 escolhe entre elas as que entram (as que engajam, ou uma em teste).
+    candidatas: list[str] = field(default_factory=list)
 
 
 def para_o_modelo(motivo: str) -> str:
@@ -159,8 +162,12 @@ def mensagens(pedido: Pedido) -> list[dict[str, str]]:
     ]
 
 
-def validar(conteudo: str, cfg: ConfigTitulos) -> tuple[list[dict[str, str]], list[str]]:
-    """Confere a resposta do modelo e aplica os limites. Levanta ``ValueError`` se inválida."""
+def validar(conteudo: str, cfg: ConfigTitulos) -> tuple[list[dict[str, str]], list[str], list[str]]:
+    """Confere a resposta do modelo e aplica os limites. Levanta ``ValueError`` se inválida.
+
+    Devolve os títulos, as hashtags (as fixas + as sugeridas, até ``max_hashtags``) e todas as
+    sugeridas que passaram no filtro (as candidatas da etapa 17).
+    """
     try:
         resposta = _Resposta.model_validate(json.loads(conteudo))
     except (json.JSONDecodeError, ValidationError) as erro:
@@ -176,7 +183,7 @@ def validar(conteudo: str, cfg: ConfigTitulos) -> tuple[list[dict[str, str]], li
         raise ValueError("O modelo não sugeriu nenhum título válido.")
     sugeridas = [h for h in resposta.hashtags if not _palavra_do_pedido(h)]
     hashtags = texto.juntar_hashtags(cfg.hashtags_fixas, sugeridas, cfg.max_hashtags)
-    return titulos[:3], hashtags
+    return titulos[:3], hashtags, sugeridas
 
 
 TIPO_NO_FIM = re.compile(r"\s*\((?:" + "|".join(texto.TIPOS_DE_TITULO) + r")\)\s*$")
@@ -268,8 +275,8 @@ class Gerador:
         for _tentativa in range(2):  # um modelo pequeno às vezes erra o formato: tenta de novo
             try:
                 conteudo = self._pedir(conversa)
-                titulos, hashtags = validar(conteudo, self.cfg)
-                return Sugestoes(titulos, hashtags, origem=f"ollama ({self.modelo})")
+                titulos, hashtags, candidatas = validar(conteudo, self.cfg)
+                return Sugestoes(titulos, hashtags, f"ollama ({self.modelo})", candidatas)
             except ValueError as erro:
                 ultimo_erro = erro
         raise ultimo_erro

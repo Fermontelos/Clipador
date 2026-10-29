@@ -51,14 +51,14 @@ class MomentoCalculado:
         return self.fim_s - self.inicio_s
 
 
+def pesos_do_config(cfg: ConfigDeteccao) -> dict[str, float]:
+    return {"volume_voz": cfg.volume_voz.peso, "fala": cfg.fala.peso, "lol": cfg.lol.peso}
+
+
 def pesos_atuais(sessao: Session, cfg: ConfigDeteccao) -> dict[str, float]:
     """Os pesos aprovados mais recentes (``PesosNota``) ou, sem eles, os do config."""
     aprovados = sessao.exec(select(PesosNota).order_by(col(PesosNota.versao).desc())).first()
-    pesos = {
-        "volume_voz": cfg.volume_voz.peso,
-        "fala": cfg.fala.peso,
-        "lol": cfg.lol.peso,
-    }
+    pesos = pesos_do_config(cfg)
     if aprovados is not None:
         pesos.update(aprovados.valores)
     return pesos

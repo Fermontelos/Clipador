@@ -11,6 +11,8 @@ Rotas (todas documentadas, e testáveis no navegador, em ``/docs``):
 - ``GET /api/momentos/{id}/thumbnail``: o quadro do pico (clipes horizontais);
 - ``GET /api/aprendizado`` e ``POST /api/aprendizado/aceitar``: o que as suas decisões
   ensinam (pesos da nota e janela do corte, etapa 14) e o aceite;
+- ``GET /api/engajamento`` e ``POST /api/engajamento/aceitar``: o que o público mostrou
+  (rankings e a sugestão de pesos pelo engajamento, etapa 17) e o aceite;
 - ``GET /api/dias``, ``GET /api/status``, ``GET /api/estatisticas`` e ``GET /api/config``
   (o que a interface precisa saber do config: limites do corte, formatos...);
 - ``/``: a interface de revisão (etapa 13), se ela foi construída (``npm run build`` em
@@ -41,6 +43,7 @@ from sqlmodel import Session, col, select
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from clipador import __version__
+from clipador.aprendizado import engajamento as aprendizado_engajamento
 from clipador.aprendizado import sugestao as aprendizado
 from clipador.banco import fila
 from clipador.banco.conexao import abrir_banco, nova_sessao
@@ -57,6 +60,7 @@ from clipador.banco.modelos import (
 )
 from clipador.config import FORMATOS_DO_TIKTOK, Config
 from clipador.cortes.cortar import caminho_da_thumbnail
+from clipador.engajamento import resumo as resumo_engajamento
 from clipador.publicacao import cota, pedido, planejar
 from clipador.revisao import consultas, decisoes
 from clipador.titulos.texto import LIMITE_TITULO_YOUTUBE
@@ -412,6 +416,19 @@ def _registrar_rotas(app: FastAPI) -> None:
         aprendizado.aceitar(sessao, cfg, pedido.decisoes)
         return _aprendizado(aprendizado.sugerir(sessao, cfg))
 
+    @app.get("/api/engajamento", tags=["aprendizado"], summary="O que o público mostrou")
+    def ver_engajamento(sessao: Sessao, cfg: Cfg) -> esquemas.EngajamentoSaida:
+        return _engajamento(resumo_engajamento.resumir(sessao, cfg), cfg)
+
+    @app.post(
+        "/api/engajamento/aceitar", tags=["aprendizado"], summary="Aceitar os pesos do engajamento"
+    )
+    def aceitar_engajamento(
+        pedido: esquemas.PedidoAceiteEngajamento, sessao: Sessao, cfg: Cfg
+    ) -> esquemas.EngajamentoSaida:
+        aprendizado_engajamento.aceitar(sessao, cfg, pedido.cortes)
+        return _engajamento(resumo_engajamento.resumir(sessao, cfg), cfg)
+
     @app.get("/api/config", tags=["painel"], summary="O que a interface precisa do config")
     def config(cfg: Cfg) -> esquemas.ConfigSaida:
         return esquemas.ConfigSaida(
@@ -451,6 +468,32 @@ def _aprendizado(s: aprendizado.Sugestao) -> esquemas.AprendizadoSaida:
         sem_janela_porque=s.sem_janela_porque,
         precisao_por_dia=s.precisao_por_dia,
         versoes=s.versoes,
+    )
+
+
+def _engajamento(r: resumo_engajamento.Resumo, cfg: Config) -> esquemas.EngajamentoSaida:
+    s = r.sugestao
+    return esquemas.EngajamentoSaida(
+        com_metricas=r.com_metricas,
+        com_7_dias=r.com_7_dias,
+        cortes=[esquemas.CorteSaida(**vars(c)) for c in r.cortes],
+        hashtags=[esquemas.DesempenhoSaida(**vars(d)) for d in r.hashtags],
+        tipos_de_titulo=[esquemas.DesempenhoSaida(**vars(d)) for d in r.tipos_de_titulo],
+        por_tipo_de_momento=[esquemas.GrupoSaida(**vars(g)) for g in r.por_tipo_de_momento],
+        por_rede=[esquemas.RedeSaida(**vars(x)) for x in r.por_rede],
+        sugestao=esquemas.SugestaoEngajamentoSaida(
+            cortes=s.cortes,
+            minimo=s.minimo,
+            mistura=s.mistura,
+            pesos_atuais=s.pesos_atuais,
+            pesos_do_engajamento=s.pesos_do_engajamento,
+            pesos_novos=s.pesos_novos,
+            precisao_antes=s.precisao_antes,
+            precisao_depois=s.precisao_depois,
+            precisao_atual=s.precisao_atual,
+            sem_pesos_porque=s.sem_pesos_porque,
+        ),
+        minimo_usos=cfg.engajamento.minimo_usos,
     )
 
 

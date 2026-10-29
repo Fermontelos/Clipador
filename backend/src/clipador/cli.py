@@ -696,6 +696,75 @@ def aprender(
         engine.dispose()
 
 
+@app.command()
+def engajamento(
+    aceitar: Annotated[
+        bool, typer.Option("--aceitar", help="Aceita a sugestão de pesos sem perguntar.")
+    ] = False,
+    arquivo: OpcaoArquivo = CAMINHO_PADRAO,
+    demo: OpcaoDemo = False,
+) -> None:
+    """Mostra como os cortes publicados foram com o público e a sugestão de pesos (etapa 17)."""
+    from clipador.aprendizado import engajamento as pelo_publico
+    from clipador.engajamento import resumo
+
+    cfg = config_do_comando(arquivo, demo)
+    engine = abrir_banco_ou_sair(cfg)
+    try:
+        with nova_sessao(engine) as sessao:
+            r = resumo.resumir(sessao, cfg)
+            typer.echo(
+                f"Cortes com métricas: {r.com_metricas} ({r.com_7_dias} com a coleta de 7 dias)."
+            )
+            if r.cortes:
+                typer.echo("\nOs que mais engajaram (índice: 1 = o típico da rede):")
+                for c in r.cortes[:10]:
+                    typer.echo(
+                        f"  {_br(c.indice):>5}  {c.plataforma:7s} {c.visualizacoes or 0:>8} "
+                        f"visualizações  {c.titulo or '(sem título)'}"
+                    )
+                confiaveis = [h for h in r.hashtags if h.confiavel]
+                if confiaveis:
+                    typer.echo("\nHashtags (efeito no índice, com 5 vídeos ou mais):")
+                    for h in confiaveis[:10]:
+                        typer.echo(f"  {h.nome:20s} {_br(h.efeito or 0, True)} ({h.usos} vídeos)")
+                typer.echo("\nPor rede (medianas):")
+                for rede in r.por_rede:
+                    typer.echo(
+                        f"  {rede.plataforma:7s} {rede.cortes} cortes, "
+                        f"{_br(rede.mediana_visualizacoes or 0)} visualizações"
+                    )
+            s = r.sugestao
+            typer.echo(f"\nPesos da nota pelo engajamento (mistura {_porcento(s.mistura)}):")
+            if not s.pesos_novos:
+                typer.echo(f"  Sem sugestão: {s.sem_pesos_porque}")
+                return
+            for nome in sorted(s.pesos_atuais):
+                typer.echo(
+                    f"  {nome:12s} {s.pesos_atuais[nome]:.3f} -> {s.pesos_novos[nome]:.3f} "
+                    f"(só o público: {(s.pesos_do_engajamento or {}).get(nome, 0):.3f})"
+                )
+            typer.echo(
+                f"  Nos de maior nota, em cortes que o treino não viu: "
+                f"{_porcento(s.precisao_antes)} acima da mediana com os atuais, "
+                f"{_porcento(s.precisao_depois)} com os sugeridos."
+            )
+            if not aceitar:
+                resposta = typer.prompt(
+                    "\nAceitar estes pesos? (s/N)", default="n", show_default=False
+                )
+                if resposta.strip().lower() not in ("s", "sim", "y", "yes"):
+                    typer.echo("Nada mudou.")
+                    return
+            versao = pelo_publico.aceitar(sessao, cfg, s.cortes)
+            typer.echo(
+                f"Versão {versao.versao} aceita (pelo engajamento): vale a partir da próxima "
+                "detecção."
+            )
+    finally:
+        engine.dispose()
+
+
 @app.command("youtube-entrar")
 def youtube_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
     """Liga o app ao seu canal do YouTube (uma vez): abre o navegador para você autorizar."""
@@ -716,6 +785,12 @@ def youtube_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
         typer.echo(f"Erro: o login não terminou ({erro}). Nada foi salvo; tente de novo.", err=True)
         raise typer.Exit(code=1) from erro
     typer.echo(f"Pronto: login salvo em {cliente.arquivo_do_token} (fora do git).")
+    faltam = [p.rsplit("/", 1)[-1] for p in youtube.PERMISSOES if p not in cliente.permissoes()]
+    if faltam:
+        typer.echo(
+            f"Atenção: você não deu a permissão {', '.join(faltam)}. Sem a youtube.upload o app "
+            "não envia; sem as de leitura, não coleta as métricas (etapa 17)."
+        )
     typer.echo("As publicações que esperavam o login: 'clipador status' e 'clipador refazer N'.")
 
 
@@ -733,8 +808,25 @@ def tiktok_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
         typer.echo(endereco)
         webbrowser.open(endereco)
 
+    permissoes = tuple(
+        permissao
+        for permissao, usa in (
+            (tiktok.PERMISSAO_DE_RASCUNHO, cfg.tiktok.modo == "rascunho"),
+            (tiktok.PERMISSAO_DE_LEITURA, cfg.engajamento.coletar),
+        )
+        if usa
+    )
+    if not permissoes:
+        typer.echo(
+            "Nada a autorizar: o TikTok está no modo pasta e a coleta de métricas está desligada."
+        )
+        return
+    typer.echo(
+        f"Permissões pedidas: {', '.join(permissoes)} (cada uma precisa do produto dela no app "
+        "do TikTok for Developers: Content Posting API para o rascunho, Display API para ler)."
+    )
     try:
-        cliente.entrar(abrir=abrir)
+        cliente.entrar(abrir=abrir, permissoes=permissoes)
     except tiktok.CredencialDoAppAusenteError as erro:
         typer.echo(f"Erro: {erro}", err=True)
         raise typer.Exit(code=1) from erro
@@ -748,6 +840,8 @@ def tiktok_entrar(arquivo: OpcaoArquivo = CAMINHO_PADRAO) -> None:
             f"Ele vale até {vale_ate.astimezone():%d/%m/%Y} (365 dias); o app avisa no log "
             "quando faltar um mês."
         )
+    dadas = ", ".join(sorted(cliente.permissoes())) or "nenhuma"
+    typer.echo(f"Permissões que o login deu: {dadas}.")
     if cfg.tiktok.modo != "rascunho":
         typer.echo('Para os vídeos irem ao app como rascunho: [tiktok] modo = "rascunho".')
 

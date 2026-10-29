@@ -7,12 +7,16 @@ import { Fila } from "./telas/Fila";
 const Estatisticas = lazy(() =>
   import("./telas/Estatisticas").then((m) => ({ default: m.Estatisticas })),
 );
+const Engajamento = lazy(() =>
+  import("./telas/Engajamento").then((m) => ({ default: m.Engajamento })),
+);
 
-// As 3 telas, cada uma com o próprio endereço (o FastAPI devolve o index para qualquer um).
+// As 4 telas, cada uma com o próprio endereço (o FastAPI devolve o index para qualquer um).
 const TELAS = [
   { caminho: "/", nome: "Revisão" },
   { caminho: "/fila", nome: "Fila e status" },
   { caminho: "/estatisticas", nome: "Estatísticas" },
+  { caminho: "/engajamento", nome: "Engajamento" },
 ] as const;
 
 export function App() {
@@ -62,6 +66,11 @@ export function App() {
       {atual.caminho === "/estatisticas" && (
         <Suspense fallback={<main className="p-8">Carregando…</main>}>
           <Estatisticas />
+        </Suspense>
+      )}
+      {atual.caminho === "/engajamento" && (
+        <Suspense fallback={<main className="p-8">Carregando…</main>}>
+          <Engajamento />
         </Suspense>
       )}
     </div>

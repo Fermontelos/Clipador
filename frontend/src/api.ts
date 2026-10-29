@@ -4,6 +4,7 @@ import type {
   Aprendizado,
   Config,
   Dia,
+  Engajamento,
   Estatisticas,
   ListaMomentos,
   Momento,
@@ -79,4 +80,8 @@ export const api = {
   /** ``decisoes``: quantas havia na sugestão que você viu (se mudou, a API recusa). */
   aceitarAprendizado: (decisoes: number) =>
     pedir<Aprendizado>("/api/aprendizado/aceitar", json({ decisoes })),
+  engajamento: () => pedir<Engajamento>("/api/engajamento"),
+  /** ``cortes``: quantos havia na sugestão que você viu (se mudou, a API recusa). */
+  aceitarEngajamento: (cortes: number) =>
+    pedir<Engajamento>("/api/engajamento/aceitar", json({ cortes })),
 };

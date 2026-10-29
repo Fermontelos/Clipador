@@ -24,6 +24,7 @@ from clipador.config import Config
 from clipador.demo import roteiro
 from clipador.detectores.base import Entrada
 from clipador.detectores.lol import Lol
+from clipador.engajamento import indice, ranking
 from clipador.jogo import alinhamento
 from clipador.titulos import texto
 from clipador.titulos.gerador import Gerador, Pedido, Sugestoes
@@ -70,6 +71,22 @@ def titulos_da_demo(momento: Momento, cfg: Config) -> Sugestoes:
     return Sugestoes([{"titulo": "Momento da demo", "tipo": "descricao"}], [], origem="demo")
 
 
+def _pelo_engajamento(
+    sugestoes: Sugestoes,
+    das_hashtags: list[ranking.Desempenho],
+    dos_tipos: list[ranking.Desempenho],
+    cfg: Config,
+) -> None:
+    """Reordena as sugestões pelo que engaja (com a exploração do epsilon-greedy)."""
+    explorar = cfg.engajamento.exploracao
+    if sugestoes.candidatas:
+        ordem = ranking.ordenar_hashtags(sugestoes.candidatas, das_hashtags, explorar)
+        sugestoes.hashtags = texto.juntar_hashtags(
+            cfg.titulos.hashtags_fixas, ordem, cfg.titulos.max_hashtags
+        )
+    sugestoes.titulos = ranking.ordenar_titulos(sugestoes.titulos, dos_tipos, explorar)
+
+
 def gerar_titulos(
     sessao: Session, tarefa: Tarefa, cfg: Config, contexto: Contexto | None = None
 ) -> None:
@@ -95,6 +112,10 @@ def gerar_titulos(
     palavras = list(transcricao.palavras) if transcricao else []
     eventos = alinhamento.eventos_da_gravacao(sessao, gravacao)
     exemplos = exemplos_seus(sessao, cfg.titulos.exemplos)
+    # O que o público mostrou (etapa 17): a ordem das hashtags e dos títulos sugeridos.
+    desempenho = indice.indices(sessao, cfg.engajamento.pesos)
+    das_hashtags = ranking.hashtags(desempenho, cfg.engajamento.minimo_usos)
+    dos_tipos = ranking.tipos_de_titulo(desempenho, cfg.engajamento.minimo_usos)
     lol = Lol(cfg.deteccao.lol)
     gerador = Gerador(cfg.titulos)
     inicio = time.perf_counter()
@@ -119,6 +140,7 @@ def gerar_titulos(
                     exemplos=exemplos,
                 )
                 sugestoes = gerador.sugerir(pedido)
+                _pelo_engajamento(sugestoes, das_hashtags, dos_tipos, cfg)
             momento.titulos_sugeridos = sugestoes.titulos
             momento.hashtags_sugeridas = sugestoes.hashtags
             sessao.add(momento)

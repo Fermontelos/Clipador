@@ -167,6 +167,8 @@ export interface VersaoAceita {
   decisoes: number | null;
   segundos_antes: number | null;
   segundos_depois: number | null;
+  /** "gosto" (etapa 14, das decisões) ou "engajamento" (etapa 17, a mistura). */
+  origem: string;
 }
 
 /** O que as suas decisões ensinam (etapa 14). Nada muda até você aceitar. */
@@ -185,4 +187,61 @@ export interface Aprendizado {
   sem_janela_porque: string | null;
   precisao_por_dia: { dia: string; decididos: number; aprovados: number; precisao: number }[];
   versoes: VersaoAceita[];
+}
+
+/** Um corte publicado, com a métrica de 7 dias (etapa 17). */
+export interface CorteEngajamento {
+  publicacao_id: number;
+  momento_id: number;
+  titulo: string | null;
+  plataforma: string;
+  formato: string;
+  link: string | null;
+  /** 1 = o vídeo típico daquela rede no seu canal. */
+  indice: number;
+  visualizacoes: number | null;
+  curtidas: number | null;
+  comentarios: number | null;
+  compartilhamentos: number | null;
+  retencao: number | null;
+  tipo_de_momento: string | null;
+}
+
+export interface Desempenho {
+  nome: string;
+  usos: number;
+  indice_medio: number;
+  /** Índice médio com ela − sem ela. */
+  efeito: number | null;
+  confiavel: boolean;
+}
+
+/** O que o público mostrou (etapa 17). Os pesos só mudam se você aceitar. */
+export interface Engajamento {
+  com_metricas: number;
+  com_7_dias: number;
+  cortes: CorteEngajamento[];
+  hashtags: Desempenho[];
+  tipos_de_titulo: Desempenho[];
+  por_tipo_de_momento: { nome: string; cortes: number; indice_medio: number }[];
+  por_rede: {
+    plataforma: string;
+    cortes: number;
+    mediana_visualizacoes: number | null;
+    mediana_interacao: number | null;
+    mediana_retencao: number | null;
+  }[];
+  sugestao: {
+    cortes: number;
+    minimo: number;
+    mistura: number;
+    pesos_atuais: Record<string, number>;
+    pesos_do_engajamento: Record<string, number> | null;
+    pesos_novos: Record<string, number> | null;
+    precisao_antes: number | null;
+    precisao_depois: number | null;
+    precisao_atual: number | null;
+    sem_pesos_porque: string | null;
+  };
+  minimo_usos: number;
 }

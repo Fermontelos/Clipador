@@ -297,10 +297,21 @@ def test_tiktok_entrar_usa_os_caminhos_do_config(config_valida, monkeypatch):
     monkeypatch.setattr(
         tiktok.ClienteTiktok,
         "entrar",
-        lambda self, abrir: vistos.append((self.pasta, self.arquivo_env)),
+        lambda self, abrir, permissoes: vistos.append((self.pasta, self.arquivo_env, permissoes)),
     )
     resultado = runner.invoke(app, ["tiktok-entrar", "--arquivo", str(config_valida)])
     assert resultado.exit_code == 0, resultado.output
     pasta = config_valida.parent
-    assert vistos == [(pasta / "segredos", pasta / ".env")]  # relativos à pasta do config
+    # Relativos à pasta do config; no modo pasta com métricas, só a permissão de leitura.
+    assert vistos == [(pasta / "segredos", pasta / ".env", ("video.list",))]
     assert 'modo = "rascunho"' in resultado.output
+
+
+# ------------------------------------------------------------------ engajamento (etapa 17)
+
+
+def test_engajamento_sem_metricas_explica(config_valida):
+    resultado = runner.invoke(app, ["engajamento", "--arquivo", str(config_valida)])
+    assert resultado.exit_code == 0, resultado.output
+    assert "Cortes com métricas: 0" in resultado.output
+    assert "pelo menos 50" in resultado.output

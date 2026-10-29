@@ -24,6 +24,7 @@ inteira. Um momento que o detector nunca sugere nunca vira exemplo.
 """
 
 from collections import Counter
+from collections.abc import Callable
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -98,10 +99,33 @@ def treinar(
     return _para_pesos(_coeficientes(lista, nomes), nomes, atuais)
 
 
+def misturar(
+    gosto: dict[str, float], engajamento: dict[str, float] | None, mistura: float
+) -> dict[str, float]:
+    """A nota final da etapa 17: ``(1 − mistura) × gosto + mistura × engajamento``."""
+    if not engajamento:
+        return dict(gosto)
+    return {
+        nome: round((1 - mistura) * gosto[nome] + mistura * engajamento.get(nome, gosto[nome]), 3)
+        for nome in gosto
+    }
+
+
 def validacao_cruzada(
-    lista: list[Exemplo], nomes: list[str], atuais: dict[str, float]
+    lista: list[Exemplo],
+    nomes: list[str],
+    atuais: dict[str, float],
+    base: dict[str, float] | None = None,
+    final: Callable[[dict[str, float]], dict[str, float]] | None = None,
 ) -> tuple[float, float]:
-    """(precisão no topo com os pesos atuais, com os aprendidos), em decisões não vistas."""
+    """(precisão no topo com os pesos atuais, com os aprendidos), em decisões não vistas.
+
+    ``base``: de onde partem os aprendidos (o padrão são os atuais). ``final``: o que fazer com
+    os aprendidos antes de medir (a etapa 17 os mistura com a outra parte da nota): mede-se o
+    que de fato valeria se você aceitasse.
+    """
+    base = base or atuais
+    final = final or (lambda pesos: pesos)
     _conferir(lista, DOBRAS * 2)
     _, respostas = _matriz(lista, nomes)
     dobras = StratifiedKFold(n_splits=DOBRAS, shuffle=True, random_state=SEMENTE)
@@ -110,7 +134,7 @@ def validacao_cruzada(
         de_treino = [lista[i] for i in treino]
         de_teste = [lista[i] for i in teste]
         try:
-            aprendidos = _para_pesos(_coeficientes(de_treino, nomes), nomes, atuais)
+            aprendidos = final(_para_pesos(_coeficientes(de_treino, nomes), nomes, base))
         except SemSinalUtilError:
             aprendidos = atuais  # nesta parte nada ajudou: fica como está
         a, o = acertos_no_topo(de_teste, atuais)

@@ -449,6 +449,82 @@ class ConfigTiktok(BaseModel):
         return self
 
 
+class PesosDoIndice(BaseModel):
+    """Quanto cada medida pesa no índice de engajamento (etapa 17)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    alcance: float = Field(
+        default=0.5, ge=0, description="Visualizações ÷ a mediana do canal naquela rede."
+    )
+    interacao: float = Field(
+        default=0.3,
+        ge=0,
+        description="(Curtidas + comentários + compartilhamentos) ÷ visualizações.",
+    )
+    retencao: float = Field(
+        default=0.2, ge=0, description="Quanto do vídeo as pessoas assistem (só no YouTube)."
+    )
+
+    @model_validator(mode="after")
+    def _algum_peso(self) -> "PesosDoIndice":
+        if self.alcance + self.interacao + self.retencao <= 0:
+            raise ValueError("[engajamento.pesos]: pelo menos um peso precisa ser maior que 0.")
+        return self
+
+
+class ConfigEngajamento(BaseModel):
+    """Métricas dos cortes publicados e o que a nota aprende com elas (etapa 17, ADR 0012)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    coletar: bool = Field(
+        default=True,
+        description=(
+            "Coletar as métricas 24 h, 72 h e 7 dias depois de cada vídeo ir ao ar (precisa "
+            "das permissões de leitura: 'clipador youtube-entrar' e 'clipador tiktok-entrar')."
+        ),
+    )
+    pesos: PesosDoIndice = Field(default_factory=PesosDoIndice)
+    mistura: float = Field(
+        default=0.5,
+        ge=0,
+        le=1,
+        description=(
+            "Na nota final, quanto vale o engajamento previsto (o resto é o seu gosto, da "
+            "etapa 14): 0 = só o gosto, 1 = só o engajamento."
+        ),
+    )
+    minimo_cortes: int = Field(
+        default=50,
+        ge=10,
+        description="Cortes com a métrica de 7 dias antes de o app sugerir pesos pelo engajamento.",
+    )
+    minimo_usos: int = Field(
+        default=5,
+        ge=2,
+        description="Vídeos com uma hashtag (ou tipo de título) antes de o app tirar conclusões.",
+    )
+    exploracao: float = Field(
+        default=0.1,
+        ge=0,
+        le=1,
+        description=(
+            "Chance de testar uma hashtag ou tipo de título pouco usado, em vez do melhor "
+            "conhecido (epsilon-greedy). 0 = nunca testa; 1 = sempre."
+        ),
+    )
+    dias_para_achar_no_tiktok: int = Field(
+        default=14,
+        ge=1,
+        le=60,
+        description=(
+            "Por quantos dias o app procura, nos seus vídeos do TikTok, o que você postou a "
+            "partir do rascunho ou da pasta. Depois desiste daquele vídeo."
+        ),
+    )
+
+
 class ConfigYoutube(BaseModel):
     """Publicação no YouTube (etapa 15): agenda, textos e avisos aos inscritos."""
 
@@ -637,6 +713,10 @@ class Config(BaseSettings):
     youtube: ConfigYoutube = Field(
         default_factory=ConfigYoutube,
         description="Publicação no YouTube: horários, descrição, tags e avisos aos inscritos.",
+    )
+    engajamento: ConfigEngajamento = Field(
+        default_factory=ConfigEngajamento,
+        description="Métricas dos cortes publicados e o que a nota aprende com elas.",
     )
     tiktok: ConfigTiktok = Field(
         default_factory=ConfigTiktok,

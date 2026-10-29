@@ -34,7 +34,8 @@ estão em [`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%
 | 14 · Aprendizado | Ajustar a nota com as suas aprovações | ✅ (falta o gráfico de uma live real) |
 | 15 · YouTube | Publicar os clipes aprovados, com agendamento | 🟡 pronto e testado com o YouTube simulado; falta o 1º envio real |
 | 16 · TikTok | Publicar no TikTok (pasta, rascunho e post) | 🟡 pasta pronta; rascunho pronto e testado com o TikTok simulado, falta o teste no sandbox; post direto fora (ADR 0011) |
-| 17 · Métricas | Engajamento dos cortes publicados ensina a nota | ⏳ próxima |
+| 17 · Métricas | Engajamento dos cortes publicados ensina a nota | 🟡 pronto e testado com YouTube e TikTok simulados (e na demo); faltam métricas reais |
+| 18 · Vitrine | README final, vídeo, cobertura e release v1.0 | ⏳ próxima |
 
 ## Experimente em uns 3 minutos (modo demo)
 
@@ -62,6 +63,10 @@ e uma "câmera" falsa no canto de cima, já configurada, para o vertical B mostr
 câmera + jogo (uma demo criada antes dela só a ganha com `clipador demo --do-zero`).
 A demo também traz 6 lives antigas já revisadas (120 decisões, só no banco, sem vídeo),
 para o aprendizado ter o que mostrar: `uv run clipador aprender --demo`.
+Cada aprovado dessas lives foi "publicado" (de mentira) no YouTube e no TikTok, com as métricas
+de 7 dias, para a tela de Engajamento e `uv run clipador engajamento --demo` mostrarem o
+público preferindo os eventos do LoL (uma demo criada antes disso só os ganha com
+`--do-zero`).
 Rodar de novo não duplica nada; `--do-zero` apaga e recria. A demo usa uma pasta e um banco
 separados: os seus dados reais não são tocados.
 
@@ -240,8 +245,23 @@ cd frontend; npm ci; npm run build; cd ..
   pasta; desfazer enquanto ele espera também o tira da pasta). O post direto, sem
   passar pelo celular, não foi feito: sem a auditoria do TikTok os posts ficam privados, e
   as diretrizes dele não aceitam na auditoria uma ferramenta para as suas próprias contas.
-- `clipador tiktok-entrar`: liga o app à sua conta do TikTok, para os rascunhos (uma vez;
-  veja [publicar no TikTok](#publicar-no-tiktok-configuração-uma-vez)).
+- `clipador tiktok-entrar`: liga o app à sua conta do TikTok, para os rascunhos e as
+  métricas (uma vez; veja [publicar no TikTok](#publicar-no-tiktok-configuração-uma-vez)).
+- Engajamento ([ADR 0012](docs/adr/0012-engajamento-ensina-a-nota.md)): o app coleta as
+  métricas de cada corte publicado **24 h, 72 h e 7 dias** depois de ele ir ao ar
+  (visualizações, curtidas, comentários e compartilhamentos; no YouTube, também a retenção,
+  pelo YouTube Analytics). No TikTok, ele acha entre os seus vídeos públicos o que você
+  postou, pelo horário e pelo título. Com a coleta de 7 dias, cada corte ganha um **índice
+  de engajamento** (1 = o vídeo típico daquela rede no seu canal), e a tela **Engajamento**
+  mostra os cortes que mais engajaram, as hashtags e os tipos de título que funcionam (a
+  partir de 5 vídeos), o engajamento por tipo de momento e YouTube × TikTok. Com **50 cortes**,
+  o app sugere pesos para a nota que preveem o engajamento, misturados meio a meio com o seu
+  gosto (`[engajamento] mistura`), com a comparação antes e depois em cortes que o treino não
+  viu; nada muda até você aceitar. As sugestões de título e hashtag (etapa 10) passam a vir
+  na ordem do que engaja, testando de vez em quando (10%) uma ainda pouco usada.
+  Limitação: engajamento também depende de horário, tendência e algoritmo; com poucos
+  vídeos, os números erram bastante.
+- `clipador engajamento [--aceitar] [--demo]`: o mesmo no terminal.
 - `clipador calibrar`: salva um quadro da live mais recente em `dados/calibracao.png`,
   com uma grade a cada 100 px e as regiões do vertical B desenhadas (verde: o recorte do
   jogo; vermelho: a câmera). É de onde saem os números de `[cortes.vertical_b] camera`
@@ -296,10 +316,14 @@ git: a credencial e o login ficam em `segredos/`, lidos só pelo pacote das inte
    como `segredos/client_secret.json` (na pasta do `config.toml`). O login volta para o
    próprio PC (`http://127.0.0.1` numa porta livre), e a biblioteca usa PKCE, como o
    Google recomenda para apps de computador.
-4. Rode `uv run clipador youtube-entrar`: o navegador abre, você entra na conta do canal e
-   autoriza. O Google avisa que o app "não foi verificado": para uso pessoal, continue em
-   "Avançado". O login fica salvo e se renova sozinho.
-5. Confira num envio de teste: aprove um momento só com o YouTube e veja o vídeo aparecer
+4. Para as métricas (etapa 17): na Biblioteca de APIs, ative também a **YouTube Analytics
+   API**, e em **Acesso a dados** adicione `youtube.readonly` e `yt-analytics.readonly` (só
+   leitura; o Analytics exige as duas).
+5. Rode `uv run clipador youtube-entrar`: o navegador abre, você entra na conta do canal e
+   autoriza (marque todas as permissões). O Google avisa que o app "não foi verificado":
+   para uso pessoal, continue em "Avançado". O login fica salvo e se renova sozinho. Um
+   login feito antes da etapa 17 continua enviando; para as métricas, entre de novo.
+6. Confira num envio de teste: aprove um momento só com o YouTube e veja o vídeo aparecer
    como agendado no YouTube Studio (gasta 1 dos 100 envios do dia).
 
 Quer ver o fluxo sem enviar nada? `[youtube] modo = "simulado"` finge os envios (a demo
@@ -311,8 +335,9 @@ O modo padrão (`[tiktok] modo = "pasta"`) não precisa de nada: os verticais ap
 para a pasta de exportação. Para mandar rascunhos direto para o app do TikTok:
 
 1. Crie uma conta no [TikTok for Developers](https://developers.tiktok.com/) e, em
-   **Manage apps**, um app. Adicione os produtos **Login Kit** e **Content Posting API**,
-   com a permissão `video.upload`.
+   **Manage apps**, um app. Adicione os produtos **Login Kit**, **Content Posting API** (com
+   a permissão `video.upload`, para o rascunho) e **Display API** (com a `video.list`, para as
+   métricas da etapa 17; ela só lê os seus vídeos públicos).
 2. No Login Kit, cadastre o endereço de retorno de app de computador
    `http://127.0.0.1:*/callback/` (o `*` deixa o app usar uma porta livre; o TikTok só
    aceita `localhost` ou `127.0.0.1`).
@@ -320,8 +345,9 @@ para a pasta de exportação. Para mandar rascunhos direto para o app do TikTok:
    **Target users**. No sandbox, tudo funciona só para essas contas, sem análise do TikTok.
 4. Copie o **Client key** e o **Client secret** para o `.env` (veja o `.env.example`), na
    pasta do `config.toml`. O `.env` fica fora do git e só o pacote das integrações o lê.
-5. No `config.toml`: `[tiktok] modo = "rascunho"`. Rode `uv run clipador tiktok-entrar`:
-   o navegador abre, você entra na conta e autoriza. O login vale 365 dias (o app avisa no
+5. No `config.toml`: `[tiktok] modo = "rascunho"` (só para os rascunhos; as métricas valem
+   também no modo pasta). Rode `uv run clipador tiktok-entrar`: ele pede só as permissões que
+   o seu config usa, o navegador abre, você entra na conta e autoriza. O login vale 365 dias (o app avisa no
    log quando faltar um mês) e o acesso se renova sozinho.
 
 Fora do sandbox (para qualquer conta), o TikTok precisa **aprovar o app numa análise**: ele
@@ -395,8 +421,10 @@ backend/        pipeline, banco, fila, serviço, demo e a linha de comando (paco
     sistema/    serviço em segundo plano, energia, trava e abertura no login
     demo/       roteiro e gerador da live falsa
     revisao/    regras da revisão: momentos do dia, decisões, ajuste do corte e cota
-    aprendizado/ métricas, pesos da nota (regressão logística) e janela do corte
+    aprendizado/ precisão, pesos da nota (regressão logística, pelo gosto e pelo
+                engajamento) e janela do corte
     publicacao/ fila, agenda, pedido, cota e envio ao YouTube e ao TikTok
+    engajamento/ coleta das métricas, índice, rankings de hashtags e títulos
     ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
   tests/
 api/            API local da revisão, FastAPI (etapa 12) e o comando clipador web
@@ -429,6 +457,7 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 - [ADR 0009: regressão logística para aprender os pesos da nota](docs/adr/0009-regressao-logistica.md)
 - [ADR 0010: publicação agendada no YouTube, com tempo para desfazer](docs/adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)
 - [ADR 0011: TikTok pela pasta e por rascunho, post direto só após a auditoria](docs/adr/0011-tiktok-pasta-e-rascunho.md)
+- [ADR 0012: o engajamento ensina a nota, misturado com o seu gosto](docs/adr/0012-engajamento-ensina-a-nota.md)
 
 ## Licença
 

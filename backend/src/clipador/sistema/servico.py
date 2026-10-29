@@ -52,6 +52,7 @@ from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa, TipoTarefa,
 from clipador.config import Config
 from clipador.cortes import cortar
 from clipador.detectores import detectar
+from clipador.engajamento import coleta
 from clipador.ingestao import audio
 from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
 from clipador.jogo.coletor import iniciar_em_segundo_plano as iniciar_coletor_do_lol
@@ -77,6 +78,7 @@ EXECUTORES: dict[TipoTarefa, Executor] = {
     TipoTarefa.RECORTAR: cortar.recortar,
     TipoTarefa.GERAR_TITULOS: gerar.gerar_titulos,
     TipoTarefa.PUBLICAR: publicar.publicar,
+    TipoTarefa.COLETAR_METRICAS: coleta.coletar_metricas,
 }
 
 

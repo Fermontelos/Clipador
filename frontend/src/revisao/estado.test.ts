@@ -215,6 +215,8 @@ describe("publicação", () => {
     expect(textoDaPublicacao({ ...tt, status: "na_pasta" }, agora)).toMatch(/^na pasta/);
     expect(textoDaPublicacao({ ...tt, status: "rascunho" }, agora)).toMatch(/notificação/);
     expect(textoDaPublicacao({ ...tt, status: "erro" }, agora)).toContain("Fila e status");
+    // A etapa 17 achou o vídeo que você postou.
+    expect(textoDaPublicacao({ ...tt, status: "publicada" }, agora)).toMatch(/^publicado no TikTok/);
   });
 
   it("erro aponta para a tela da fila", () => {

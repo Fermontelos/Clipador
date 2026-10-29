@@ -213,6 +213,77 @@ class AprendizadoSaida(BaseModel):
     versoes: list[dict] = Field(description="As versões aceitas, da primeira à atual.")
 
 
+class CorteSaida(BaseModel):
+    publicacao_id: int
+    momento_id: int
+    titulo: str | None
+    plataforma: str
+    formato: str
+    link: str | None
+    indice: float = Field(description="1 = o vídeo típico daquela rede no seu canal.")
+    visualizacoes: int | None
+    curtidas: int | None
+    comentarios: int | None
+    compartilhamentos: int | None
+    retencao: float | None = Field(description="Fração média assistida (0 a 1; só YouTube).")
+    tipo_de_momento: str | None = Field(description="O sinal mais forte do momento.")
+
+
+class DesempenhoSaida(BaseModel):
+    nome: str
+    usos: int
+    indice_medio: float
+    efeito: float | None = Field(description="Índice médio com ela − sem ela.")
+    confiavel: bool = Field(description="Usada em vídeos suficientes para concluir algo.")
+
+
+class GrupoSaida(BaseModel):
+    nome: str
+    cortes: int
+    indice_medio: float
+
+
+class RedeSaida(BaseModel):
+    plataforma: str
+    cortes: int
+    mediana_visualizacoes: float | None
+    mediana_interacao: float | None
+    mediana_retencao: float | None
+
+
+class SugestaoEngajamentoSaida(BaseModel):
+    cortes: int = Field(description="Cortes com a métrica de 7 dias (os exemplos do treino).")
+    minimo: int
+    mistura: float = Field(description="Quanto o engajamento vale na nota final (0 a 1).")
+    pesos_atuais: dict[str, float]
+    pesos_do_engajamento: dict[str, float] | None
+    pesos_novos: dict[str, float] | None = Field(description="A mistura: o que vale se aceitar.")
+    precisao_antes: float | None
+    precisao_depois: float | None
+    precisao_atual: float | None
+    sem_pesos_porque: str | None
+
+
+class EngajamentoSaida(BaseModel):
+    """O que o público mostrou (etapa 17). Os pesos só mudam se você aceitar."""
+
+    com_metricas: int
+    com_7_dias: int
+    cortes: list[CorteSaida]
+    hashtags: list[DesempenhoSaida]
+    tipos_de_titulo: list[DesempenhoSaida]
+    por_tipo_de_momento: list[GrupoSaida]
+    por_rede: list[RedeSaida]
+    sugestao: SugestaoEngajamentoSaida
+    minimo_usos: int
+
+
+class PedidoAceiteEngajamento(BaseModel):
+    cortes: int = Field(
+        description="Quantos cortes havia na sugestão que você viu (se mudou, é recusado)."
+    )
+
+
 class PedidoAceite(BaseModel):
     decisoes: int = Field(
         description="Quantas decisões havia na sugestão que você viu (se mudou, é recusado)."

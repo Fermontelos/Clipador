@@ -10,6 +10,10 @@ Conferido na documentação oficial (em 2026-10-14 e de novo em 2026-10-27):
 Cada ``Publicacao`` guarda quando o envio terminou (``enviada_em``) e as unidades que
 gastou; a cota do dia soma pelo **horário do envio**, e não pelo da aprovação (um envio
 que esperou a cota renovar conta no dia em que de fato subiu).
+
+As métricas (etapa 17) também gastam: cada coleta de um vídeo do YouTube é um
+``videos.list`` (1 unidade), contado pelo horário da coleta (``Metrica.coletada_em``). O
+YouTube Analytics tem cota própria, fora destas 10.000.
 """
 
 from dataclasses import dataclass
@@ -18,12 +22,13 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, col, func, select
 
-from clipador.banco.modelos import Plataforma, Publicacao
+from clipador.banco.modelos import Metrica, Plataforma, Publicacao
 
 FUSO_DA_COTA = ZoneInfo("America/Los_Angeles")
 LIMITE_DE_ENVIOS = 100
 LIMITE_DE_UNIDADES = 10_000
 CUSTO_DA_THUMBNAIL = 50
+CUSTO_DAS_ESTATISTICAS = 1  # videos.list
 
 
 @dataclass(frozen=True)
@@ -36,7 +41,11 @@ class CotaYoutube:
 
     def cabe(self, unidades: int = 0) -> bool:
         """Cabe mais um envio (e mais estas unidades) hoje?"""
-        return self.envios < self.limite_envios and self.unidades + unidades <= self.limite_unidades
+        return self.envios < self.limite_envios and self.cabem_unidades(unidades)
+
+    def cabem_unidades(self, unidades: int) -> bool:
+        """Cabem estas unidades hoje (sem envio de vídeo: ex.: uma coleta de métricas)?"""
+        return self.unidades + unidades <= self.limite_unidades
 
 
 def inicio_do_dia_da_cota(agora: datetime) -> datetime:
@@ -55,12 +64,18 @@ def cota_youtube(sessao: Session, agora: datetime) -> CotaYoutube:
     unidades = sessao.exec(
         select(func.coalesce(func.sum(Publicacao.unidades_cota), 0)).where(*do_dia)
     ).one()
+    coletas = sessao.exec(
+        select(func.count())
+        .select_from(Metrica)
+        .join(Publicacao, col(Publicacao.id) == col(Metrica.publicacao_id))
+        .where(Publicacao.plataforma == Plataforma.YOUTUBE, col(Metrica.coletada_em) >= inicio)
+    ).one()
     # Amanhã à meia-noite no Pacífico (somar 1 dia no horário local acerta o horário de verão).
     amanha = (inicio.astimezone(FUSO_DA_COTA) + timedelta(days=1)).replace(hour=0)
     return CotaYoutube(
         envios=envios,
         limite_envios=LIMITE_DE_ENVIOS,
-        unidades=int(unidades),
+        unidades=int(unidades) + coletas * CUSTO_DAS_ESTATISTICAS,
         limite_unidades=LIMITE_DE_UNIDADES,
         renova_em=amanha.astimezone(agora.tzinfo),
     )

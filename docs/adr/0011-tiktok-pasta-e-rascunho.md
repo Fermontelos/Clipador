@@ -67,5 +67,6 @@ A etapa 16 leva os verticais aprovados ao TikTok. A Content Posting API tem dois
   documentação não fala em prazo para o sandbox; tirar o app dele (para qualquer conta)
   exige a análise do TikTok, que também pode olhar o uso pretendido.
 - O app não sabe se você postou o rascunho (o `status` da API diria, mas só por consulta).
-  A etapa 17 liga o vídeo publicado ao rascunho pelo horário e pelo título.
+  A etapa 17 liga o vídeo publicado ao rascunho pelo horário e pelo título (ADR 0012):
+  um título editado no celular pode impedir a ligação.
 - Uma pasta sincronizada com o celular acumula vídeos: apagar os já postados é manual.

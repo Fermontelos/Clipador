@@ -97,6 +97,8 @@ def status_visivel(sessao: Session, publicacao: Publicacao) -> str:
             return StatusPublicacao.ERRO.value
     if publicacao.plataforma is Plataforma.TIKTOK and publicacao.status is StatusPublicacao.ENVIADA:
         return RASCUNHO if publicacao.id_na_plataforma else NA_PASTA
+    # PUBLICADA: no TikTok, a etapa 17 achou o vídeo que você postou; no YouTube, a 1ª coleta
+    # de métricas viu que o horário passou.
     return publicacao.status.value
 
 

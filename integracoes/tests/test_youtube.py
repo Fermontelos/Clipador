@@ -74,13 +74,14 @@ def video(tmp_path):
     return arquivo
 
 
-def cliente(tmp_path, falso, esperas=None):
+def cliente(tmp_path, falso, esperas=None, permissoes=tuple(youtube.PERMISSOES)):
     c = youtube.ClienteYoutube(
         tmp_path / "segredos",
         construir=lambda *a, **k: falso,
         esperar=(esperas.append if esperas is not None else lambda s: None),
     )
     c._credenciais = lambda: object()  # login simulado
+    c.permissoes = lambda: set(permissoes)  # as que o login deu
     return c
 
 
@@ -175,3 +176,109 @@ def test_login_vencido_e_renovado_e_salvo(tmp_path, monkeypatch):
     assert renovados and credenciais.token == "novo"
     salvo = json.loads((pasta / youtube.ARQUIVO_DO_TOKEN).read_text(encoding="utf-8"))
     assert salvo["token"] == "novo"  # o token renovado fica salvo
+
+
+# ------------------------------------------------------------------ métricas (etapa 17)
+
+
+class _Execucao:
+    def __init__(self, resposta):
+        self.resposta = resposta
+
+    def execute(self):
+        if isinstance(self.resposta, Exception):
+            raise self.resposta
+        return self.resposta
+
+
+class MetricasFalsas:
+    """O ``videos.list`` e o ``reports.query`` do Analytics, com respostas prontas."""
+
+    def __init__(self, estatisticas=None, relatorio=None):
+        self.estatisticas_ = estatisticas or {"items": []}
+        self.relatorio = relatorio or {"columnHeaders": [], "rows": []}
+        self.pedidos = []
+
+    def videos(self):
+        return self
+
+    def list(self, **pedido):
+        self.pedidos.append(("videos.list", pedido))
+        return _Execucao(self.estatisticas_)
+
+    def reports(self):
+        return self
+
+    def query(self, **pedido):
+        self.pedidos.append(("reports.query", pedido))
+        return _Execucao(self.relatorio)
+
+
+def test_estatisticas_de_varios_videos_numa_chamada(tmp_path):
+    falso = MetricasFalsas(
+        estatisticas={
+            "items": [
+                {"id": "a", "statistics": {"viewCount": "1200", "likeCount": "80",
+                                           "commentCount": "5"}},
+                {"id": "b", "statistics": {"viewCount": "30", "commentCount": "0"}},
+            ]
+        }
+    )  # fmt: skip
+    resultado = cliente(tmp_path, falso).estatisticas(["a", "b", "sumiu"])
+    assert resultado == {
+        "a": {"visualizacoes": 1200, "curtidas": 80, "comentarios": 5},
+        "b": {"visualizacoes": 30, "curtidas": None, "comentarios": 0},  # curtidas ocultas
+    }
+    ((nome, pedido),) = falso.pedidos
+    assert nome == "videos.list" and pedido["part"] == "statistics"
+    assert pedido["id"] == "a,b,sumiu"
+
+
+def test_retencao_pelo_analytics(tmp_path):
+    from datetime import date
+
+    falso = MetricasFalsas(
+        relatorio={
+            "columnHeaders": [{"name": n} for n in
+                              ("video", "averageViewDuration", "averageViewPercentage", "shares")],
+            "rows": [["a", 14.5, 62.0, 3]],
+        }
+    )  # fmt: skip
+    resultado = cliente(tmp_path, falso).retencao("a", date(2026, 10, 1), date(2026, 10, 8))
+    assert resultado == {"duracao_media_s": 14.5, "retencao": 0.62, "compartilhamentos": 3}
+    ((nome, pedido),) = falso.pedidos
+    assert nome == "reports.query"
+    assert pedido["ids"] == "channel==MINE" and pedido["filters"] == "video==a"
+    assert (pedido["startDate"], pedido["endDate"]) == ("2026-10-01", "2026-10-08")
+
+
+def test_analytics_ainda_sem_dados_devolve_none(tmp_path):
+    from datetime import date
+
+    falso = MetricasFalsas(relatorio={"columnHeaders": [{"name": "video"}], "rows": []})
+    assert cliente(tmp_path, falso).retencao("a", date(2026, 10, 1), date(2026, 10, 2)) is None
+
+
+def test_login_antigo_so_de_envio_pede_para_entrar_de_novo(tmp_path, video):
+    so_envio = (youtube.PERMISSAO_DE_ENVIO,)
+    c = cliente(tmp_path, MetricasFalsas(), permissoes=so_envio)
+    with pytest.raises(youtube.PrecisaEntrarError, match="youtube.readonly"):
+        c.estatisticas(["a"])
+    # ...e continua enviando.
+    falso = YoutubeFalso([(None, {"id": "x"})])
+    assert cliente(tmp_path, falso, permissoes=so_envio).enviar(video, CORPO, False).id == "x"
+
+
+def test_sem_a_permissao_de_envio_nao_envia(tmp_path, video):
+    c = cliente(tmp_path, YoutubeFalso(), permissoes=tuple(youtube.PERMISSOES_DE_LEITURA))
+    with pytest.raises(youtube.PrecisaEntrarError, match="youtube.upload"):
+        c.enviar(video, CORPO, False)
+
+
+def test_permissoes_vem_do_token_salvo(tmp_path):
+    c = youtube.ClienteYoutube(tmp_path)
+    assert c.permissoes() == set()
+    c.arquivo_do_token.write_text(
+        json.dumps({"scopes": [youtube.PERMISSAO_DE_ENVIO]}), encoding="utf-8"
+    )
+    assert c.permissoes() == {youtube.PERMISSAO_DE_ENVIO}

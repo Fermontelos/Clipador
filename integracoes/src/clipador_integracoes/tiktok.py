@@ -1,4 +1,4 @@
-"""Cliente do TikTok (etapa 16): login de app de desktop e envio de rascunhos.
+"""Cliente do TikTok (etapas 16 e 17): login de app de desktop, rascunhos e métricas.
 
 Só este pacote toca nas chaves (ADR 0003): a credencial do app (``TIKTOK_CLIENT_KEY`` e
 ``TIKTOK_CLIENT_SECRET``, no ``.env``) e o token do seu login (``tiktok_token.json``, na
@@ -17,6 +17,11 @@ Conferido na documentação oficial do TikTok for Developers em 2026-10-27:
   chega à caixa de entrada do app **sem legenda**: você finaliza (e escreve a legenda) no
   celular, pela notificação. No máximo **5 rascunhos pendentes a cada 24 h**
   (``spam_risk_too_many_pending_share``) e 6 inícios de envio por minuto.
+- **Métricas** (etapa 17, Display API, permissão ``video.list``): ``/v2/video/list/`` traz
+  só os vídeos **públicos**, do mais novo para o mais antigo, até 20 por página (o
+  ``cursor`` é um horário em milissegundos); ``/v2/video/query/`` traz até 20 vídeos pelo ID.
+  Os dois dão ``view_count``, ``like_count``, ``comment_count`` e ``share_count``; retenção,
+  não. Conferido na documentação oficial em 2026-10-29.
 - **Pedaços**: de 5 MB a 64 MB (o último pode chegar a 128 MB); vídeo de até 64 MB pode ir
   inteiro; ``total_chunk_count`` = tamanho ÷ pedaço, arredondado para baixo (o resto vai no
   último pedaço); enviados em ordem; 206 = falta pedaço, 201 = terminou.
@@ -46,7 +51,14 @@ URL_DE_LOGIN = "https://www.tiktok.com/v2/auth/authorize/"
 URL_DO_TOKEN = "https://open.tiktokapis.com/v2/oauth/token/"
 URL_DO_RASCUNHO = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
 URL_DO_STATUS = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
-PERMISSOES = "video.upload"  # só enviar rascunhos (o post direto exige a auditoria)
+URL_DA_LISTA = "https://open.tiktokapis.com/v2/video/list/"
+URL_DA_CONSULTA = "https://open.tiktokapis.com/v2/video/query/"
+PERMISSAO_DE_RASCUNHO = "video.upload"  # enviar rascunhos (o post direto exige a auditoria)
+PERMISSAO_DE_LEITURA = "video.list"  # ler os seus vídeos públicos e as métricas (Display API)
+CAMPOS_DO_VIDEO = (
+    "id,create_time,title,video_description,share_url,duration,"
+    "view_count,like_count,comment_count,share_count"
+)
 ARQUIVO_DO_TOKEN = "tiktok_token.json"
 MENSAGEM_DO_NAVEGADOR = "Pronto! Pode fechar esta aba e voltar ao Clipador."
 
@@ -223,12 +235,14 @@ class ClienteTiktok:
 
     # ------------------------------------------------------------------ login
 
-    def endereco_de_login(self, redirect_uri: str, estado: str, pkce: Pkce) -> str:
+    def endereco_de_login(
+        self, redirect_uri: str, estado: str, pkce: Pkce, permissoes: tuple[str, ...]
+    ) -> str:
         credencial = ler_credencial(self.arquivo_env)
         parametros = {
             "client_key": credencial.client_key,
             "response_type": "code",
-            "scope": PERMISSOES,
+            "scope": ",".join(permissoes),
             "redirect_uri": redirect_uri,
             "state": estado,
             "code_challenge": pkce.desafio,
@@ -236,8 +250,16 @@ class ClienteTiktok:
         }
         return f"{URL_DE_LOGIN}?{urlencode(parametros)}"
 
-    def entrar(self, abrir: Callable[[str], Any] = webbrowser.open) -> None:
-        """Abre o navegador para você autorizar o app e salva o token."""
+    def entrar(
+        self,
+        abrir: Callable[[str], Any] = webbrowser.open,
+        permissoes: tuple[str, ...] = (PERMISSAO_DE_RASCUNHO,),
+    ) -> None:
+        """Abre o navegador para você autorizar o app e salva o token.
+
+        ``permissoes``: só as que você vai usar (cada uma exige o produto dela no app do
+        TikTok for Developers: Content Posting API para o rascunho, Display API para ler).
+        """
         ler_credencial(self.arquivo_env)  # falta a credencial: avisa antes de abrir o navegador
         pronto = threading.Event()
         retorno = type("Retorno", (_Retorno,), {"resultado": {}, "pronto": pronto})
@@ -247,16 +269,21 @@ class ClienteTiktok:
         linha = threading.Thread(target=servidor.serve_forever, daemon=True)
         linha.start()
         try:
-            abrir(self.endereco_de_login(redirect_uri, estado, pkce))
+            abrir(self.endereco_de_login(redirect_uri, estado, pkce, permissoes))
             if not pronto.wait(ESPERA_DO_LOGIN_S):
                 raise ErroDoTiktokError("O login não foi concluído em 5 minutos.")
         finally:
             servidor.shutdown()
             servidor.server_close()
-        self.concluir_login(retorno.resultado, estado, pkce, redirect_uri)
+        self.concluir_login(retorno.resultado, estado, pkce, redirect_uri, permissoes)
 
     def concluir_login(
-        self, retorno: dict[str, str], estado: str, pkce: Pkce, redirect_uri: str
+        self,
+        retorno: dict[str, str],
+        estado: str,
+        pkce: Pkce,
+        redirect_uri: str,
+        permissoes: tuple[str, ...] = (PERMISSAO_DE_RASCUNHO,),
     ) -> None:
         """Confere o retorno do navegador e troca o código pelo token."""
         if retorno.get("state") != estado:
@@ -266,9 +293,10 @@ class ClienteTiktok:
                 f"O TikTok não autorizou: {retorno.get('error_description') or retorno['error']}"
             )
         concedidas = set(retorno.get("scopes", "").split(","))
-        if PERMISSOES not in concedidas:
+        if not concedidas & set(permissoes):
             raise ErroDoTiktokError(
-                f"A permissão '{PERMISSOES}' não foi concedida: autorize de novo marcando-a."
+                f"Nenhuma das permissões pedidas ({', '.join(permissoes)}) foi concedida: "
+                "autorize de novo marcando-as."
             )
         credencial = ler_credencial(self.arquivo_env)
         self._pedir_token(
@@ -284,6 +312,19 @@ class ClienteTiktok:
 
     def tem_login(self) -> bool:
         return self.arquivo_do_token.is_file()
+
+    def permissoes(self) -> set[str]:
+        """As permissões que o seu login deu ao app (vazio sem login)."""
+        if not self.tem_login():
+            return set()
+        return {p for p in self._token().get("scope", "").split(",") if p}
+
+    def _exigir(self, permissao: str, para: str) -> None:
+        if permissao not in self.permissoes():
+            raise PrecisaEntrarError(
+                f"O seu login no TikTok não tem a permissão {permissao} (para {para}): rode "
+                "'clipador tiktok-entrar' de novo e marque-a."
+            )
 
     def login_vale_ate(self) -> datetime | None:
         """Até quando o login vale (o token de renovação), se houver login."""
@@ -354,6 +395,7 @@ class ClienteTiktok:
 
     def enviar_rascunho(self, arquivo: Path) -> Rascunho:
         """Manda o vídeo para a caixa de entrada do app (você finaliza no celular)."""
+        self._exigir(PERMISSAO_DE_RASCUNHO, "enviar rascunhos")
         tamanho = arquivo.stat().st_size
         pedaco, total = dividir_em_pedacos(tamanho)
         with self._http() as http:
@@ -433,3 +475,44 @@ class ClienteTiktok:
         if resposta.status_code != 200 or codigo != "ok":
             raise traduzir(resposta)
         return resposta.json()["data"]
+
+    # ------------------------------------------------------------------ métricas (etapa 17)
+
+    def _pedir_videos(self, url: str, corpo: dict[str, Any]) -> dict[str, Any]:
+        self._exigir(PERMISSAO_DE_LEITURA, "ler os seus vídeos e as métricas")
+        with self._http() as http:
+            resposta = http.post(
+                url,
+                params={"fields": CAMPOS_DO_VIDEO},
+                headers={
+                    "Authorization": f"Bearer {self._acesso()}",
+                    "Content-Type": "application/json; charset=UTF-8",
+                },
+                json=corpo,
+            )
+        codigo, _ = _codigo_do_erro(resposta)
+        if resposta.status_code != 200 or codigo != "ok":
+            raise traduzir(resposta)
+        return resposta.json().get("data", {})
+
+    def listar_videos(self, antes_de_ms: int | None = None) -> tuple[list[dict], int, bool]:
+        """Uma página dos seus vídeos públicos (até 20, do mais novo para o mais antigo).
+
+        Devolve ``(videos, cursor, tem_mais)``: passe o ``cursor`` para a próxima página.
+        """
+        corpo: dict[str, Any] = {"max_count": 20}
+        if antes_de_ms is not None:
+            corpo["cursor"] = antes_de_ms
+        dados = self._pedir_videos(URL_DA_LISTA, corpo)
+        return (
+            list(dados.get("videos", [])),
+            int(dados.get("cursor") or 0),
+            bool(dados.get("has_more")),
+        )
+
+    def consultar_videos(self, video_ids: list[str]) -> dict[str, dict]:
+        """Os vídeos pedidos (até 20), pelo ID; os que não voltam (apagados) ficam de fora."""
+        if not 0 < len(video_ids) <= 20:
+            raise ValueError("De 1 a 20 vídeos por consulta.")
+        dados = self._pedir_videos(URL_DA_CONSULTA, {"filters": {"video_ids": video_ids}})
+        return {str(v["id"]): v for v in dados.get("videos", [])}
