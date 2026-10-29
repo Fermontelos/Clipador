@@ -228,6 +228,11 @@ def status(arquivo: OpcaoArquivo = CAMINHO_PADRAO, demo: OpcaoDemo = False) -> N
         for situacao in StatusTarefa
     )
     typer.echo(f"Fila: {contagens}")
+    if resumo.agendadas:
+        typer.echo(
+            f"  ({resumo.agendadas} das pendentes estão marcadas para depois: coletas de métricas "
+            "e envios esperando a hora ou a cota)"
+        )
 
     total = resumo.por_status
     if resumo.em_andamento:
@@ -717,7 +722,9 @@ def engajamento(
                 f"Cortes com métricas: {r.com_metricas} ({r.com_7_dias} com a coleta de 7 dias)."
             )
             if r.cortes:
-                typer.echo("\nOs que mais engajaram (índice: 1 = o típico da rede):")
+                typer.echo(
+                    "\nOs que mais engajaram (índice: 1 = o típico da rede; Shorts à parte):"
+                )
                 for c in r.cortes[:10]:
                     typer.echo(
                         f"  {_br(c.indice):>5}  {c.plataforma:7s} {c.visualizacoes or 0:>8} "

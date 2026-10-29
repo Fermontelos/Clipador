@@ -395,6 +395,7 @@ def _registrar_rotas(app: FastAPI) -> None:
         uso = cota.cota_youtube(sessao, agora())
         return esquemas.StatusSaida(
             fila={situacao.value: resumo.por_status[situacao] for situacao in StatusTarefa},
+            agendadas=resumo.agendadas,
             em_andamento=[_tarefa(t) for t in resumo.em_andamento],
             erros=[_tarefa(t) for t in resumo.com_erro],
             cota_youtube=esquemas.CotaSaida(**vars(uso)),

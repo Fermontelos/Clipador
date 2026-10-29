@@ -459,6 +459,7 @@ def test_status(cliente, sessao, um_momento):
     sessao.commit()
     corpo = cliente.get("/api/status").json()
     assert corpo["fila"] == {"pendente": 1, "em_andamento": 0, "feita": 0, "erro": 1}
+    assert corpo["agendadas"] == 0  # a pendente (o recorte) já pode rodar
     assert [t["ultimo_erro"] for t in corpo["erros"]] == ["sem faixa da voz"]
     assert corpo["cota_youtube"]["envios"] == 1
     assert corpo["cota_youtube"]["limite_envios"] == 100

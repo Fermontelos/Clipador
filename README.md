@@ -252,7 +252,8 @@ cd frontend; npm ci; npm run build; cd ..
   (visualizações, curtidas, comentários e compartilhamentos; no YouTube, também a retenção,
   pelo YouTube Analytics). No TikTok, ele acha entre os seus vídeos públicos o que você
   postou, pelo horário e pelo título. Com a coleta de 7 dias, cada corte ganha um **índice
-  de engajamento** (1 = o vídeo típico daquela rede no seu canal), e a tela **Engajamento**
+  de engajamento** (1 = o vídeo típico daquela rede no seu canal; no YouTube, Shorts e
+  vídeos normais têm medianas separadas), e a tela **Engajamento**
   mostra os cortes que mais engajaram, as hashtags e os tipos de título que funcionam (a
   partir de 5 vídeos), o engajamento por tipo de momento e YouTube × TikTok. Com **50 cortes**,
   o app sugere pesos para a nota que preveem o engajamento, misturados meio a meio com o seu

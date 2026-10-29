@@ -2,7 +2,8 @@
 
 - ``coleta``: as métricas de cada publicação 24 h, 72 h e 7 dias depois de ela ir ao ar (e,
   no TikTok, achar entre os seus vídeos o que você postou a partir da pasta ou do rascunho);
-- ``indice``: as métricas viram um número comparável entre vídeos (1 = o típico do canal);
+- ``indice``: as métricas viram um número comparável entre vídeos (1 = o típico do
+  grupo: a rede e, no YouTube, Short ou vídeo normal);
 - ``ranking``: hashtags e tipos de título que funcionam, e a escolha "aproveitar ou testar"
   (epsilon-greedy) nas sugestões da etapa 10.
 

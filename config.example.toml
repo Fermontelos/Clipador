@@ -228,7 +228,8 @@ exploracao = 0.1
 # Por quantos dias procurar no TikTok o vídeo que você postou (da pasta ou do rascunho).
 dias_para_achar_no_tiktok = 14
 
-# O índice de engajamento: cada medida comparada com a mediana da rede no seu canal.
+# O índice de engajamento: cada medida comparada com a mediana do mesmo grupo no seu canal
+# (a rede; no YouTube, Shorts e vídeos normais à parte).
 [engajamento.pesos]
 alcance = 0.5    # visualizações
 interacao = 0.3  # (curtidas + comentários + compartilhamentos) ÷ visualizações

@@ -2,7 +2,9 @@
 
 Visualizações sozinhas enganam: um canal que cresce faz todo vídeo novo parecer melhor, e
 YouTube e TikTok têm públicos de tamanhos diferentes. Por isso cada medida é comparada com a
-**mediana daquela rede no seu canal** (o vídeo "típico"):
+**mediana do mesmo grupo no seu canal** (o vídeo "típico"). Os grupos são as redes, e no
+YouTube os Shorts ficam separados dos vídeos horizontais: um Short costuma ter muito mais
+visualizações, e com uma mediana só todo horizontal pareceria ruim.
 
 - **alcance** = visualizações ÷ a mediana das visualizações;
 - **interação** = (curtidas + comentários + compartilhamentos) ÷ visualizações, ÷ a mediana
@@ -15,8 +17,8 @@ um viral não engolir os outros. O índice é a média dessas medidas com os pes
 ``[engajamento.pesos]``; uma medida que o vídeo não tem (a retenção no TikTok) sai da conta, e
 os pesos das outras são divididos entre elas.
 
-Um vídeo está **acima da mediana** se o índice dele passa da mediana dos índices da mesma
-rede: é essa a resposta que a regressão logística aprende a prever (``aprendizado.engajamento``).
+Um vídeo está **acima da mediana** se o índice dele passa da mediana dos índices do mesmo
+grupo: é essa a resposta que a regressão logística aprende a prever (``aprendizado.engajamento``).
 """
 
 import statistics
@@ -35,6 +37,7 @@ from clipador.banco.modelos import (
     Publicacao,
 )
 from clipador.config import PesosDoIndice
+from clipador.publicacao.pedido import e_short
 
 TETO = 10.0
 
@@ -49,6 +52,16 @@ class Linha:
     decisao: Decisao | None
     gravacao: Gravacao
     formato: str
+    duracao_s: float | None = None  # do clipe: um vertical longo não é Short
+
+    @property
+    def grupo(self) -> str:
+        """Com quem o vídeo é comparado: a rede (e, no YouTube, Short ou vídeo normal)."""
+        plataforma = self.publicacao.plataforma
+        if plataforma is Plataforma.YOUTUBE:
+            vertical = self.formato.startswith("vertical")
+            return "youtube_short" if e_short(vertical, self.duracao_s) else "youtube_video"
+        return plataforma.value
 
 
 @dataclass(frozen=True)
@@ -81,7 +94,15 @@ def linhas_de_7_dias(sessao: Session) -> list[Linha]:
         ).all()
     }
     return [
-        Linha(pub, metrica, momento, decisoes.get(momento.id), gravacao, clipe.formato.value)
+        Linha(
+            pub,
+            metrica,
+            momento,
+            decisoes.get(momento.id),
+            gravacao,
+            clipe.formato.value,
+            clipe.duracao_s,
+        )  # fmt: skip
         for pub, metrica, momento, gravacao, clipe in resultado
     ]
 
@@ -109,10 +130,8 @@ def _relativo(valor: float | None, mediana: float | None) -> float | None:
 def calcular(linhas: list[Linha], pesos: PesosDoIndice) -> list[Indice]:
     """O índice de cada publicação (ver o topo). As que não têm nenhuma medida ficam de fora."""
     resultado: list[Indice] = []
-    for plataforma in Plataforma:
-        da_rede = [linha for linha in linhas if linha.publicacao.plataforma is plataforma]
-        if not da_rede:
-            continue
+    for grupo in sorted({linha.grupo for linha in linhas}):
+        da_rede = [linha for linha in linhas if linha.grupo == grupo]
         med_vis = _mediana([float(x.metrica.visualizacoes or 0) for x in da_rede])
         med_int = _mediana([taxa_de_interacao(x.metrica) for x in da_rede])
         med_ret = _mediana([x.metrica.retencao for x in da_rede])

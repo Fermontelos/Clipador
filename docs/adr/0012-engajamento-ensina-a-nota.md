@@ -26,9 +26,11 @@ cada corte publicado foi (YouTube e TikTok) e usa isso. Perguntas:
   legenda contém o título aprovado (sem acentos, maiúsculas, hashtags nem pontuação), e liga
   o mais antigo que ainda não está ligado a outra publicação. Sem achar, tenta a cada 12 h por
   14 dias. Ligado, um rascunho deixa de contar no limite de 5 pendentes.
-- **Índice normalizado pela mediana de cada rede.** Alcance (visualizações), interação
+- **Índice normalizado pela mediana de cada grupo.** O grupo é a rede, e no YouTube os
+  Shorts ficam à parte dos vídeos horizontais (um Short costuma ter muito mais
+  visualizações). Alcance (visualizações), interação
   ((curtidas + comentários + compartilhamentos) ÷ visualizações) e retenção, cada um dividido
-  pela mediana daquela rede no canal e limitado a 10, numa média com pesos do config. Só a
+  pela mediana do grupo no canal e limitado a 10, numa média com pesos do config. Só a
   coleta de 7 dias entra. A resposta do treino é "acima da mediana do índice da rede".
 - **Mistura, e não troca.** O treino é a regressão logística da etapa 14 (ADR 0009) com essa
   resposta; os pesos aprendidos entram na nota como

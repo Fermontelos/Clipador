@@ -71,7 +71,12 @@ export function Engajamento() {
   }
 
   const s = dados.sugestao;
-  const topo = dados.cortes.slice(0, NO_GRAFICO).map((c) => ({ ...c, rotulo: curto(c.titulo) }));
+  // A rede no rótulo: o mesmo momento no YouTube e no TikTok tem o mesmo título, e o eixo
+  // juntaria as duas barras numa linha só.
+  const topo = dados.cortes.slice(0, NO_GRAFICO).map((c) => ({
+    ...c,
+    rotulo: `${curto(c.titulo, 24)} · ${NOMES_DAS_REDES[c.plataforma] ?? c.plataforma}`,
+  }));
   const sinais = Object.keys(s.pesos_atuais).sort();
   const novos = s.pesos_novos;
 
@@ -81,7 +86,8 @@ export function Engajamento() {
         <h2 className="font-semibold">Engajamento</h2>
         <p className="text-sm text-[var(--texto-fraco)]">
           {dados.com_metricas} cortes com métricas, {dados.com_7_dias} com a coleta de 7 dias (a
-          que entra no índice). Índice 1 = o vídeo típico daquela rede no seu canal; 2 = o dobro.
+          que entra no índice). Índice 1 = o vídeo típico do mesmo grupo no seu canal (a rede e, no YouTube, Short
+          ou vídeo normal); 2 = o dobro.
           Engajamento também depende de horário, tendências e do algoritmo: com poucos vídeos, os
           números erram bastante.
         </p>

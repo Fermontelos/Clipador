@@ -109,6 +109,8 @@ export interface Tarefa {
 
 export interface Status {
   fila: Record<string, number>;
+  /** Pendentes marcadas para depois (coletas de métricas, envios esperando a hora ou a cota). */
+  agendadas: number;
   em_andamento: Tarefa[];
   erros: Tarefa[];
   cota_youtube: {
@@ -197,7 +199,7 @@ export interface CorteEngajamento {
   plataforma: string;
   formato: string;
   link: string | null;
-  /** 1 = o vídeo típico daquela rede no seu canal. */
+  /** 1 = o vídeo típico do mesmo grupo: a rede e, no YouTube, Short ou vídeo normal. */
   indice: number;
   visualizacoes: number | null;
   curtidas: number | null;

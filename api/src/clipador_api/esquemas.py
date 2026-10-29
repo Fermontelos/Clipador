@@ -146,6 +146,9 @@ class CotaSaida(BaseModel):
 
 class StatusSaida(BaseModel):
     fila: dict[str, int] = Field(description="Quantas tarefas há em cada situação.")
+    agendadas: int = Field(
+        description="Pendentes marcadas para depois (coletas de métricas, envios esperando)."
+    )
     em_andamento: list[TarefaSaida]
     erros: list[TarefaSaida]
     cota_youtube: CotaSaida
@@ -220,7 +223,12 @@ class CorteSaida(BaseModel):
     plataforma: str
     formato: str
     link: str | None
-    indice: float = Field(description="1 = o vídeo típico daquela rede no seu canal.")
+    indice: float = Field(
+        description=(
+            "1 = o vídeo típico do mesmo grupo no seu canal: a rede e, no YouTube, Short ou "
+            "vídeo normal."
+        )
+    )
     visualizacoes: int | None
     curtidas: int | None
     comentarios: int | None

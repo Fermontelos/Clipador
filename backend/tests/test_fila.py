@@ -138,6 +138,21 @@ def test_resumo_conta_por_status_e_lista_erros(sessao, gravacao):
     assert resumo.por_status[StatusTarefa.ERRO] == 1
     assert [t.ultimo_erro for t in resumo.com_erro] == ["quebrou"]
     assert len(resumo.proximas) == 1
+    assert resumo.agendadas == 0
+
+
+def test_resumo_separa_as_agendadas_para_depois(sessao, gravacao):
+    from datetime import timedelta
+
+    from clipador.banco.modelos import agora
+
+    fila.adicionar(sessao, TipoTarefa.EXTRAIR_AUDIO, gravacao_id=gravacao.id)
+    depois = fila.adicionar(sessao, TipoTarefa.COLETAR_METRICAS, gravacao_id=gravacao.id)
+    depois.executar_a_partir_de = agora() + timedelta(days=3)  # ex.: a coleta de 72 h
+    sessao.add(depois)
+    sessao.commit()
+    resumo = fila.resumo(sessao)
+    assert resumo.por_status[StatusTarefa.PENDENTE] == 2 and resumo.agendadas == 1
 
 
 def test_concluir_grava_tudo_junto_ou_nada(engine, gravacao, monkeypatch):

@@ -34,7 +34,8 @@ def cfg(tmp_path):
 
 
 def nova_publicacao(sessao, plataforma=Plataforma.YOUTUBE, titulo="NÃO ACREDITO", sinais=None,
-                    hashtags=("#lol",), tipo="frase_sua", **campos) -> Publicacao:  # fmt: skip
+                    hashtags=("#lol",), tipo="frase_sua", formato=FormatoClipe.VERTICAL_A,
+                    **campos) -> Publicacao:  # fmt: skip
     gravacao = Gravacao(arquivo=f"C:/g/{datetime.now().timestamp()}.mkv", inicio=NO_AR,
                         duracao_s=3600, status=StatusGravacao.CONCLUIDA)  # fmt: skip
     sessao.add(gravacao)
@@ -43,7 +44,7 @@ def nova_publicacao(sessao, plataforma=Plataforma.YOUTUBE, titulo="NÃO ACREDITO
                       sinais=sinais or {"volume_voz": 0.5})  # fmt: skip
     sessao.add(momento)
     sessao.flush()
-    clipe = Clipe(momento_id=momento.id, formato=FormatoClipe.VERTICAL_A, arquivo="x.mp4")
+    clipe = Clipe(momento_id=momento.id, formato=formato, arquivo="x.mp4", duracao_s=30)
     sessao.add(clipe)
     sessao.add(Decisao(momento_id=momento.id, aprovado=True, titulo=titulo,
                        hashtags=list(hashtags), tipo_titulo=tipo))  # fmt: skip
@@ -615,3 +616,28 @@ def test_aceitar_gosto_e_engajamento_um_nao_apaga_o_outro(sessao, cfg):
         assert de_novo.pesos_novos == aprendizado_pesos.misturar(
             v2.pesos_do_gosto, de_novo.pesos_do_engajamento, 0.5
         )
+
+
+def test_tiktok_titulo_bate_so_com_palavras_inteiras(sessao, cfg, tt, monkeypatch):
+    pub = nova_publicacao(sessao, Plataforma.TIKTOK, titulo="gank")
+    coleta.agendar(sessao, pub, cfg)
+    sessao.commit()
+    tt.videos = [video_tt("outro", 1, "ganking no mid"), video_tt("certo", 2, "que gank!")]
+    no_relogio(monkeypatch, NO_AR + timedelta(hours=30))
+    with pytest.raises(fila.TentarDepois):
+        rodar(sessao, pub, cfg)
+    assert sessao.get(Publicacao, pub.id).id_na_plataforma == "certo"
+
+
+def test_shorts_e_videos_do_youtube_tem_medianas_separadas(sessao):
+    # Shorts têm bem mais visualizações: cada um é comparado com o seu grupo.
+    short = com_7d(sessao, Plataforma.YOUTUBE, 5000)
+    com_7d(sessao, Plataforma.YOUTUBE, 5000)
+    horizontal = com_7d(sessao, Plataforma.YOUTUBE, 200, formato=FormatoClipe.HORIZONTAL)
+    com_7d(sessao, Plataforma.YOUTUBE, 200, formato=FormatoClipe.HORIZONTAL)
+    pesos = PesosDoIndice(alcance=1, interacao=0, retencao=0)
+    por_pub = {i.linha.publicacao.id: i for i in indice.indices(sessao, pesos)}
+    assert por_pub[short.id].valor == pytest.approx(1.0)
+    assert por_pub[horizontal.id].valor == pytest.approx(1.0)  # típico entre os horizontais
+    assert por_pub[short.id].linha.grupo == "youtube_short"
+    assert por_pub[horizontal.id].linha.grupo == "youtube_video"

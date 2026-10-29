@@ -63,6 +63,12 @@ export function Fila() {
             >
               {status.fila[situacao] ?? 0}
             </div>
+            {situacao === "pendente" && status.agendadas > 0 && (
+              <div className="text-xs text-[var(--texto-fraco)]">
+                {status.agendadas} para depois (coletas de métricas, envios esperando a hora ou a
+                cota)
+              </div>
+            )}
           </div>
         ))}
       </section>

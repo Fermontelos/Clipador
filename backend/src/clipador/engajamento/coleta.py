@@ -31,6 +31,7 @@ from sqlmodel import Session, col, select
 
 from clipador.banco.fila import Contexto, FalhaDefinitivaError, TentarDepois
 from clipador.banco.modelos import (
+    Clipe,
     ColetaMetrica,
     Decisao,
     Metrica,
@@ -89,8 +90,6 @@ def agendar(sessao: Session, publicacao: Publicacao, cfg: Config) -> Tarefa | No
 
 
 def _momento_id(sessao: Session, publicacao: Publicacao) -> int:
-    from clipador.banco.modelos import Clipe
-
     return sessao.get(Clipe, publicacao.clipe_id).momento_id
 
 
@@ -135,7 +134,8 @@ def achar_no_tiktok(
         if postado < enviada_em - FOLGA_ANTES_DO_ENVIO or str(video.get("id")) in ja_ligados:
             continue
         legenda = simplificar(f"{video.get('title', '')} {video.get('video_description', '')}")
-        if procurado in legenda:
+        # Palavras inteiras: o título "gank" não pode bater com a legenda "ganking no mid".
+        if f" {procurado} " in f" {legenda} ":
             candidatos.append((postado, video))
     return min(candidatos, key=lambda c: c[0])[1] if candidatos else None
 
@@ -162,7 +162,9 @@ def _procurar_no_tiktok(sessao: Session, cliente: Any, publicacao: Publicacao) -
         videos, cursor, tem_mais = cliente.listar_videos(antes_de_ms=cursor)
         vistos += videos
         mais_antigo = min((int(v.get("create_time", 0)) for v in videos), default=0)
-        antes_do_envio = datetime.fromtimestamp(mais_antigo, UTC) < publicacao.enviada_em
+        antes_do_envio = (
+            datetime.fromtimestamp(mais_antigo, UTC) < publicacao.enviada_em - FOLGA_ANTES_DO_ENVIO
+        )
         if not tem_mais or antes_do_envio:
             break  # a lista vem do mais novo para o mais antigo: o resto é de antes do envio
     return achar_no_tiktok(vistos, titulo or "", publicacao.enviada_em, ja_ligados)

@@ -455,7 +455,9 @@ class PesosDoIndice(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     alcance: float = Field(
-        default=0.5, ge=0, description="Visualizações ÷ a mediana do canal naquela rede."
+        default=0.5,
+        ge=0,
+        description="Visualizações ÷ a mediana do grupo (rede; no YouTube, Short ou vídeo).",
     )
     interacao: float = Field(
         default=0.3,

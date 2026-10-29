@@ -11,6 +11,7 @@ let decisoes: string[];
 
 const STATUS = {
   fila: { pendente: 0, em_andamento: 0, feita: 5, erro: 0 },
+  agendadas: 0,
   em_andamento: [],
   erros: [],
   cota_youtube: {

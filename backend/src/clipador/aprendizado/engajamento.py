@@ -2,7 +2,7 @@
 
 **O modelo.** O mesmo da etapa 14 (ADR 0009), com outra pergunta. Cada corte publicado com a
 métrica de 7 dias é um exemplo: as entradas são as forças dos detectores no momento e a
-resposta é "o índice ficou acima da mediana da rede?" (``engajamento.indice``). Um momento
+resposta é "o índice ficou acima da mediana do grupo?" (``engajamento.indice``). Um momento
 publicado no YouTube e no TikTok vale dois exemplos (cada rede tem o seu público).
 
 **A mistura.** Os pesos aprendidos não substituem os do seu gosto: a nota final é

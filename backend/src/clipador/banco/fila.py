@@ -343,6 +343,9 @@ class ResumoFila:
     em_andamento: list[Tarefa] = field(default_factory=list)
     proximas: list[Tarefa] = field(default_factory=list)
     com_erro: list[Tarefa] = field(default_factory=list)
+    # Pendentes marcadas para depois (coletas de métricas, envios esperando a cota): não são
+    # fila travada, só ainda não chegou a hora delas.
+    agendadas: int = 0
 
 
 def resumo(sessao: Session, limite: int = 10) -> ResumoFila:
@@ -351,6 +354,11 @@ def resumo(sessao: Session, limite: int = 10) -> ResumoFila:
     contagens = sessao.exec(select(Tarefa.status, func.count()).group_by(col(Tarefa.status))).all()
     for status, quantidade in contagens:
         resumo_fila.por_status[status] = quantidade
+    resumo_fila.agendadas = sessao.exec(
+        select(func.count())
+        .select_from(Tarefa)
+        .where(Tarefa.status == StatusTarefa.PENDENTE, col(Tarefa.executar_a_partir_de) > agora())
+    ).one()
     resumo_fila.em_andamento = list(
         sessao.exec(
             select(Tarefa)
