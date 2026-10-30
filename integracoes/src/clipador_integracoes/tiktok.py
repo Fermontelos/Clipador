@@ -50,7 +50,6 @@ log = logging.getLogger(__name__)
 URL_DE_LOGIN = "https://www.tiktok.com/v2/auth/authorize/"
 URL_DO_TOKEN = "https://open.tiktokapis.com/v2/oauth/token/"
 URL_DO_RASCUNHO = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
-URL_DO_STATUS = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
 URL_DA_LISTA = "https://open.tiktokapis.com/v2/video/list/"
 URL_DA_CONSULTA = "https://open.tiktokapis.com/v2/video/query/"
 PERMISSAO_DE_RASCUNHO = "video.upload"  # enviar rascunhos (o post direto exige a auditoria)
@@ -459,22 +458,6 @@ class ClienteTiktok:
             espera = min(2**tentativa, 30)
             log.warning("Envio ao TikTok interrompido (%s); de novo em %d s.", problema, espera)
             self._esperar(espera)
-
-    def status(self, publish_id: str) -> dict[str, Any]:
-        """Em que pé está o rascunho (``SEND_TO_USER_INBOX``, ``PUBLISH_COMPLETE``...)."""
-        with self._http() as http:
-            resposta = http.post(
-                URL_DO_STATUS,
-                headers={
-                    "Authorization": f"Bearer {self._acesso()}",
-                    "Content-Type": "application/json; charset=UTF-8",
-                },
-                json={"publish_id": publish_id},
-            )
-        codigo, _ = _codigo_do_erro(resposta)
-        if resposta.status_code != 200 or codigo != "ok":
-            raise traduzir(resposta)
-        return resposta.json()["data"]
 
     # ------------------------------------------------------------------ métricas (etapa 17)
 

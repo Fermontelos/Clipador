@@ -15,6 +15,7 @@ members = ["integracoes", "backend", "api"]
 dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "pytest-timeout>=2.4.0",
     "ruff>=0.17.0",
 ]
@@ -52,3 +53,19 @@ markers = [
 # perto de 1 min com o PC livre). Um teste travado falha sozinho, mostrando onde parou, em
 # vez de segurar a CI por horas.
 timeout = 300
+
+# Cobertura dos testes (etapa 18): quanto do código os testes executam.
+# uv run pytest --cov  (o relatório sai no terminal; --cov-report=html gera htmlcov/)
+[tool.coverage.run]
+source = ["clipador_integracoes", "clipador", "clipador_api"]
+branch = true  # conta também os dois lados de cada "if", não só as linhas
+# A cobertura do serviço e da demo inclui processos filhos (FFmpeg): o que conta é o Python.
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    '^\s*\.\.\.$',  # o corpo dos Protocol (só a assinatura)
+]

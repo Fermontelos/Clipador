@@ -9,10 +9,10 @@ on:
 jobs:
   testes:
     runs-on: windows-latest
-    # Tudo leva uns 10 min (8 min só de testes, medidos no PC). Sem este limite, um
-    # travamento segura a máquina por até 6 h (aconteceu: um FFmpeg que não foi encerrado
-    # travou a CI por 5 h).
-    timeout-minutes: 30
+    # Os testes levam uns 10 min no PC, e a medição da cobertura deixa mais lento. Sem este
+    # limite, um travamento segura a máquina por até 6 h (aconteceu: um FFmpeg que não foi
+    # encerrado travou a CI por 5 h).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -37,8 +37,15 @@ jobs:
       - name: Formatação
         run: uv run ruff format --check
 
-      - name: Testes (inclusive os lentos)
-        run: uv run pytest
+      - name: Testes (inclusive os lentos), com a cobertura
+        run: uv run pytest --cov
+
+      # O roteiro (etapa 18) pede pelo menos 80% nos detectores e no alinhamento do LoL, as
+      # partes com testes obrigatórios: abaixo disso, a CI falha.
+      - name: Cobertura dos detectores e do alinhamento (mínimo 80%)
+        run: >-
+          uv run coverage report --fail-under=80
+          --include="*/clipador/detectores/*,*/clipador/jogo/alinhamento.py"
 
   # A interface de revisão (etapa 13): tipos, testes do Vitest e o build. Roda em Linux
   # (mais rápido): não usa nada do Windows.

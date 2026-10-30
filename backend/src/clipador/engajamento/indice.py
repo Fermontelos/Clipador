@@ -162,7 +162,9 @@ def calcular(linhas: list[Linha], pesos: PesosDoIndice) -> list[Indice]:
             )
             for linha, valor, medidas in parciais
         ]
-    return resultado
+    # Na ordem das publicações (a cronológica), e não na dos grupos: a validação cruzada
+    # sorteia as partes pela posição na lista, e um detalhe interno não pode mudá-las.
+    return sorted(resultado, key=lambda item: item.linha.publicacao.id)
 
 
 def indices(sessao: Session, pesos: PesosDoIndice) -> list[Indice]:

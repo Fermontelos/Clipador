@@ -108,6 +108,7 @@ export function Estatisticas() {
                   fill={s.cor}
                   maxBarSize={24}
                   radius={[4, 4, 0, 0]}
+                  isAnimationActive={false}
                 />
               ))}
             </BarChart>
@@ -190,6 +191,7 @@ function Grafico({
                 strokeWidth={2}
                 maxBarSize={24}
                 radius={i === SERIES.length - 1 ? [4, 4, 0, 0] : 0}
+                isAnimationActive={false}
               />
             ))}
           </BarChart>

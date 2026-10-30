@@ -71,10 +71,6 @@ class TiktokFalso:
                 json={"data": {"videos": self.videos, "cursor": 123, "has_more": True},
                       "error": {"code": "ok"}},
             )  # fmt: skip
-        if url == tiktok.URL_DO_STATUS:
-            return httpx.Response(
-                200, json={"data": {"status": "SEND_TO_USER_INBOX"}, "error": {"code": "ok"}}
-            )
         return httpx.Response(404)
 
     def dos(self, prefixo: str) -> list[httpx.Request]:
@@ -346,12 +342,6 @@ def test_erros_do_tiktok_viram_erros_com_nome(tmp_path, env, falso, status, codi
     with pytest.raises(erro):
         cli.enviar_rascunho(video(tmp_path, MB))
     assert falso.dos("https://up.tiktok/") == []
-
-
-def test_status_do_rascunho(tmp_path, env, falso):
-    cli = cliente(tmp_path, env, falso)
-    salvar_token(cli, AGORA + timedelta(hours=10))
-    assert cli.status("v_inbox_file~1")["status"] == "SEND_TO_USER_INBOX"
 
 
 # ------------------------------------------------------------------ métricas (etapa 17)

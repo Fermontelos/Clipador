@@ -706,3 +706,17 @@ def test_recusar_tira_da_pasta_e_mantem_o_que_ja_saiu(sessao, momento, cfg, tt):
     (pasta / "outro_momento.mp4").write_bytes(b"v")  # de outro momento: não é tocado
     decisoes.decidir(sessao, momento.id, aprovado=False, cfg=cfg)
     assert sorted(p.name for p in pasta.iterdir()) == ["outro_momento.mp4"]
+
+
+def test_envio_simulado_nao_gasta_a_cota(sessao, momento, cfg):
+    # A demo (e quem testa o fluxo no modo simulado) não pode "gastar" a cota do Google: ao
+    # passar para o modo real no mesmo dia, ela tem de estar inteira.
+    cfg = cfg.model_copy(update={"youtube": ConfigYoutube(modo="simulado")})
+    aprovar(sessao, momento, cfg)
+    for tarefa in tarefas_publicar(sessao):
+        if sessao.get(Publicacao, tarefa.publicacao_id).plataforma is Plataforma.YOUTUBE:
+            publicar.publicar(sessao, tarefa, cfg)
+    enviadas = [p for p in publicacoes(sessao) if p.enviada_em is not None]
+    assert enviadas and all(p.id_na_plataforma.startswith(cota.PREFIXO_SIMULADO) for p in enviadas)
+    uso = cota.cota_youtube(sessao, datetime.now(UTC))
+    assert (uso.envios, uso.unidades) == (0, 0)

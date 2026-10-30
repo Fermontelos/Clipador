@@ -71,7 +71,9 @@ cada corte publicado foi (YouTube e TikTok) e usa isso. Perguntas:
 
 - Engajamento também depende de horário, tendência e algoritmo: com poucos vídeos, o modelo
   erra bastante. A precisão "antes e depois" é medida em cortes que o treino não viu, e serve
-  para comparar, não como garantia.
+  para comparar, não como garantia. Ela também oscila: na demo (118 cortes), só mudar a
+  ordem dos exemplos (que decide as 5 partes da validação cruzada) levava de 64% → 74%
+  para 71% → 72%. Por isso os exemplos vão sempre na ordem cronológica.
 - Hashtag e tipo de título são correlação, não causa (a `#pentakill` vai bem porque o momento
   de LoL vai bem). Por isso eles só mudam a ordem das sugestões.
 - No TikTok, vídeos privados não aparecem na lista: um corte postado como privado fica sem

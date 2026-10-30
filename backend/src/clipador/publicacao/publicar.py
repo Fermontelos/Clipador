@@ -80,7 +80,7 @@ class YoutubeSimulado:
 
     def enviar(self, arquivo: Path, corpo: dict, notificar_inscritos: bool) -> youtube.VideoEnviado:
         self.enviados.append((arquivo, corpo))
-        video_id = f"simulado-{len(self.enviados)}-{arquivo.stem}"
+        video_id = f"{cota.PREFIXO_SIMULADO}{len(self.enviados)}-{arquivo.stem}"
         return youtube.VideoEnviado(id=video_id, link="")
 
     def definir_thumbnail(self, video_id: str, imagem: Path) -> None:

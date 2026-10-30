@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="228" viewBox="0 0 640 228" role="img" aria-label="Precisão no topo antes e depois de aprender, dados da demo">
+<style>
+  svg { --fundo:#fcfcfb; --texto:#0b0b0b; --texto-2:#52514e; --fraco:#898781;
+        --grade:#e1e0d9; --base:#c3c2b7; --s1:#2a78d6; --s2:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --fundo:#1a1a19; --texto:#f0efec; --texto-2:#c3c2b7; --fraco:#898781;
+          --grade:#2c2c2a; --base:#383835; --s1:#3987e5; --s2:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--texto-2); }
+  .titulo { font-size: 15px; font-weight: 600; fill: var(--texto); }
+  .nota { font-size: 11px; fill: var(--fraco); }
+  .rotulo { font-size: 13px; }
+  .valor { font-size: 13px; font-weight: 600; fill: var(--texto);
+           font-variant-numeric: tabular-nums; }
+</style>
+<rect width="640" height="228" rx="8" fill="var(--fundo)"/>
+<text class="titulo" x="20" y="28">A nota aprendendo: precisão nos de maior nota</text>
+<text class="nota" x="20" y="46">Medida em decisões e cortes que o treino não viu (validação cruzada). Dados inventados da demo.</text>
+<rect x="20" y="58" width="12" height="12" rx="2" fill="var(--s1)"/>
+<text class="rotulo" x="38" y="69">pesos de antes</text>
+<rect x="150" y="58" width="12" height="12" rx="2" fill="var(--s2)"/>
+<text class="rotulo" x="168" y="69">pesos aprendidos</text>
+<text class="rotulo" x="160" y="110" text-anchor="end">Suas aprovações</text>
+<line x1="170" y1="83" x2="170" y2="127" stroke="var(--base)"/>
+<path d="M170,86 h220.24242424242422 a4.0,4.0 0 0 1 4.0,4.0 v10.0 a4.0,4.0 0 0 1 -4.0,4.0 h-220.24242424242422 z" fill="var(--s1)"/>
+<text class="valor" x="402.24242424242425" y="100">56%</text>
+<path d="M170,106 h256.6060606060606 a4.0,4.0 0 0 1 4.0,4.0 v10.0 a4.0,4.0 0 0 1 -4.0,4.0 h-256.6060606060606 z" fill="var(--s2)"/>
+<text class="valor" x="438.6060606060606" y="120">65%</text>
+<text class="rotulo" x="160" y="172" text-anchor="end">Engajamento</text>
+<line x1="170" y1="145" x2="170" y2="189" stroke="var(--base)"/>
+<path d="M170,148 h250.54545454545453 a4.0,4.0 0 0 1 4.0,4.0 v10.0 a4.0,4.0 0 0 1 -4.0,4.0 h-250.54545454545453 z" fill="var(--s1)"/>
+<text class="valor" x="432.5454545454545" y="162">64%</text>
+<path d="M170,168 h292.969696969697 a4.0,4.0 0 0 1 4.0,4.0 v10.0 a4.0,4.0 0 0 1 -4.0,4.0 h-292.969696969697 z" fill="var(--s2)"/>
+<text class="valor" x="474.969696969697" y="182">74%</text>
+</svg>

@@ -88,8 +88,10 @@ export function Revisao({ visivel = true }: { visivel?: boolean }) {
         if (cancelado) return;
         const mesmo = nova.momentos.findIndex((m) => m.id === idNaTela.current);
         setLista(nova);
-        // Senão, começa pelo 1º pendente (o de maior nota que falta revisar).
-        setIndice(mesmo >= 0 ? mesmo : proximoPendente(nova.momentos, -1));
+        // Senão, começa pelo 1º pendente (o de maior nota que falta revisar). Com o dia todo
+        // revisado, abre no 1º: os decididos continuam ali para conferir ou desfazer.
+        const pendente = proximoPendente(nova.momentos, -1);
+        setIndice(mesmo >= 0 ? mesmo : Math.max(pendente, 0));
         if (!dia && nova.dia) setDia(nova.dia);
       })
       .catch(mostrarErro);

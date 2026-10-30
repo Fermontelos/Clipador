@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="222" viewBox="0 0 640 222" role="img" aria-label="Engajamento por tipo de momento, dados da demo">
+<style>
+  svg { --fundo:#fcfcfb; --texto:#0b0b0b; --texto-2:#52514e; --fraco:#898781;
+        --grade:#e1e0d9; --base:#c3c2b7; --s1:#2a78d6; --s2:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --fundo:#1a1a19; --texto:#f0efec; --texto-2:#c3c2b7; --fraco:#898781;
+          --grade:#2c2c2a; --base:#383835; --s1:#3987e5; --s2:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--texto-2); }
+  .titulo { font-size: 15px; font-weight: 600; fill: var(--texto); }
+  .nota { font-size: 11px; fill: var(--fraco); }
+  .rotulo { font-size: 13px; }
+  .valor { font-size: 13px; font-weight: 600; fill: var(--texto);
+           font-variant-numeric: tabular-nums; }
+</style>
+<rect width="640" height="222" rx="8" fill="var(--fundo)"/>
+<text class="titulo" x="20" y="28">Engajamento por tipo de momento</text>
+<text class="nota" x="20" y="46">Índice médio (1 = o vídeo típico da rede). Dados inventados da demo.</text>
+<line x1="370.0" y1="56" x2="370.0" y2="174" stroke="var(--base)" stroke-dasharray="3 3"/>
+<text class="nota" x="374.0" y="188">típico = 1</text>
+<line x1="170" y1="59" x2="170" y2="91" stroke="var(--base)"/>
+<text class="rotulo" x="160" y="79" text-anchor="end">evento do LoL</text>
+<path d="M170,62 h301.2 a4.0,4.0 0 0 1 4.0,4.0 v18.0 a4.0,4.0 0 0 1 -4.0,4.0 h-301.2 z" fill="var(--s1)"/>
+<text class="valor" x="483.2" y="79">1,53</text>
+<text class="nota" x="521.2" y="79">34 cortes</text>
+<line x1="170" y1="99" x2="170" y2="131" stroke="var(--base)"/>
+<text class="rotulo" x="160" y="119" text-anchor="end">grito (voz alta)</text>
+<path d="M170,102 h221.8 a4.0,4.0 0 0 1 4.0,4.0 v18.0 a4.0,4.0 0 0 1 -4.0,4.0 h-221.8 z" fill="var(--s1)"/>
+<text class="valor" x="403.8" y="119">1,13</text>
+<text class="nota" x="441.8" y="119">30 cortes</text>
+<line x1="170" y1="139" x2="170" y2="171" stroke="var(--base)"/>
+<text class="rotulo" x="160" y="159" text-anchor="end">fala</text>
+<path d="M170,142 h197.79999999999998 a4.0,4.0 0 0 1 4.0,4.0 v18.0 a4.0,4.0 0 0 1 -4.0,4.0 h-197.79999999999998 z" fill="var(--s1)"/>
+<text class="valor" x="379.79999999999995" y="159">1,01</text>
+<text class="nota" x="417.79999999999995" y="159">54 cortes</text>
+</svg>

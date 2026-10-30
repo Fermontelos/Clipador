@@ -71,12 +71,15 @@ export function Engajamento() {
   }
 
   const s = dados.sugestao;
-  // A rede no rótulo: o mesmo momento no YouTube e no TikTok tem o mesmo título, e o eixo
-  // juntaria as duas barras numa linha só.
+  // O eixo usa a publicação (única) como chave e só mostra o rótulo: títulos se repetem (o
+  // mesmo momento no YouTube e no TikTok, ou "Momento 4 da live" em lives diferentes), e com
+  // o título como chave o gráfico juntaria barras diferentes numa linha só.
   const topo = dados.cortes.slice(0, NO_GRAFICO).map((c) => ({
     ...c,
-    rotulo: `${curto(c.titulo, 24)} · ${NOMES_DAS_REDES[c.plataforma] ?? c.plataforma}`,
+    chave: String(c.publicacao_id),
+    rotulo: `${curto(c.titulo, 22)} · ${NOMES_DAS_REDES[c.plataforma] ?? c.plataforma}`,
   }));
+  const rotuloDa = Object.fromEntries(topo.map((c) => [c.chave, c.rotulo]));
   const sinais = Object.keys(s.pesos_atuais).sort();
   const novos = s.pesos_novos;
 
@@ -108,7 +111,13 @@ export function Engajamento() {
               <BarChart data={topo} layout="vertical" margin={{ left: 8, right: 16 }}>
                 <CartesianGrid horizontal={false} stroke="var(--grade)" />
                 <XAxis type="number" tickFormatter={(v: number) => br(v)} {...EIXO} />
-                <YAxis type="category" dataKey="rotulo" width={200} {...EIXO} />
+                <YAxis
+                  type="category"
+                  dataKey="chave"
+                  width={240}
+                  tickFormatter={(chave: string) => rotuloDa[chave] ?? ""}
+                  {...EIXO}
+                />
                 <Tooltip
                   cursor={{ fill: "var(--grade)" }}
                   contentStyle={{ background: "var(--fundo)", border: "1px solid var(--borda)" }}
@@ -118,7 +127,14 @@ export function Engajamento() {
                   ]}
                   labelFormatter={(_r, itens) => itens[0]?.payload.titulo ?? ""}
                 />
-                <Bar dataKey="indice" fill="var(--serie-1)" radius={[0, 4, 4, 0]} barSize={18} />
+                {/* Sem animação, como os outros gráficos: aparece pronto e sem movimento. */}
+                <Bar
+                  dataKey="indice"
+                  fill="var(--serie-1)"
+                  radius={[0, 4, 4, 0]}
+                  barSize={18}
+                  isAnimationActive={false}
+                />
               </BarChart>
             </ResponsiveContainer>
           </section>

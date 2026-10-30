@@ -88,6 +88,29 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(apiFalsa));
 });
 
+describe("dia já revisado", () => {
+  it("abre no 1º momento, com a decisão, em vez de dizer que não há nada", async () => {
+    const decidido = (id: number) => ({
+      ...momentoDeTeste(id),
+      decisao: {
+        aprovado: true,
+        formatos: ["vertical_a"],
+        destinos: { vertical_a: ["youtube"] },
+        titulo: `título ${id}`,
+        hashtags: [],
+        tipo_titulo: null,
+        ajuste_inicio_s: null,
+        ajuste_fim_s: null,
+        decidida_em: "2026-10-24T12:00:00Z",
+      },
+    });
+    momentos = [decidido(1), decidido(2)];
+    await abrir();
+    expect(screen.getByText(/Aprovado/)).toBeInTheDocument();
+    expect(screen.queryByText(/Nenhum momento para revisar/)).not.toBeInTheDocument();
+  });
+});
+
 describe("autoplay", () => {
   it("o 1º clipe espera uma tecla, e essa tecla não aprova nada", async () => {
     const usuario = await abrir();

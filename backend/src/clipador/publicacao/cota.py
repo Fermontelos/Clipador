@@ -29,6 +29,7 @@ LIMITE_DE_ENVIOS = 100
 LIMITE_DE_UNIDADES = 10_000
 CUSTO_DA_THUMBNAIL = 50
 CUSTO_DAS_ESTATISTICAS = 1  # videos.list
+PREFIXO_SIMULADO = "simulado-"  # o ID que o YouTube simulado dá (publicar.YoutubeSimulado)
 
 
 @dataclass(frozen=True)
@@ -56,10 +57,12 @@ def inicio_do_dia_da_cota(agora: datetime) -> datetime:
 
 def cota_youtube(sessao: Session, agora: datetime) -> CotaYoutube:
     inicio = inicio_do_dia_da_cota(agora)
-    do_dia = (
+    do_youtube_de_verdade = (
         Publicacao.plataforma == Plataforma.YOUTUBE,
-        col(Publicacao.enviada_em) >= inicio,
+        # O modo simulado (a demo, os testes do fluxo) não gasta cota do Google.
+        ~func.coalesce(col(Publicacao.id_na_plataforma), "").startswith(PREFIXO_SIMULADO),
     )
+    do_dia = (*do_youtube_de_verdade, col(Publicacao.enviada_em) >= inicio)
     envios = sessao.exec(select(func.count()).select_from(Publicacao).where(*do_dia)).one()
     unidades = sessao.exec(
         select(func.coalesce(func.sum(Publicacao.unidades_cota), 0)).where(*do_dia)
@@ -68,7 +71,7 @@ def cota_youtube(sessao: Session, agora: datetime) -> CotaYoutube:
         select(func.count())
         .select_from(Metrica)
         .join(Publicacao, col(Publicacao.id) == col(Metrica.publicacao_id))
-        .where(Publicacao.plataforma == Plataforma.YOUTUBE, col(Metrica.coletada_em) >= inicio)
+        .where(*do_youtube_de_verdade, col(Metrica.coletada_em) >= inicio)
     ).one()
     # Amanhã à meia-noite no Pacífico (somar 1 dia no horário local acerta o horário de verão).
     amanha = (inicio.astimezone(FUSO_DA_COTA) + timedelta(days=1)).replace(hour=0)

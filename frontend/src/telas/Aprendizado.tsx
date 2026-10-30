@@ -104,6 +104,7 @@ export function Aprendizado() {
                 stroke="var(--serie-1)"
                 strokeWidth={2}
                 dot={{ r: 4, fill: "var(--serie-1)", stroke: "var(--superficie)", strokeWidth: 2 }}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>

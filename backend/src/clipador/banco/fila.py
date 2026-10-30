@@ -91,7 +91,12 @@ def adicionar(
     publicacao_id: int | None = None,
     executar_a_partir_de: datetime | None = None,
 ) -> Tarefa:
-    """Coloca uma tarefa nova na fila e devolve ela já salva."""
+    """Coloca uma tarefa nova na fila e devolve ela já salva (com um commit só dela).
+
+    Para os testes e para scripts. O app cria as tarefas direto (``Tarefa(...)``) dentro do
+    commit de quem as cria: a decisão e a tarefa de publicar, o recorte e o ajuste, o fim de
+    uma tarefa e a próxima da cadeia sempre juntos, sem uma ficar sem a outra.
+    """
     tarefa = Tarefa(
         tipo=tipo,
         gravacao_id=gravacao_id,
