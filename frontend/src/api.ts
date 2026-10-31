@@ -1,5 +1,7 @@
 // Conversa com a API local (127.0.0.1). Nada de chaves aqui: tudo o que está no navegador
 // pode ser lido por quem abrir as ferramentas de desenvolvedor.
+import { apiDaDemoEstatica } from "./demo/apiEstatica";
+import { ErroDaApi } from "./erros";
 import type {
   Aprendizado,
   Config,
@@ -11,14 +13,7 @@ import type {
   Status,
 } from "./tipos";
 
-export class ErroDaApi extends Error {
-  constructor(
-    public status: number,
-    mensagem: string,
-  ) {
-    super(mensagem);
-  }
-}
+export { ErroDaApi };
 
 /** A mensagem que a API mandou (``detail``), em texto. */
 function explicar(corpo: unknown, status: number): string {
@@ -47,7 +42,7 @@ async function pedir<T>(caminho: string, opcoes: RequestInit = {}): Promise<T> {
 
 const json = (dados: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(dados) });
 
-export const api = {
+const apiLocal = {
   config: () => pedir<Config>("/api/config"),
   dias: () => pedir<Dia[]>("/api/dias"),
   momentos: (dia: string | null, verMais: boolean) => {
@@ -85,3 +80,12 @@ export const api = {
   aceitarEngajamento: (cortes: number) =>
     pedir<Engajamento>("/api/engajamento/aceitar", json({ cortes })),
 };
+
+export type Api = typeof apiLocal;
+
+/**
+ * A versão publicada no GitHub Pages (``vite build --mode estatica``) não tem servidor: lê as
+ * respostas gravadas da demo. A condição é decidida no build, e o build normal nem inclui a
+ * demo estática.
+ */
+export const api: Api = import.meta.env.MODE === "estatica" ? apiDaDemoEstatica : apiLocal;

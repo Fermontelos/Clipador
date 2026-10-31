@@ -1,0 +1,99 @@
+# A demo que roda só no navegador, publicada no GitHub Pages: a revisão com os dados
+# inventados da demo, sem instalar nada (https://<usuário>.github.io/Clipador/).
+#
+# Para ligar (uma vez): repositório público (ou um plano do GitHub que tenha Pages em
+# repositório privado) e, em Settings → Pages → Build and deployment, Source = GitHub Actions.
+name: Demo no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  # 1. A demo de verdade (FFmpeg, banco, API), em Windows como a CI: gera a live falsa,
+  # processa e grava as respostas da API e os vídeos dos clipes.
+  gerar:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v10.3.0
+
+      - name: Instalar o FFmpeg
+        run: choco install ffmpeg-full -y --no-progress
+
+      - name: Instalar dependências (sem as bibliotecas da NVIDIA)
+        run: uv sync --locked --all-packages --no-group gpu
+
+      - name: Gerar a live falsa
+        run: uv run clipador demo --do-zero
+
+      - name: Processar (momentos, 12 clipes e títulos)
+        run: uv run clipador processar --demo
+
+      - name: Exportar as respostas da API e os vídeos
+        run: uv run python docs/gerar_demo_estatica.py saida
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: demo
+          path: saida/demo
+
+  # 2. A interface no modo estático, com a demo ao lado, publicada no Pages.
+  publicar:
+    needs: gerar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacao.outputs.page_url }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Instalar o Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # O site fica em /<repositório>/: as telas e os vídeos usam essa pasta.
+      - name: Build estático
+        run: npm run build:estatica
+        env:
+          CLIPADOR_BASE: /${{ github.event.repository.name }}/
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: demo
+          path: frontend/dist-estatica/demo
+
+      # O Pages não conhece as telas (/fila, /estatisticas...): a página de "não achei"
+      # é a própria interface, que abre a tela certa pelo endereço.
+      - name: Página 404 = a interface
+        run: cp dist-estatica/index.html dist-estatica/404.html
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: frontend/dist-estatica
+
+      - id: publicacao
+        uses: actions/deploy-pages@v5

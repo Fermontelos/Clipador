@@ -12,6 +12,12 @@ const Engajamento = lazy(() =>
 );
 
 // As 4 telas, cada uma com o próprio endereço (o FastAPI devolve o index para qualquer um).
+// BASE: a pasta onde a interface está publicada ("" no clipador web; "/Clipador" na demo do
+// GitHub Pages, que serve o site numa subpasta).
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const DEMO_ESTATICA = import.meta.env.MODE === "estatica";
+const telaDoEndereco = () => window.location.pathname.slice(BASE.length) || "/";
+
 const TELAS = [
   { caminho: "/", nome: "Revisão" },
   { caminho: "/fila", nome: "Fila e status" },
@@ -20,10 +26,10 @@ const TELAS = [
 ] as const;
 
 export function App() {
-  const [caminho, setCaminho] = useState(window.location.pathname);
+  const [caminho, setCaminho] = useState(telaDoEndereco);
 
   useEffect(() => {
-    const voltar = () => setCaminho(window.location.pathname);
+    const voltar = () => setCaminho(telaDoEndereco());
     window.addEventListener("popstate", voltar);
     return () => window.removeEventListener("popstate", voltar);
   }, []);
@@ -32,17 +38,24 @@ export function App() {
 
   return (
     <div className="min-h-screen">
+      {DEMO_ESTATICA && (
+        <p className="bg-[var(--superficie)] px-4 py-2 text-center text-sm text-[var(--texto-2)]">
+          Demo no navegador, com os dados inventados da demo: as decisões ficam só nesta aba, e
+          ajustar o corte não corta o vídeo de novo (não há FFmpeg aqui). Aperte <kbd>?</kbd>{" "}
+          para ver os atalhos.
+        </p>
+      )}
       <header className="flex items-center gap-6 border-b border-[var(--borda)] px-4 py-2">
         <span className="font-bold">Clipador</span>
         <nav className="flex gap-1" aria-label="Telas">
           {TELAS.map((t) => (
             <a
               key={t.caminho}
-              href={t.caminho}
+              href={BASE + t.caminho}
               aria-current={t === atual ? "page" : undefined}
               onClick={(e) => {
                 e.preventDefault();
-                window.history.pushState(null, "", t.caminho);
+                window.history.pushState(null, "", BASE + t.caminho);
                 setCaminho(t.caminho);
               }}
               className={`rounded-md px-3 py-1 text-sm ${

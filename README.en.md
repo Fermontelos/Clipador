@@ -19,6 +19,9 @@ English overview.
 ![Reviewing clips, keyboard only](docs/imagens/revisao.gif)
 
 The whole flow in one minute, on the demo: [video (MP4, no sound)](docs/imagens/demo.mp4).
+**Try the review in your browser, nothing to install:**
+[fermontelos.github.io/Clipador](https://fermontelos.github.io/Clipador/) (the demo, with real
+clips and made-up data; your decisions stay in your tab).
 
 ## What it does
 

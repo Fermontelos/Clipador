@@ -17,6 +17,9 @@ Projeto pessoal e de portfólio (nome provisório), feito só com ferramentas e 
 ![A revisão dos clipes, feita só pelo teclado](docs/imagens/revisao.gif)
 
 O fluxo inteiro em 1 minuto, na demo: [vídeo (MP4, sem som)](docs/imagens/demo.mp4).
+**Experimente a revisão no navegador, sem instalar nada:**
+[fermontelos.github.io/Clipador](https://fermontelos.github.io/Clipador/) (a demo, com os
+clipes de verdade e os dados inventados; as decisões ficam só na sua aba).
 
 ## O que ele faz
 
@@ -203,6 +206,13 @@ As imagens do README (os gráficos da demo e o selo da cobertura) saem de um scr
 uv run pytest --cov --cov-report=json:dados/cobertura.json
 uv run python docs/gerar_imagens.py --cobertura
 ```
+
+A demo do navegador (GitHub Pages) é a mesma interface, num build que lê as respostas da API
+gravadas da demo em vez de falar com o `clipador web`. A cada push no `main`, o workflow
+`.github/workflows/demo.yml` gera a demo, grava as respostas e os vídeos
+(`docs/gerar_demo_estatica.py`) e publica. Para ver no seu PC:
+`cd frontend; npm run build:estatica; cd ..` e
+`uv run python docs/gerar_demo_estatica.py frontend/dist-estatica` (com a demo já processada).
 
 A interface (em `frontend/`, React + Vite + TypeScript + Tailwind):
 

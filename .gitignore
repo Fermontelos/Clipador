@@ -30,6 +30,8 @@ dados/
 
 # Frontend (etapa 13): dependências do npm (o build, frontend/dist, já cai em dist/)
 node_modules/
+# A demo estática (npm run build:estatica + docs/gerar_demo_estatica.py)
+dist-estatica/
 
 # Cobertura dos testes (etapa 18): gerados por "pytest --cov"
 .coverage

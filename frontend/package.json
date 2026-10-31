@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:estatica": "tsc --noEmit && vite build --mode estatica",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

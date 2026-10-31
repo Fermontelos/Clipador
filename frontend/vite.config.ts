@@ -11,8 +11,14 @@ const ORIGENS_DO_VITE = new Set([
   `http://127.0.0.1:${PORTA_DO_VITE}`,
 ]);
 
-export default defineConfig({
+// "npm run build:estatica": a demo que roda só no navegador, para o GitHub Pages, que serve o
+// site na subpasta do repositório (https://<usuário>.github.io/Clipador/).
+const PASTA_NO_PAGES = process.env.CLIPADOR_BASE ?? "/Clipador/";
+
+export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
+  base: mode === "estatica" ? PASTA_NO_PAGES : "/",
+  build: { outDir: mode === "estatica" ? "dist-estatica" : "dist" },
   server: {
     host: "127.0.0.1", // só este PC, como a API
     port: PORTA_DO_VITE,
@@ -48,4 +54,4 @@ export default defineConfig({
       thresholds: { lines: 80 }, // abaixo disso, o comando (e a CI) falha
     },
   },
-});
+}));
