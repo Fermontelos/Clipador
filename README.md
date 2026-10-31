@@ -1,5 +1,7 @@
 # Clipador de lives
 
+*[Read in English](README.en.md)*
+
 [![CI](https://github.com/Fermontelos/Clipador/actions/workflows/ci.yml/badge.svg)](https://github.com/Fermontelos/Clipador/actions/workflows/ci.yml)
 ![Cobertura dos testes](docs/imagens/cobertura.svg)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab)
