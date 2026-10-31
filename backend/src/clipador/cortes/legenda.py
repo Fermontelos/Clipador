@@ -39,7 +39,7 @@ def linhas_do_clipe(
             linhas.append(
                 {"inicio_s": comeco, "fim_s": termino, "texto": texto, "palavras": [texto]}
             )
-        else:
+        elif atual is not None:
             atual["texto"] = f"{atual['texto']} {texto}"
             atual["fim_s"] = termino
             atual["palavras"].append(texto)

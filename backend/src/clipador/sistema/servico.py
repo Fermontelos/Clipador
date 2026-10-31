@@ -54,7 +54,12 @@ from clipador.cortes import cortar
 from clipador.detectores import detectar
 from clipador.engajamento import coleta
 from clipador.ingestao import audio
-from clipador.ingestao.monitor import AvisoDeMudanca, MonitorDeGravacoes, registrar_gravacao
+from clipador.ingestao.monitor import (
+    AvisoDeMudanca,
+    MonitorDeGravacoes,
+    SemMonitor,
+    registrar_gravacao,
+)
 from clipador.jogo.coletor import iniciar_em_segundo_plano as iniciar_coletor_do_lol
 from clipador.publicacao import publicar
 from clipador.sistema.desligamento import HORIZONTE as HORIZONTE_DA_FILA
@@ -99,7 +104,7 @@ class Servico:
         self,
         cfg: Config,
         executores: dict[TipoTarefa, Executor] | None = None,
-        monitor: MonitorDeGravacoes | None = None,
+        monitor: MonitorDeGravacoes | SemMonitor | None = None,
         energia: ManterAcordado | None = None,
         relogio: Callable[[], datetime] = agora,
         desligamento: Desligamento | None = None,
@@ -286,6 +291,7 @@ class Servico:
         # e ele precisa consultar o jogo a cada 2 s (etapa 7).
         coletor = None
         if self.cfg.lol.coletar:
+            assert self.engine is not None  # aberto em _preparar
             coletor = iniciar_coletor_do_lol(self.engine, parar)
         try:
             while not parar.is_set():

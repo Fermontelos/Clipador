@@ -279,6 +279,7 @@ class Gerador:
                 return Sugestoes(titulos, hashtags, f"ollama ({self.modelo})", candidatas)
             except ValueError as erro:
                 ultimo_erro = erro
+        assert ultimo_erro is not None  # o laço só termina sem return depois de errar
         raise ultimo_erro
 
     def _pedir(self, conversa: list[dict[str, str]]) -> str:

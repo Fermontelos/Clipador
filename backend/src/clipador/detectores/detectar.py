@@ -17,7 +17,7 @@ import soundfile
 from sqlmodel import Session, col, delete, select
 
 from clipador.banco.fila import Contexto, FalhaDefinitivaError
-from clipador.banco.modelos import Clipe, Decisao, Gravacao, Momento, Tarefa, Transcricao
+from clipador.banco.modelos import Clipe, Decisao, Gravacao, Momento, Tarefa, Transcricao, id_de
 from clipador.config import Config
 from clipador.detectores import nota
 from clipador.detectores.base import Detector, Entrada, Sinal
@@ -43,7 +43,7 @@ def criar_detectores(cfg: Config) -> list[Detector]:
 
 
 def montar_entrada(sessao: Session, cfg: Config, gravacao: Gravacao, tarefa: Tarefa) -> Entrada:
-    wav = audio.caminho_da_voz(cfg, gravacao.id)
+    wav = audio.caminho_da_voz(cfg, id_de(gravacao))
     if not wav.is_file():
         # Ex.: a pasta dados/trabalho foi apagada à mão. Extrair de novo leva uns 2 min.
         log.warning("O áudio da voz de '%s' sumiu; extraindo de novo.", gravacao.arquivo)
@@ -104,11 +104,11 @@ def detectar(
     deteccao = nota.deteccao_atual(sessao, cfg.deteccao)
     momentos = nota.calcular(sinais, disponiveis, pesos, deteccao, entrada.duracao_s)
 
-    _apagar_momentos_antigos(sessao, gravacao.id)
+    _apagar_momentos_antigos(sessao, id_de(gravacao))
     for momento in momentos:
         sessao.add(
             Momento(
-                gravacao_id=gravacao.id,
+                gravacao_id=id_de(gravacao),
                 inicio_s=round(momento.inicio_s, 2),
                 fim_s=round(momento.fim_s, 2),
                 pico_s=round(momento.pico_s, 2),

@@ -147,6 +147,7 @@ def pegar_proxima(
         sessao.commit()
         if resultado.rowcount == 1:
             tarefa = sessao.get(Tarefa, tarefa_id, populate_existing=True)
+            assert tarefa is not None  # acabou de ser mudada pelo UPDATE
             log.info("Tarefa %s (%s) iniciada.", tarefa.id, tarefa.tipo.value)
             return tarefa
     return None
@@ -358,7 +359,7 @@ def resumo(sessao: Session, limite: int = 10) -> ResumoFila:
     resumo_fila = ResumoFila()
     contagens = sessao.exec(select(Tarefa.status, func.count()).group_by(col(Tarefa.status))).all()
     for status, quantidade in contagens:
-        resumo_fila.por_status[status] = quantidade
+        resumo_fila.por_status[StatusTarefa(status)] = quantidade
     resumo_fila.agendadas = sessao.exec(
         select(func.count())
         .select_from(Tarefa)

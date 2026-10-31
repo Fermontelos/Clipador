@@ -16,6 +16,7 @@ Regras:
 import logging
 import re
 from pathlib import Path
+from typing import Any
 
 from sqlmodel import Session, col, select
 
@@ -28,6 +29,8 @@ from clipador.banco.modelos import (
     Tarefa,
     TipoTarefa,
     agora,
+    id_de,
+    obter,
 )
 from clipador.config import FORMATOS_DO_TIKTOK, Config
 from clipador.cortes.cortar import DURACAO_MINIMA_S
@@ -118,7 +121,7 @@ def normalizar_hashtags(hashtags: list[str]) -> list[str]:
 def _validar_destinos(
     sessao: Session, momento: Momento, destinos: dict[str, list[str]]
 ) -> dict[str, list[str]]:
-    cortados = {clipe.formato.value for clipe in clipes_do_momento(sessao, momento.id)}
+    cortados = {clipe.formato.value for clipe in clipes_do_momento(sessao, id_de(momento))}
     validos: dict[str, list[str]] = {}
     for formato, plataformas in destinos.items():
         unicas = list(dict.fromkeys(plataformas))  # sem repetir, na ordem dada
@@ -189,7 +192,13 @@ def decidir(
     # Tudo é validado ANTES de mexer na decisão salva: um erro no meio não pode deixar a
     # decisão pela metade na sessão (quem reaproveitasse a sessão a gravaria no próximo commit).
     # Recusar: sem formatos, destinos, hashtags nem título.
-    valores = {"destinos": {}, "formatos": [], "hashtags": [], "titulo": None, "tipo_titulo": None}
+    valores: dict[str, Any] = {
+        "destinos": {},
+        "formatos": [],
+        "hashtags": [],
+        "titulo": None,
+        "tipo_titulo": None,
+    }
     if aprovado:
         titulo = " ".join((titulo or "").split())  # sem espaços sobrando nem quebras de linha
         if not titulo:
@@ -267,7 +276,7 @@ def ajustar(
     """
     momento = _momento(sessao, momento_id)
     _exigir_nao_publicado(sessao, momento_id, "ajustar o corte")
-    gravacao = sessao.get(Gravacao, momento.gravacao_id)
+    gravacao = obter(sessao, Gravacao, momento.gravacao_id)
     if gravacao.status in EM_PROCESSAMENTO:
         raise RevisaoBloqueadaError(
             f"A gravação do momento {momento_id} ainda está sendo processada: espere terminar."

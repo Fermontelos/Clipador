@@ -287,13 +287,18 @@ class ConfigVerticalB(BaseModel):
     )
 
 
+# Os formatos de clipe (os valores de FormatoClipe, no banco).
+Formato = Literal["horizontal", "vertical_a", "vertical_b"]
+FORMATOS: tuple[Formato, ...] = ("horizontal", "vertical_a", "vertical_b")
+
+
 class ConfigCortes(BaseModel):
     """Como cortar os clipes (etapa 9)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    formatos: list[Literal["horizontal", "vertical_a", "vertical_b"]] = Field(
-        default_factory=lambda: ["horizontal", "vertical_a", "vertical_b"],
+    formatos: list[Formato] = Field(
+        default_factory=lambda: list(FORMATOS),
         min_length=1,
         description=(
             "Quais formatos gerar de cada momento: horizontal (16:9), vertical_a (9:16, a tela "
@@ -614,11 +619,10 @@ class ConfigRevisao(BaseModel):
     abrir_navegador: bool = Field(
         default=True, description="'clipador web' abre o navegador sozinho."
     )
-    destinos_padrao: dict[Literal["horizontal", "vertical_a", "vertical_b"], list[str]] = Field(
+    destinos_padrao: dict[Formato, list[str]] = Field(
         default_factory=lambda: {
-            "horizontal": ["youtube"],
-            "vertical_a": ["youtube", "tiktok"],
-            "vertical_b": ["youtube", "tiktok"],
+            formato: ["youtube"] if formato == "horizontal" else ["youtube", "tiktok"]
+            for formato in FORMATOS
         },
         description=(
             "Para onde vai cada formato quando você aprova (dá para mudar na hora). "
@@ -858,7 +862,7 @@ def config_sem_arquivo(**valores: Any) -> Config:
 
 def _resolver_caminhos(cfg: Config, base: Path) -> Config:
     """Troca os caminhos relativos por absolutos, contados a partir de ``base``."""
-    absolutos = {}
+    absolutos: dict[str, Any] = {}
     for nome in (
         "pasta_gravacoes", "pasta_dados", "pasta_backups", "pasta_segredos", "arquivo_chaves"
     ):  # fmt: skip

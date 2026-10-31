@@ -57,6 +57,8 @@ from clipador.banco.modelos import (
     StatusTarefa,
     Tarefa,
     agora,
+    id_de,
+    obter,
 )
 from clipador.config import FORMATOS_DO_TIKTOK, Config
 from clipador.cortes.cortar import caminho_da_thumbnail
@@ -160,7 +162,7 @@ def _registrar_erros(app: FastAPI) -> None:
         detalhes = [{"type": e["type"], "loc": e["loc"], "msg": e["msg"]} for e in erro.errors()]
         return JSONResponse({"detail": detalhes}, status_code=422)
 
-    app.add_exception_handler(RequestValidationError, pedido_invalido)
+    app.add_exception_handler(RequestValidationError, pedido_invalido)  # type: ignore[arg-type]
 
 
 # --------------------------------------------------------------------------- montagem
@@ -173,11 +175,12 @@ def _url_do_video(clipe: Clipe) -> str:
 def montar_momento(
     sessao: Session, cfg: Config, momento: Momento, posicao: int
 ) -> esquemas.MomentoSaida:
-    gravacao = sessao.get(Gravacao, momento.gravacao_id)
-    clipes = consultas.clipes_do_momento(sessao, momento.id)
+    gravacao = obter(sessao, Gravacao, momento.gravacao_id)
+    clipes = consultas.clipes_do_momento(sessao, id_de(momento))
     decisao = sessao.exec(select(Decisao).where(Decisao.momento_id == momento.id)).first()
     formatos = [clipe.formato.value for clipe in clipes]
     clipe_por_id = {clipe.id: clipe for clipe in clipes}
+    padrao: dict[str, list[str]] = dict(cfg.revisao.destinos_padrao.items())
     return esquemas.MomentoSaida(
         id=momento.id,
         gravacao_id=momento.gravacao_id,
@@ -210,12 +213,12 @@ def montar_momento(
             if caminho_da_thumbnail(cfg, gravacao, momento).is_file()
             else None
         ),
-        destinos_padrao={f: list(cfg.revisao.destinos_padrao.get(f, [])) for f in formatos},
+        destinos_padrao={f: list(padrao.get(f, [])) for f in formatos},
         decisao=esquemas.DecisaoSaida.model_validate(decisao, from_attributes=True)
         if decisao
         else None,
-        recortando=consultas.recorte_pendente(sessao, momento.id),
-        publicado=consultas.publicado(sessao, momento.id),
+        recortando=consultas.recorte_pendente(sessao, id_de(momento)),
+        publicado=consultas.publicado(sessao, id_de(momento)),
         publicacoes=[
             esquemas.PublicacaoSaida(
                 id=p.id,
@@ -231,13 +234,13 @@ def montar_momento(
                 link=p.link,
                 enviada_em=p.enviada_em,
             )
-            for p in planejar.publicacoes_do_momento(sessao, momento.id)
+            for p in planejar.publicacoes_do_momento(sessao, id_de(momento))
         ],
     )
 
 
 def _posicao_no_dia(sessao: Session, momento: Momento) -> int:
-    gravacao = sessao.get(Gravacao, momento.gravacao_id)
+    gravacao = obter(sessao, Gravacao, momento.gravacao_id)
     do_dia = consultas.momentos_do_dia(sessao, consultas.dia_da_gravacao(gravacao))
     ids = [m.id for m in do_dia]
     # Um momento de uma gravação ainda em processamento não está na lista do dia.
@@ -384,7 +387,7 @@ def _registrar_rotas(app: FastAPI) -> None:
     )
     def thumbnail(momento_id: int, sessao: Sessao, cfg: Cfg) -> FileResponse:
         momento = _momento_ou_404(sessao, momento_id)
-        arquivo = caminho_da_thumbnail(cfg, sessao.get(Gravacao, momento.gravacao_id), momento)
+        arquivo = caminho_da_thumbnail(cfg, obter(sessao, Gravacao, momento.gravacao_id), momento)
         if not arquivo.is_file():
             raise HTTPException(404, f"O momento {momento_id} não tem thumbnail.")
         return FileResponse(arquivo, media_type="image/jpeg", headers=SEM_CACHE_VELHO)

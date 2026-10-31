@@ -42,6 +42,8 @@ from clipador.banco.modelos import (
     Tarefa,
     TipoTarefa,
     agora,
+    id_de,
+    obter,
 )
 from clipador.config import Config
 from clipador.publicacao import cota
@@ -77,7 +79,7 @@ def agendar(sessao: Session, publicacao: Publicacao, cfg: Config) -> Tarefa | No
     # No TikTok, a hora de ir ao ar só se sabe ao achar o vídeo: a 1ª busca é 24 h após o envio.
     base = publicacao.agendada_para or publicacao.enviada_em or agora()
     momento_id = _momento_id(sessao, publicacao)
-    momento = sessao.get(Momento, momento_id)
+    momento = obter(sessao, Momento, momento_id)
     tarefa = Tarefa(
         tipo=TipoTarefa.COLETAR_METRICAS,
         gravacao_id=momento.gravacao_id,
@@ -90,7 +92,14 @@ def agendar(sessao: Session, publicacao: Publicacao, cfg: Config) -> Tarefa | No
 
 
 def _momento_id(sessao: Session, publicacao: Publicacao) -> int:
-    return sessao.get(Clipe, publicacao.clipe_id).momento_id
+    return obter(sessao, Clipe, publicacao.clipe_id).momento_id
+
+
+def _horario(valor: datetime | None, o_que: str, publicacao: Publicacao) -> datetime:
+    """``enviada_em`` ou ``agendada_para`` de uma publicação que já foi enviada."""
+    if valor is None:
+        raise FalhaDefinitivaError(f"A publicação {publicacao.id} não tem {o_que}.")
+    return valor
 
 
 # ------------------------------------------------------------------ clientes
@@ -156,6 +165,7 @@ def _procurar_no_tiktok(sessao: Session, cliente: Any, publicacao: Publicacao) -
         ).all()
         if p
     }
+    enviada_em = _horario(publicacao.enviada_em, "o horário do envio", publicacao)
     vistos: list[dict] = []
     cursor = None
     for _ in range(PAGINAS_DO_TIKTOK):
@@ -163,11 +173,11 @@ def _procurar_no_tiktok(sessao: Session, cliente: Any, publicacao: Publicacao) -
         vistos += videos
         mais_antigo = min((int(v.get("create_time", 0)) for v in videos), default=0)
         antes_do_envio = (
-            datetime.fromtimestamp(mais_antigo, UTC) < publicacao.enviada_em - FOLGA_ANTES_DO_ENVIO
+            datetime.fromtimestamp(mais_antigo, UTC) < enviada_em - FOLGA_ANTES_DO_ENVIO
         )
         if not tem_mais or antes_do_envio:
             break  # a lista vem do mais novo para o mais antigo: o resto é de antes do envio
-    return achar_no_tiktok(vistos, titulo or "", publicacao.enviada_em, ja_ligados)
+    return achar_no_tiktok(vistos, titulo or "", enviada_em, ja_ligados)
 
 
 # ------------------------------------------------------------------ os números
@@ -183,7 +193,8 @@ def _do_youtube(
     numeros = dict(numeros)
     if coleta in COM_RETENCAO:
         try:
-            analytics = cliente.retencao(video_id, publicacao.agendada_para.date(), agora_.date())
+            no_ar = _horario(publicacao.agendada_para, "o horário em que foi ao ar", publicacao)
+            analytics = cliente.retencao(video_id, no_ar.date(), agora_.date())
         except youtube.ErroDoYoutubeError as erro:  # sem a permissão, Analytics desligado...
             log.warning("Retenção do vídeo %s indisponível: %s", video_id, erro)
             analytics = None
@@ -250,7 +261,8 @@ def _ligar_ao_video_do_tiktok(
     """Acha o vídeo que você postou; ``False`` = desistiu (passou do prazo)."""
     video = _procurar_no_tiktok(sessao, cliente, publicacao)
     if video is None:
-        prazo = publicacao.enviada_em + timedelta(days=cfg.engajamento.dias_para_achar_no_tiktok)
+        enviada_em = _horario(publicacao.enviada_em, "o horário do envio", publicacao)
+        prazo = enviada_em + timedelta(days=cfg.engajamento.dias_para_achar_no_tiktok)
         if agora_ >= prazo:
             log.info(
                 "Publicação %s: o vídeo não apareceu no TikTok em %d dias (não postado, ou "
@@ -278,7 +290,7 @@ def _coletar_a_que_venceu(
     feitas = set(
         sessao.exec(select(Metrica.coleta).where(Metrica.publicacao_id == publicacao.id)).all()
     )
-    no_ar = publicacao.agendada_para
+    no_ar = _horario(publicacao.agendada_para, "o horário em que foi ao ar", publicacao)
     pendentes = [(c, no_ar + d) for c, d in DEPOIS_DE_IR_AO_AR.items() if c not in feitas]
     vencidas = [c for c, quando in pendentes if quando <= agora_]
     if not vencidas:
@@ -304,7 +316,9 @@ def _coletar_a_que_venceu(
         log.info("Publicação %s: o vídeo sumiu (apagado ou privado); coletas encerradas.",
                  publicacao.id)  # fmt: skip
         return
-    sessao.add(Metrica(publicacao_id=publicacao.id, coleta=coleta, coletada_em=agora_, **numeros))
+    sessao.add(
+        Metrica(publicacao_id=id_de(publicacao), coleta=coleta, coletada_em=agora_, **numeros)
+    )
     if youtube_ and publicacao.status is StatusPublicacao.AGENDADA:
         publicacao.status = StatusPublicacao.PUBLICADA  # o horário passou: já foi ao ar
         sessao.add(publicacao)

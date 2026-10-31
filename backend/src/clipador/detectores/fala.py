@@ -69,7 +69,7 @@ def trechos_acelerados(palavras: list[dict], fator: float) -> list[tuple[float, 
     if len(falando) == 0:
         return []
     tipica = float(np.median(falando))
-    trechos = []
+    trechos: list[tuple[float, float, float]] = []
     for t, contagem in zip(pontos, contagens, strict=True):
         razao = contagem / tipica
         if contagem >= MIN_PALAVRAS_NA_JANELA and razao >= fator:

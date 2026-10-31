@@ -31,6 +31,8 @@ from clipador.banco.modelos import (
     Tarefa,
     TipoTarefa,
     Transcricao,
+    id_de,
+    obter,
 )
 
 TABELAS = {
@@ -105,6 +107,23 @@ def test_datas_voltam_em_utc(sessao, gravacao):
     lida = sessao.get(Gravacao, gravacao.id, populate_existing=True)
     assert lida.inicio.tzinfo is not None
     assert lida.inicio.utcoffset().total_seconds() == 0
+
+
+def test_id_de_um_registro_gravado(gravacao):
+    assert id_de(gravacao) == gravacao.id
+
+
+def test_id_de_um_registro_ainda_nao_gravado_da_erro_claro():
+    with pytest.raises(ValueError, match="Gravacao ainda não foi gravado"):
+        id_de(Gravacao(arquivo="a.mkv", inicio=datetime(2026, 10, 14, tzinfo=UTC)))
+
+
+def test_obter_devolve_o_registro_ou_diz_qual_faltou(sessao, gravacao):
+    assert obter(sessao, Gravacao, gravacao.id) is gravacao
+    with pytest.raises(LookupError, match="Gravacao 999 não existe"):
+        obter(sessao, Gravacao, 999)
+    with pytest.raises(LookupError, match="Gravacao None não existe"):
+        obter(sessao, Gravacao, None)
 
 
 def test_valores_fixos_voltam_como_enum(sessao, gravacao):

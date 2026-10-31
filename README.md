@@ -192,7 +192,8 @@ uv run pytest              # todos, inclusive a demo real de 3 min
 uv run pytest --cov        # todos, com a cobertura (a CI roda este; --cov-report=html: htmlcov/)
 uv run ruff check          # lint
 uv run ruff format         # formatação
-uv run pre-commit install  # a cada commit: lint, formatação, testes rápidos e, se o
+uv run mypy                # tipos (as anotações das três partes Python)
+uv run pre-commit install  # a cada commit: lint, formatação, tipos, testes rápidos e, se o
                            # frontend mudou, os tipos e os testes do Vitest
 ```
 
@@ -220,7 +221,7 @@ Depois de mudar uma tabela em `backend/src/clipador/banco/modelos.py`, gere a mi
 uv run alembic revision --autogenerate -m "o que mudou"
 ```
 
-A CI (GitHub Actions) roda lint, formatação e testes com a cobertura em Windows a cada push
+A CI (GitHub Actions) roda lint, formatação, tipos e testes com a cobertura em Windows a cada push
 (e falha se os detectores ou o alinhamento do LoL tiverem menos de 80%), e os tipos, os
 testes e o build da interface em Linux.
 Nenhum teste pode passar de 5 minutos (`pytest-timeout`): um teste travado falha mostrando

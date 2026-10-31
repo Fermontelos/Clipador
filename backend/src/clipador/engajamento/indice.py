@@ -35,6 +35,7 @@ from clipador.banco.modelos import (
     Momento,
     Plataforma,
     Publicacao,
+    id_de,
 )
 from clipador.config import PesosDoIndice
 from clipador.publicacao.pedido import e_short
@@ -77,7 +78,7 @@ class Indice:
 def linhas_de_7_dias(sessao: Session) -> list[Linha]:
     """As publicações que já têm a coleta de 7 dias (a que entra no índice)."""
     resultado = sessao.exec(
-        select(Publicacao, Metrica, Momento, Gravacao, Clipe)
+        select(Publicacao, Metrica, Momento, Gravacao, Clipe)  # type: ignore[call-overload]
         .join(Metrica, col(Metrica.publicacao_id) == col(Publicacao.id))
         .join(Clipe, col(Clipe.id) == col(Publicacao.clipe_id))
         .join(Momento, col(Momento.id) == col(Clipe.momento_id))
@@ -116,7 +117,7 @@ def taxa_de_interacao(metrica: Metrica) -> float | None:
     return sum(p or 0 for p in partes) / metrica.visualizacoes
 
 
-def _mediana(valores: list[float]) -> float | None:
+def _mediana(valores: list[float | None]) -> float | None:
     positivos = [v for v in valores if v is not None and v > 0]
     return statistics.median(positivos) if positivos else None
 
@@ -164,7 +165,7 @@ def calcular(linhas: list[Linha], pesos: PesosDoIndice) -> list[Indice]:
         ]
     # Na ordem das publicações (a cronológica), e não na dos grupos: a validação cruzada
     # sorteia as partes pela posição na lista, e um detalhe interno não pode mudá-las.
-    return sorted(resultado, key=lambda item: item.linha.publicacao.id)
+    return sorted(resultado, key=lambda item: id_de(item.linha.publicacao))
 
 
 def indices(sessao: Session, pesos: PesosDoIndice) -> list[Indice]:

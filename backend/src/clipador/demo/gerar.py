@@ -42,6 +42,7 @@ from clipador.banco.modelos import (
     Tarefa,
     TipoTarefa,
     Transcricao,
+    id_de,
 )
 from clipador.config import (
     Config,
@@ -206,7 +207,7 @@ def _popular_banco(sessao, arquivo: Path) -> bool:
     sessao.flush()  # gera o id da gravação, ainda sem gravar de vez
     sessao.add(
         Transcricao(
-            gravacao_id=gravacao.id,
+            gravacao_id=id_de(gravacao),
             palavras=roteiro.palavras_da_transcricao(),
             segmentos=roteiro.frases_da_transcricao(),
             # Já vem pronta: a etapa 6 só exporta a legenda, sem precisar do Whisper (e

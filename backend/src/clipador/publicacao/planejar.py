@@ -30,6 +30,8 @@ from clipador.banco.modelos import (
     Tarefa,
     TipoTarefa,
     agora,
+    id_de,
+    obter,
 )
 from clipador.config import FORMATOS_DO_TIKTOK, Config
 from clipador.publicacao import agenda
@@ -157,7 +159,7 @@ def exportados_pendentes(sessao: Session, momento_id: int, cfg: Config) -> list[
         if publicacao.status is not StatusPublicacao.PENDENTE:
             continue
         video = (
-            cfg.pasta_exportar_tiktok / Path(sessao.get(Clipe, publicacao.clipe_id).arquivo).name
+            cfg.pasta_exportar_tiktok / Path(obter(sessao, Clipe, publicacao.clipe_id).arquivo).name
         )
         arquivos += [p for p in (video, video.with_suffix(".txt")) if p.is_file()]
     return arquivos
@@ -172,7 +174,7 @@ def horarios_ocupados(sessao: Session, sem: int | None = None) -> list[datetime]
             col(Publicacao.agendada_para).is_not(None),
         )
     ).all()
-    return [quando for id_, quando in linhas if id_ != sem]
+    return [quando for id_, quando in linhas if id_ != sem and quando is not None]
 
 
 def planejar(sessao: Session, momento: Momento, decisao: Decisao, cfg: Config) -> list[Publicacao]:
@@ -199,7 +201,7 @@ def planejar(sessao: Session, momento: Momento, decisao: Decisao, cfg: Config) -
                 else None  # o TikTok não tem data de publicação: você posta pelo celular
             )
             publicacao = Publicacao(
-                clipe_id=clipe.id, plataforma=Plataforma(plataforma), agendada_para=quando
+                clipe_id=id_de(clipe), plataforma=Plataforma(plataforma), agendada_para=quando
             )
             sessao.add(publicacao)
             sessao.flush()  # gera o id (e o horário passa a contar como ocupado)

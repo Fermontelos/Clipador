@@ -19,7 +19,7 @@ from datetime import date, datetime
 
 from sqlmodel import Session, col, select
 
-from clipador.banco.modelos import Decisao, Gravacao, Momento
+from clipador.banco.modelos import Decisao, Gravacao, Momento, id_de
 from clipador.revisao.consultas import dia_da_gravacao
 
 FRACAO_DO_TOPO = 0.5
@@ -46,7 +46,7 @@ def exemplos(sessao: Session) -> list[Exemplo]:
     ).all()
     return [
         Exemplo(
-            momento_id=momento.id,
+            momento_id=id_de(momento),
             dia=dia_da_gravacao(gravacao),
             forcas=dict(momento.sinais),
             aprovado=decisao.aprovado,

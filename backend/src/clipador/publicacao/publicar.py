@@ -46,6 +46,8 @@ from clipador.banco.modelos import (
     StatusPublicacao,
     Tarefa,
     agora,
+    id_de,
+    obter,
 )
 from clipador.config import LIMITE_LEGENDA_TIKTOK, Config
 from clipador.cortes.cortar import caminho_da_thumbnail
@@ -117,8 +119,8 @@ def _carregar(sessao: Session, tarefa: Tarefa) -> tuple[Publicacao, Clipe, Momen
     publicacao = sessao.get(Publicacao, tarefa.publicacao_id) if tarefa.publicacao_id else None
     if publicacao is None:
         raise FalhaDefinitivaError(f"A tarefa {tarefa.id} não aponta para uma publicação.")
-    clipe = sessao.get(Clipe, publicacao.clipe_id)
-    momento = sessao.get(Momento, clipe.momento_id)
+    clipe = obter(sessao, Clipe, publicacao.clipe_id)
+    momento = obter(sessao, Momento, clipe.momento_id)
     decisao = sessao.exec(select(Decisao).where(Decisao.momento_id == momento.id)).first()
     if decisao is None or not decisao.aprovado:
         # Não deveria acontecer (desfazer cancela as pendentes), mas nunca publica sem aprovação.
@@ -138,13 +140,13 @@ def publicar(
     if contexto.deve_pausar():
         raise TarefaPausada("Live em andamento: o envio espera ela terminar.")
     agora_ = agora()
-    if recorte_pendente(sessao, momento.id):
+    if recorte_pendente(sessao, id_de(momento)):
         raise TentarDepois("o clipe vai ser cortado de novo", agora_ + ESPERA_PELO_RECORTE)
     arquivo = Path(clipe.arquivo)
     if not arquivo.is_file():
         raise FalhaDefinitivaError(f"O arquivo do clipe {clipe.id} não existe mais: {arquivo}")
 
-    gravacao = sessao.get(Gravacao, momento.gravacao_id)
+    gravacao = obter(sessao, Gravacao, momento.gravacao_id)
     if publicacao.plataforma is Plataforma.TIKTOK:
         _publicar_no_tiktok(sessao, tarefa, cfg, publicacao, arquivo, decisao, gravacao)
         return
@@ -244,20 +246,19 @@ def exportar_para_o_tiktok(
 
 def _rascunhos_recentes(sessao: Session, agora_: datetime) -> list[datetime]:
     """Quando foram enviados os rascunhos do TikTok das últimas 24 h (os mais antigos antes)."""
-    return list(
-        sessao.exec(
-            select(Publicacao.enviada_em)
-            .where(
-                Publicacao.plataforma == Plataforma.TIKTOK,
-                # Ainda pendente no app: um rascunho que você postou (a etapa 17 o acha e o
-                # marca como publicado) já não conta no limite do TikTok.
-                Publicacao.status == StatusPublicacao.ENVIADA,
-                col(Publicacao.id_na_plataforma).is_not(None),
-                col(Publicacao.enviada_em) >= agora_ - JANELA_DOS_RASCUNHOS,
-            )
-            .order_by(col(Publicacao.enviada_em))
-        ).all()
-    )
+    enviados = sessao.exec(
+        select(Publicacao.enviada_em)
+        .where(
+            Publicacao.plataforma == Plataforma.TIKTOK,
+            # Ainda pendente no app: um rascunho que você postou (a etapa 17 o acha e o
+            # marca como publicado) já não conta no limite do TikTok.
+            Publicacao.status == StatusPublicacao.ENVIADA,
+            col(Publicacao.id_na_plataforma).is_not(None),
+            col(Publicacao.enviada_em) >= agora_ - JANELA_DOS_RASCUNHOS,
+        )
+        .order_by(col(Publicacao.enviada_em))
+    ).all()
+    return [quando for quando in enviados if quando is not None]  # o filtro >= já tira os None
 
 
 def _publicar_no_tiktok(

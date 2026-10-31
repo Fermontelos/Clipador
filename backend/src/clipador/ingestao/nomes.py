@@ -24,7 +24,8 @@ def inicio_pelo_nome(arquivo: Path) -> datetime | None:
     if achado is None:
         return None
     try:
-        local = datetime(*(int(parte) for parte in achado.groups()))
+        ano, mes, dia, hora, minuto, segundo = (int(parte) for parte in achado.groups())
+        local = datetime(ano, mes, dia, hora, minuto, segundo)
     except ValueError:  # ex.: "2026-13-40 99-99-99" combina com o padrão, mas não é data
         return None
     # O nome está no horário do PC: astimezone() sem argumento aplica o fuso do sistema.

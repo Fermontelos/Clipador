@@ -12,6 +12,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 class FFmpegNaoEncontradoError(FileNotFoundError):
@@ -169,7 +170,7 @@ def inspecionar(arquivo: Path, tempo_limite_s: float = 60) -> InfoMidia:
     duracao = dados.get("format", {}).get("duration")
     fluxos = dados.get("streams", [])
     audios = [f for f in fluxos if f.get("codec_type") == "audio"]
-    video = next((f for f in fluxos if f.get("codec_type") == "video"), {})
+    video: dict[str, Any] = next((f for f in fluxos if f.get("codec_type") == "video"), {})
     return InfoMidia(
         duracao_s=float(duracao) if duracao is not None else None,
         faixas_audio=len(audios),

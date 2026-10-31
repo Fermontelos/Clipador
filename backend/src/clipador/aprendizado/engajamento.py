@@ -34,7 +34,7 @@ from clipador.aprendizado.sugestao import (
     componentes,
     versao_atual,
 )
-from clipador.banco.modelos import PesosNota
+from clipador.banco.modelos import PesosNota, id_de
 from clipador.config import Config
 from clipador.detectores import nota
 from clipador.engajamento import indice
@@ -49,7 +49,7 @@ misturar = pesos.misturar
 def exemplos(lista: list[indice.Indice]) -> list[Exemplo]:
     return [
         Exemplo(
-            momento_id=item.linha.momento.id,
+            momento_id=id_de(item.linha.momento),
             dia=dia_da_gravacao(item.linha.gravacao),
             forcas=dict(item.linha.momento.sinais),
             aprovado=item.acima_da_mediana,  # aqui, "o público aprovou"

@@ -120,6 +120,7 @@ class ColetorLol:
         if not novos:
             return []
         inicio_atual = alinhamento.estimar_inicio(self._amostras)
+        assert self.partida_inicio is not None  # definido acima, na 1ª leitura da partida
         salvos = []
         with nova_sessao(self.engine) as sessao:
             for evento in novos:

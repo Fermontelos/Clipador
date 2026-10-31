@@ -92,7 +92,9 @@ def _ordenar(
 
     def nota(nome: str) -> float:
         d = por_nome.get(nome)
-        return d.efeito if d and d.confiavel else 0.0  # o não testado fica no meio
+        if d is None or not d.confiavel or d.efeito is None:
+            return 0.0  # o não testado fica no meio
+        return d.efeito
 
     # sorted é estável: entre os de mesma nota, vale a ordem da IA.
     ordenados = sorted(nomes, key=lambda n: -nota(n))

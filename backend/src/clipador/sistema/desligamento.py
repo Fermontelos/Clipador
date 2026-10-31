@@ -145,6 +145,7 @@ class Desligamento:
         self.contagem_desde = agora
 
     def _durante_a_contagem(self, agora: datetime, fila_pendente: bool) -> None:
+        assert self.contagem_desde is not None  # só chamada durante a contagem
         passados = (agora - self.contagem_desde).total_seconds()
         if passados > CONTAGEM_S + FOLGA_DEPOIS_DA_CONTAGEM_S:
             log.error("O desligamento foi pedido, mas o PC não desligou. Voltando a esperar.")

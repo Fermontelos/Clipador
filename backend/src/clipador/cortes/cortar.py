@@ -27,7 +27,16 @@ from sqlmodel import Session, col, select
 
 from clipador import ffmpeg
 from clipador.banco.fila import Contexto, FalhaDefinitivaError, TarefaPausada
-from clipador.banco.modelos import Clipe, FormatoClipe, Gravacao, Momento, Tarefa, Transcricao
+from clipador.banco.modelos import (
+    Clipe,
+    FormatoClipe,
+    Gravacao,
+    Momento,
+    Tarefa,
+    Transcricao,
+    id_de,
+    obter,
+)
 from clipador.config import Config
 from clipador.cortes import comandos
 from clipador.cortes.legenda import salvar_legenda_do_clipe
@@ -98,7 +107,9 @@ class Cortador:
                 continue  # já cortado (ex.: o PC caiu depois dele)
             destino = caminho_do_clipe(self.cfg, self.gravacao, momento, formato)
             self._cortar(momento, formato, destino)
-            clipe = existente or Clipe(momento_id=momento.id, formato=FormatoClipe(formato))
+            clipe = existente or Clipe(
+                momento_id=id_de(momento), formato=FormatoClipe(formato), arquivo=str(destino)
+            )
             if existente and Path(existente.arquivo) != destino:
                 Path(existente.arquivo).unlink(missing_ok=True)  # a nota mudou o nome
             clipe.arquivo = str(destino)
@@ -189,7 +200,7 @@ def recortar(
     momento = sessao.get(Momento, tarefa.momento_id) if tarefa.momento_id else None
     if momento is None:
         raise FalhaDefinitivaError(f"A tarefa {tarefa.id} não aponta para um momento.")
-    gravacao = sessao.get(Gravacao, momento.gravacao_id)
+    gravacao = obter(sessao, Gravacao, momento.gravacao_id)
     feitos = Cortador(sessao, cfg, gravacao).cortar_momento(
         momento, contexto or Contexto(), refazer=True
     )

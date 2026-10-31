@@ -37,6 +37,10 @@ jobs:
       - name: Formatação
         run: uv run ruff format --check
 
+      # Confere as anotações de tipo das três partes Python ([tool.mypy] no pyproject.toml).
+      - name: Tipos (mypy)
+        run: uv run mypy
+
       - name: Testes (inclusive os lentos), com a cobertura
         run: uv run pytest --cov
 

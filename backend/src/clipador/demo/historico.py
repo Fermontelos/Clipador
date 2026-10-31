@@ -38,6 +38,7 @@ from clipador.banco.modelos import (
     Publicacao,
     StatusGravacao,
     StatusPublicacao,
+    id_de,
 )
 from clipador.demo import roteiro
 from clipador.engajamento.coleta import DEPOIS_DE_IR_AO_AR
@@ -89,7 +90,7 @@ def popular(sessao: Session) -> int:
                                  + 0.25 * forcas["lol"])  # fmt: skip
             inicio_s = 300.0 + i * 500
             momento = Momento(
-                gravacao_id=gravacao.id,
+                gravacao_id=id_de(gravacao),
                 inicio_s=inicio_s,
                 fim_s=inicio_s + 25,
                 pico_s=inicio_s + 12,
@@ -109,7 +110,7 @@ def popular(sessao: Session) -> int:
                 hashtags.append("#clutch")  # sorteada: o efeito que aparecer é acaso
             sessao.add(
                 Decisao(
-                    momento_id=momento.id,
+                    momento_id=id_de(momento),
                     aprovado=aprovado,
                     formatos=["vertical_a"] if aprovado else [],
                     destinos={"vertical_a": ["youtube", "tiktok"]} if aprovado else {},
@@ -131,7 +132,7 @@ def popular(sessao: Session) -> int:
 def _publicado(sessao: Session, momento: Momento, forcas: dict[str, float], decidida_em, sorteio):
     """O vertical do momento "publicado" nas duas redes, com as 3 coletas (só no banco)."""
     clipe = Clipe(
-        momento_id=momento.id,
+        momento_id=id_de(momento),
         formato=FormatoClipe.VERTICAL_A,
         arquivo=f"{PREFIXO}/momento_{momento.id}_vertical_a.mp4",  # não existe: só o banco
         duracao_s=25,
@@ -142,7 +143,7 @@ def _publicado(sessao: Session, momento: Momento, forcas: dict[str, float], deci
     for plataforma, tipico in TIPICO.items():
         no_ar = decidida_em + timedelta(hours=6)
         publicacao = Publicacao(
-            clipe_id=clipe.id,
+            clipe_id=id_de(clipe),
             plataforma=plataforma,
             id_na_plataforma=f"demo-{plataforma.value}-{momento.id}",
             status=StatusPublicacao.PUBLICADA,
@@ -159,7 +160,7 @@ def _publicado(sessao: Session, momento: Momento, forcas: dict[str, float], deci
             youtube = plataforma is Plataforma.YOUTUBE
             sessao.add(
                 Metrica(
-                    publicacao_id=publicacao.id,
+                    publicacao_id=id_de(publicacao),
                     coleta=coleta,
                     visualizacoes=visualizacoes,
                     curtidas=int(visualizacoes * taxa * 0.8),

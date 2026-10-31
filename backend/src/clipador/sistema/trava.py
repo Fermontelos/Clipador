@@ -11,6 +11,7 @@ uma trava "esquecida" nunca impede o serviço de abrir de novo.
 
 import msvcrt
 from pathlib import Path
+from typing import BinaryIO
 
 
 class ServicoJaRodandoError(RuntimeError):
@@ -20,7 +21,7 @@ class ServicoJaRodandoError(RuntimeError):
 class TravaDoServico:
     def __init__(self, pasta_dados: Path) -> None:
         self.caminho = pasta_dados / "servico.lock"
-        self._arquivo = None
+        self._arquivo: BinaryIO | None = None
 
     def adquirir(self) -> None:
         """Pega a trava ou levanta ``ServicoJaRodandoError`` se outro serviço a tiver."""

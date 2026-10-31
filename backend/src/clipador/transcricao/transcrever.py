@@ -28,7 +28,7 @@ import soundfile
 from sqlmodel import Session, select
 
 from clipador.banco.fila import Contexto, FalhaDefinitivaError, TarefaPausada
-from clipador.banco.modelos import Gravacao, Tarefa, Transcricao
+from clipador.banco.modelos import Gravacao, Tarefa, Transcricao, id_de
 from clipador.config import Config
 from clipador.ingestao import audio
 from clipador.ingestao.audio import caminho_da_voz
@@ -92,7 +92,8 @@ def para_o_banco(
     segmentos: list[Segmento], deslocamento_s: float
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Frases e palavras no formato do banco, com os tempos contados do começo da live."""
-    frases, palavras = [], []
+    frases: list[dict[str, Any]] = []
+    palavras: list[dict[str, Any]] = []
     for segmento in segmentos:
         frases.append(
             {
@@ -132,10 +133,10 @@ def transcrever(
         raise FalhaDefinitivaError(f"A tarefa {tarefa.id} não aponta para uma gravação.")
     transcricao = sessao.exec(
         select(Transcricao).where(Transcricao.gravacao_id == gravacao.id)
-    ).first() or Transcricao(gravacao_id=gravacao.id)
+    ).first() or Transcricao(gravacao_id=id_de(gravacao))
 
     if not transcricao.concluida:
-        wav = caminho_da_voz(cfg, gravacao.id)
+        wav = caminho_da_voz(cfg, id_de(gravacao))
         if not wav.is_file():
             # Ex.: a pasta dados/trabalho foi apagada à mão. Extrair de novo leva uns 2 min.
             log.warning("O áudio da voz de '%s' sumiu; extraindo de novo.", gravacao.arquivo)
@@ -180,6 +181,7 @@ def _transcrever_em_blocos(
             inicio_s = transcricao.transcrito_ate_s
             fim_s = min(inicio_s + bloco_s, total_s)
             ultimo = total_s - fim_s <= SOBRA_MINIMA_S
+            assert transcritor is not None  # só é None quando não sobrou bloco nenhum
             segmentos = transcritor.transcrever(ler_trecho(wav, inicio_s, fim_s))
             aceitos, proximo = emendar(segmentos, inicio_s, fim_s, ultimo)
             frases, palavras = para_o_banco(aceitos, inicio_s)

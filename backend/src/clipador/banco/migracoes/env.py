@@ -32,7 +32,7 @@ conexao_pronta = config.attributes.get("connection")
 if conexao_pronta is not None:
     _configurar_e_rodar(conexao_pronta)
 else:
-    engine = create_engine(config.get_main_option("sqlalchemy.url"))
+    engine = create_engine(config.get_main_option("sqlalchemy.url") or "")
     with engine.connect() as conexao:
         _configurar_e_rodar(conexao)
         conexao.commit()

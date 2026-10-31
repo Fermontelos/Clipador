@@ -36,7 +36,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     import numpy as np
@@ -122,7 +122,7 @@ class TranscritorWhisper:
         self.pasta_modelos = pasta_modelos
         self.dispositivo = dispositivo
         self.hotwords = texto_do_vocabulario(cfg.vocabulario)
-        self._modelo = None
+        self._modelo: Any = None  # o WhisperModel, carregado em _abrir
         self._nome_modelo = ""
         self._abrir(modelo)
 

@@ -274,7 +274,7 @@ class ClienteTiktok:
         finally:
             servidor.shutdown()
             servidor.server_close()
-        self.concluir_login(retorno.resultado, estado, pkce, redirect_uri, permissoes)
+        self.concluir_login(retorno.resultado, estado, pkce, redirect_uri, permissoes)  # type: ignore[attr-defined]
 
     def concluir_login(
         self,

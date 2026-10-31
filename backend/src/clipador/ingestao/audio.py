@@ -31,7 +31,7 @@ from sqlmodel import Session
 
 from clipador import ffmpeg
 from clipador.banco.fila import Contexto, FalhaDefinitivaError
-from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa
+from clipador.banco.modelos import Gravacao, StatusGravacao, Tarefa, id_de
 from clipador.config import Config, Faixas
 
 log = logging.getLogger(__name__)
@@ -164,7 +164,7 @@ def extrair_audio(
 
     info = ffmpeg.inspecionar(arquivo)
     conferir_faixas(info, cfg.faixas, arquivo.name)
-    destino = caminho_da_voz(cfg, gravacao.id)
+    destino = caminho_da_voz(cfg, id_de(gravacao))
     conferir_espaco(destino.parent, info.duracao_s)
     extrair_voz(arquivo, cfg.faixas.voz, destino, info.duracao_s)
 

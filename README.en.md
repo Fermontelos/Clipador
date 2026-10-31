@@ -87,7 +87,7 @@ the social networks directly and that the backend never reads the keys
 - **Runs on a 4 GB GPU**: Whisper `medium` in int8 (~1.6 GB), one GPU task at a time, the LLM
   unloaded after each job.
 - **646 Python tests and 85 frontend tests, 95% coverage**, CI on Windows and Linux,
-  pre-commit, ruff, 12 architecture decision records.
+  pre-commit, ruff, mypy (zero errors, enforced in CI), 12 architecture decision records.
 
 ## Demo in 3 commands
 
@@ -165,7 +165,7 @@ accounts:
 
 ## Stack
 
-Python 3.12 · uv workspace · SQLite + SQLModel + Alembic · FastAPI · Typer · faster-whisper
+Python 3.12 (typed, checked with mypy) · uv workspace · SQLite + SQLModel + Alembic · FastAPI · Typer · faster-whisper
 (CUDA 12) · FFmpeg · Ollama (qwen3:4b) · scikit-learn · httpx · Google API client ·
 React 19 + Vite + TypeScript + Tailwind + Recharts · pytest + Vitest · ruff · GitHub Actions.
 

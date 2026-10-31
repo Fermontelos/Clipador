@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from sqlmodel import Session, col, func, select
 
 from clipador.aprendizado import engajamento as aprendizado
-from clipador.banco.modelos import Metrica, Plataforma
+from clipador.banco.modelos import Metrica, Plataforma, id_de
 from clipador.config import Config
 from clipador.engajamento import indice, ranking
 
@@ -85,8 +85,8 @@ def resumir(sessao: Session, cfg: Config) -> Resumo:
     cortes = sorted(
         (
             Corte(
-                publicacao_id=i.linha.publicacao.id,
-                momento_id=i.linha.momento.id,
+                publicacao_id=id_de(i.linha.publicacao),
+                momento_id=id_de(i.linha.momento),
                 titulo=i.linha.decisao.titulo if i.linha.decisao else None,
                 plataforma=i.linha.publicacao.plataforma.value,
                 formato=i.linha.formato,

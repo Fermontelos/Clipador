@@ -42,7 +42,7 @@ def exemplos_seus(sessao: Session, quantos: int) -> list[dict[str, str]]:
         .order_by(col(Decisao.decidida_em).desc())
         .limit(quantos)
     ).all()
-    return [{"titulo": d.titulo, "tipo": d.tipo_titulo or ""} for d in decisoes]
+    return [{"titulo": d.titulo or "", "tipo": d.tipo_titulo or ""} for d in decisoes]
 
 
 # Numa luta longa, o trecho pode ter dezenas de abates: o pedido leva só os mais fortes

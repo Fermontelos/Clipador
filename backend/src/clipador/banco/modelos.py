@@ -14,15 +14,42 @@ Convenções:
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import JSON, Column, UniqueConstraint
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Session, SQLModel
 
 
 def agora() -> datetime:
     """Horário atual em UTC, com fuso (o formato aceito pelo banco)."""
     return datetime.now(UTC)
+
+
+class _ComId(Protocol):
+    id: int | None
+
+
+def id_de(registro: _ComId) -> int:
+    """O ``id`` de um registro que já está no banco.
+
+    O SQLModel declara o ``id`` como ``int | None``, porque ele só existe depois de gravar.
+    Aqui o registro já foi gravado; um ``None`` vira um erro claro, em vez de seguir adiante.
+    """
+    if registro.id is None:
+        raise ValueError(f"{type(registro).__name__} ainda não foi gravado no banco (sem id).")
+    return registro.id
+
+
+def obter[T: SQLModel](sessao: Session, modelo: type[T], registro_id: int | None) -> T:
+    """``sessao.get`` para um registro que tem de existir (ex.: a gravação de um momento).
+
+    As chaves estrangeiras garantem que ele existe; se não existir, o banco está
+    inconsistente, e o erro diz qual registro faltou.
+    """
+    registro = sessao.get(modelo, registro_id) if registro_id is not None else None
+    if registro is None:
+        raise LookupError(f"{modelo.__name__} {registro_id} não existe no banco.")
+    return registro
 
 
 # ---------------------------------------------------------------- valores fixos
