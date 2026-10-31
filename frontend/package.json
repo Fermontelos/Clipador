@@ -12,7 +12,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:cobertura": "vitest run --coverage"
   },
   "dependencies": {
     "react": "19.3.1",
@@ -28,6 +29,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
+    "@vitest/coverage-v8": "5.0.5",
     "jsdom": "29.1.1",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",

@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { api } from "../api";
+import { porcento } from "../numeros";
 import { Aprendizado } from "./Aprendizado";
 import type { Estatisticas as Dados } from "../tipos";
 
@@ -29,17 +30,13 @@ const NOMES_DOS_DETECTORES: Record<string, string> = {
 // A legenda fica na cor do texto: quem diz qual é a série é o quadradinho colorido ao lado.
 const textoDaLegenda = (nome: string) => <span style={{ color: "var(--texto-2)" }}>{nome}</span>;
 
-function porcento(valor: number | null): string {
-  return valor === null ? "—" : `${Math.round(valor * 100)}%`;
-}
-
 function segundos(valor: number | null): string {
   if (valor === null) return "—";
   const texto = valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return `${valor > 0 ? "+" : ""}${texto} s`;
 }
 
-/** Estatísticas: a precisão do detector e o que cada sinal diz. Engajamento: etapa 17. */
+/** Estatísticas: a precisão do detector e o que cada sinal diz (o público: aba Engajamento). */
 export function Estatisticas() {
   const [dados, setDados] = useState<Dados | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -126,7 +123,8 @@ export function Estatisticas() {
       </section>
       <Aprendizado />
       <p className="text-sm text-[var(--texto-fraco)]">
-        Engajamento (views, curtidas, retenção) chega na etapa 17, com os cortes publicados.
+        O que o público achou dos cortes publicados (views, curtidas, retenção) está na aba
+        Engajamento.
       </p>
     </main>
   );

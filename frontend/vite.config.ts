@@ -38,5 +38,14 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/testes/preparar.ts"],
+    // npm run test:cobertura: quanto do código da interface os testes executam.
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/testes/**", "src/main.tsx"],
+      reporter: ["text-summary", "text", "json-summary"],
+      reportsDirectory: "../dados/cobertura-frontend",
+      thresholds: { lines: 80 }, // abaixo disso, o comando (e a CI) falha
+    },
   },
 });

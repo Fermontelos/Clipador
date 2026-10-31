@@ -86,7 +86,7 @@ the social networks directly and that the backend never reads the keys
   ranked with epsilon-greedy exploration.
 - **Runs on a 4 GB GPU**: Whisper `medium` in int8 (~1.6 GB), one GPU task at a time, the LLM
   unloaded after each job.
-- **646 Python tests and 85 frontend tests, 95% coverage**, CI on Windows and Linux,
+- **~650 Python tests (95% coverage) and ~90 frontend tests (85%)**, CI on Windows and Linux,
   pre-commit, ruff, mypy (zero errors, enforced in CI), 12 architecture decision records.
 
 ## Demo in 3 commands

@@ -75,8 +75,8 @@ jobs:
       - name: Tipos (TypeScript)
         run: npm run typecheck
 
-      - name: Testes (Vitest)
-        run: npm test
+      - name: Testes (Vitest), com a cobertura (mínimo 80% das linhas)
+        run: npm run test:cobertura
 
       - name: Build
         run: npx vite build

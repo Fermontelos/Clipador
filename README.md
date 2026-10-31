@@ -209,6 +209,7 @@ A interface (em `frontend/`, React + Vite + TypeScript + Tailwind):
 ```bash
 npm run dev        # em frontend/, com o "clipador web" aberto: recarrega a cada mudança
 npm test           # testes do Vitest (atalhos, desfazer, contador, ajuste do corte)
+npm run test:cobertura  # os mesmos, com a cobertura (a CI exige 80% das linhas)
 npm run build      # gera frontend/dist, que o "clipador web" serve
 ```
 
