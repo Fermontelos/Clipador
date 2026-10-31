@@ -272,6 +272,9 @@ são conferidas automaticamente em `tests/test_arquitetura.py`.
 
 ## Decisões técnicas
 
+As perguntas mais comuns sobre o projeto (por que SQLite, como a fila sobrevive a uma queda,
+por que regressão logística...) estão respondidas em [perguntas técnicas](docs/perguntas-tecnicas.md).
+
 - [ADR 0001: Python + SQLite + FastAPI](docs/adr/0001-python-sqlite-fastapi.md)
 - [ADR 0002: SQLite e não PostgreSQL](docs/adr/0002-sqlite-e-nao-postgres.md)
 - [ADR 0003: backend, API, integrações e frontend separados](docs/adr/0003-backend-api-integracoes-frontend.md)

@@ -46,6 +46,9 @@ A revisão da live falsa fica para fazer ao vivo; o histórico já vem revisado.
   engajamento só entrou no fim. Com dados reais, a mistura entre os dois é a parte que mais
   vale ajustar.
 
+Mais perguntas (arquitetura, fila, detecção, segurança, publicação, aprendizado, testes), com
+a resposta curta e o que dizer para aprofundar: [perguntas técnicas](perguntas-tecnicas.md).
+
 ## Se algo der errado
 
 - A interface não abre: `uv run clipador web --demo` sem a interface construída abre a
