@@ -68,9 +68,11 @@ uv run clipador processar --demo   # 2. momentos, 12 clipes e títulos (~2 min)
 uv run clipador web --demo         # 3. abre a revisão no navegador
 ```
 
-A interface é construída uma vez, com o [Node.js](https://nodejs.org) 22.12 ou mais novo
-(`winget install OpenJS.NodeJS.LTS`): `cd frontend; npm ci; npm run build; cd ..`. Sem ela, o
-passo 3 abre a documentação interativa da API, que também permite revisar.
+O `UV_NO_GROUP` vale só para esse terminal: para usar o app com a placa de vídeo (veja
+abaixo), abra outro. A interface é construída uma vez, com o [Node.js](https://nodejs.org)
+22.12 ou mais novo (`winget install OpenJS.NodeJS.LTS`):
+`cd frontend; npm ci; npm run build; cd ..`. Sem ela, o passo 3 abre a documentação
+interativa da API, que também permite revisar.
 
 A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
 picos de voz em horários conhecidos (0:25, 1:10, 1:58 e 2:30), eventos de uma partida de LoL,

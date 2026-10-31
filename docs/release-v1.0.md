@@ -46,7 +46,7 @@ pelo teclado e nada publicado sem aprovação. As 18 etapas do roteiro estão fe
 
 **Demo**
 - `uv run clipador demo`: uma live falsa de 3 minutos e um histórico inventado de 6 lives,
-  sem placa de vídeo, sem contas e sem internet.
+  sem placa de vídeo e sem contas (a internet só é usada para instalar).
 
 ## Qualidade
 
