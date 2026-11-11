@@ -12,7 +12,7 @@ processamento roda de madrugada; de manhã você revisa os clipes pelo teclado, 
 web local; e **nada é publicado sem a sua aprovação**. Com o tempo, o app aprende com as suas
 aprovações e com o engajamento do público quais momentos viram bons cortes.
 
-Projeto pessoal e de portfólio (nome provisório), feito só com ferramentas e APIs gratuitas.
+Projeto pessoal e de portfólio, feito só com ferramentas e APIs gratuitas.
 
 ![A revisão dos clipes, feita só pelo teclado](docs/imagens/revisao.gif)
 

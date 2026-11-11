@@ -5,9 +5,9 @@
 # repositório privado) e, em Settings → Pages → Build and deployment, Source = GitHub Actions.
 name: Demo no GitHub Pages
 
+# Por enquanto só manual (Actions → Demo no GitHub Pages → Run workflow): sem o Pages ligado,
+# o envio falharia a cada push. Depois de ligar, volta a rodar a cada push no main.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
