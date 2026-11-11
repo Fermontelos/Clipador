@@ -48,11 +48,16 @@ pelo teclado e nada publicado sem aprovação. As 18 etapas do roteiro estão fe
 - `uv run clipador demo`: uma live falsa de 3 minutos e um histórico inventado de 6 lives,
   sem placa de vídeo e sem contas (a internet só é usada para instalar).
 
+**Para conhecer o projeto**
+- Demo da revisão no navegador, sem instalar nada (GitHub Pages), com os clipes da demo.
+- README também em inglês e as [perguntas técnicas](perguntas-tecnicas.md) mais comuns, respondidas.
+
 ## Qualidade
 
-- 646 testes (Python) e 85 (interface), com 95% de cobertura; detectores e alinhamento acima
-  de 80%, conferidos na CI.
-- Lint e formatação (ruff), pre-commit e CI no GitHub Actions (Windows e Linux).
+- 649 testes (Python, 95% de cobertura) e 94 (interface, 85%); a CI exige 80% nos detectores,
+  no alinhamento e nas linhas da interface.
+- Lint e formatação (ruff), checagem de tipos (mypy, sem erros), pre-commit e CI no GitHub
+  Actions (Windows e Linux).
 - 12 decisões técnicas registradas em `docs/adr/`.
 
 ## Ainda não confirmado com dados reais
