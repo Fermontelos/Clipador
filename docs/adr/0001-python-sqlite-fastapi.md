@@ -15,17 +15,17 @@ de madrugada, e oferece uma interface web local para revisar os clipes. Precisa:
 
 ## Decisão
 
-- **Python 3.12** como linguagem principal.
-- **SQLite** como banco de dados.
-- **FastAPI** para a API da interface de revisão.
+- Python 3.12 como linguagem principal.
+- SQLite como banco de dados.
+- FastAPI para a API da interface de revisão.
 
 ## Alternativas consideradas
 
-- **Node.js no backend:** bom para a web, mas o ecossistema de áudio, vídeo e IA
+- Node.js no backend: bom para a web, mas o ecossistema de áudio, vídeo e IA
   (faster-whisper, numpy, scikit-learn) é muito mais forte em Python.
-- **PostgreSQL:** mais recursos, mas exige um servidor rodando. Para um usuário e uma
+- PostgreSQL: mais recursos, mas exige um servidor rodando. Para um usuário e uma
   máquina, o SQLite (um arquivo só, sem servidor, backup trivial) é suficiente.
-- **Flask:** mais simples, mas o FastAPI valida dados com tipos e gera documentação
+- Flask: mais simples, mas o FastAPI valida dados com tipos e gera documentação
   interativa (`/docs`) sozinho, o que acelera a etapa de revisão.
 
 ## Consequências

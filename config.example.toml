@@ -41,11 +41,11 @@ nivel_log = "INFO"
 # sincronizada com o Google Drive, para o backup sobreviver se este disco falhar.
 # pasta_backups = "D:/Backups/Clipador"
 
-# Pasta (fora do git) com o client_secret.json do Google Cloud e o seu login no YouTube
-# (etapa 15). Só o pacote das integrações lê o que tem dentro.
+# Pasta (fora do git) com o client_secret.json do Google Cloud e o seu login no YouTube.
+# Só o pacote das integrações lê o que tem dentro.
 pasta_segredos = "segredos"
 
-# Arquivo (fora do git) com as chaves do app do TikTok (etapa 16, modo "rascunho"). Veja o
+# Arquivo (fora do git) com as chaves do app do TikTok (modo "rascunho"). Veja o
 # .env.example. Só o pacote das integrações lê o que tem dentro.
 arquivo_chaves = ".env"
 
@@ -83,14 +83,14 @@ coletar = true
 # Como achar os melhores momentos e dar a nota (0 a 100). Nota = 100 × média ponderada
 # dos sinais dos detectores ligados (cada sinal vai de 0 a 1).
 # Atenção: os pesos (peso) e a janela (segundos_antes, segundos_depois) abaixo valem até você
-# aceitar uma sugestão do aprendizado (etapa 14, "clipador aprender"). Depois, vale a versão
+# aceitar uma sugestão do aprendizado ("clipador aprender"). Depois, vale a versão
 # aceita, e mudar estes números aqui não tem efeito.
 [deteccao]
 max_momentos_por_live = 30
 # Momentos com nota abaixo disto são descartados como ruído (ex.: só a torre de um aliado).
 nota_minima = 10
 # Janela do clipe: começa este tanto antes do 1º sinal e termina este tanto depois do último,
-# com duração entre a mínima e a máxima. O aprendizado (etapa 14) sugere uma janela nova a
+# com duração entre a mínima e a máxima. O aprendizado sugere uma janela nova a
 # partir dos seus ajustes de corte.
 segundos_antes = 10
 segundos_depois = 5
@@ -186,8 +186,8 @@ modo_teste = true
 # este tempo; depois desiste até a próxima noite (não desliga de tarde, no seu almoço).
 espera_maxima_horas = 4
 
-# Publicação no YouTube (etapa 15). Antes do 1º envio: o passo a passo do Google no README
-# e "clipador youtube-entrar". Nada sobe sem a sua aprovação na revisão.
+# Publicação no YouTube. Antes do 1º envio: o passo a passo do Google em
+# docs/configurar-contas.md e "clipador youtube-entrar". Nada sobe sem a sua aprovação na revisão.
 [youtube]
 # real = envia ao YouTube; simulado = finge (sem internet nem cota), para testar o fluxo.
 modo = "real"
@@ -211,12 +211,12 @@ categoria = 20
 # Thumbnail do pico nos vídeos horizontais (gasta 50 das 10.000 unidades diárias).
 thumbnail = true
 
-# Métricas dos cortes publicados e o que a nota aprende com elas (etapa 17). Precisa das
+# Métricas dos cortes publicados e o que a nota aprende com elas. Precisa das
 # permissões de leitura: "clipador youtube-entrar" e "clipador tiktok-entrar" de novo.
 [engajamento]
 # Coletar as métricas 24 h, 72 h e 7 dias depois de cada vídeo ir ao ar.
 coletar = true
-# Na nota final, quanto vale o engajamento previsto (o resto é o seu gosto, da etapa 14):
+# Na nota final, quanto vale o engajamento previsto (o resto é o seu gosto, das suas decisões):
 # 0 = só o seu gosto, 1 = só o engajamento. Só vale depois de aceitar a sugestão.
 mistura = 0.5
 # Cortes com a métrica de 7 dias antes de o app sugerir pesos pelo engajamento.
@@ -235,12 +235,12 @@ alcance = 0.5    # visualizações
 interacao = 0.3  # (curtidas + comentários + compartilhamentos) ÷ visualizações
 retencao = 0.2   # quanto do vídeo as pessoas assistem (só no YouTube)
 
-# Publicação no TikTok (etapa 16). Só os verticais vão para lá. Nada sai sem a sua aprovação.
+# Publicação no TikTok. Só os verticais vão para lá. Nada sai sem a sua aprovação.
 [tiktok]
 # pasta = o vídeo e um .txt com a legenda vão para a pasta abaixo, e você posta pelo celular.
 # rascunho = também vão para a caixa de entrada do app do TikTok (você finaliza pela
 # notificação; o rascunho chega sem legenda: ela está no .txt). Precisa do app no TikTok for
-# Developers e de "clipador tiktok-entrar" (passo a passo no README). No máximo 5 rascunhos
+# Developers e de "clipador tiktok-entrar" (passo a passo em docs/configurar-contas.md). No máximo 5 rascunhos
 # pendentes a cada 24 h: o sexto espera na fila.
 modo = "pasta"
 # Para onde vão o vídeo e o .txt. Sem esta linha: <pasta_dados>/exportar/tiktok. Uma pasta

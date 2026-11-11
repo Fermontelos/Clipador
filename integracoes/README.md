@@ -1,18 +1,14 @@
 # Integrações
 
-Clientes dos serviços externos: o LoL (Live Client Data API, **etapa 7**), o YouTube e o
-TikTok (**etapas 15 a 17**).
+Os clientes dos serviços de fora:
 
-Regras de segurança:
+- `lol.py`: a Live Client Data API, que o próprio LoL abre em `https://127.0.0.1:2999` durante
+  a partida. Não usa chave, mas só aceita a conexão com o certificado da Riot
+  (`certificados/riotgames.pem`, tirado da documentação oficial).
+- `youtube.py`: login do Google, envio retomável, thumbnail, estatísticas e retenção.
+- `tiktok.py`: login com PKCE, envio de rascunho e a lista dos vídeos publicados.
 
-- **único código do app que lê chaves e tokens** (do `.env`, que fica fora do git);
-- não conhece banco, fila nem API: recebe dados simples e devolve dados simples;
-- nunca escreve chaves ou tokens no log.
-
-Concentrar as chaves aqui deixa fácil conferir quem tem acesso a elas: só este pacote.
-
-## O que já existe
-
-- `lol.py` (etapa 7): cliente da Live Client Data API do LoL, a API que o próprio jogo abre
-  em `https://127.0.0.1:2999` durante a partida. Não usa chave. A conexão só é aceita com o
-  certificado da Riot (`certificados/riotgames.pem`, da documentação oficial).
+Este é o único pacote que lê chaves e tokens (do `.env` e da pasta `segredos/`, os dois fora
+do git). Ele não conhece o banco, a fila nem a API: recebe dados simples e devolve dados
+simples, e nunca escreve chave ou token no log. Deixar tudo isso num lugar só torna fácil
+conferir quem tem acesso às credenciais.

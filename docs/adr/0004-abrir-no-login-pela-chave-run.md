@@ -10,18 +10,18 @@ O serviço precisa abrir sozinho quando o usuário entra no Windows:
 - para o coletor do LoL (etapa 7) já estar rodando quando a live começar;
 - para pegar as gravações que terminaram enquanto o app estava fechado.
 
-Ele também precisa rodar **na sessão do usuário**, e não como serviço do Windows: a
+Ele também precisa rodar na sessão do usuário, e não como serviço do Windows: a
 etapa 11 usa `GetLastInputInfo`, que só enxerga o teclado e o mouse da sessão de quem
 está logado.
 
-O roteiro previa o **Agendador de Tarefas** (`schtasks /sc onlogon`). Pesquisando (em
+O roteiro previa o Agendador de Tarefas (`schtasks /sc onlogon`). Pesquisando (em
 2026-10-15), descobrimos que criar pela linha de comando uma tarefa com gatilho de login
-exige **administrador**, mesmo para o próprio usuário: o comando responde
+exige administrador, mesmo para o próprio usuário: o comando responde
 "Access is denied" (várias respostas no Super User confirmam o mesmo comportamento).
 
 ## Decisão
 
-Usar a chave **`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`**, com o
+Usar a chave `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, com o
 valor `Clipador` apontando para:
 
 ```
@@ -33,13 +33,13 @@ valor `Clipador` apontando para:
 
 ## Alternativas consideradas
 
-- **Agendador de Tarefas:** permite reiniciar o serviço se ele cair, mas exige
+- Agendador de Tarefas: permite reiniciar o serviço se ele cair, mas exige
   administrador para o gatilho de login pela linha de comando (seria preciso abrir o
   terminal como administrador só para instalar).
-- **Atalho na pasta Inicializar (`shell:startup`):** também não exige administrador,
+- Atalho na pasta Inicializar (`shell:startup`): também não exige administrador,
   mas criar um atalho `.lnk` pelo Python exige bibliotecas extras do Windows (COM), e um
   `.bat` abriria uma janela de terminal a cada login.
-- **Serviço do Windows:** roda sem login, mas em outra sessão, onde o `GetLastInputInfo`
+- Serviço do Windows: roda sem login, mas em outra sessão, onde o `GetLastInputInfo`
   não funciona, e exige administrador para instalar.
 
 ## Consequências

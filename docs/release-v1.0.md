@@ -1,69 +1,62 @@
 # Clipador de lives v1.0
 
-Primeira versão completa: da live gravada no OBS ao clipe publicado, com a revisão de manhã
-pelo teclado e nada publicado sem aprovação. As 18 etapas do roteiro estão feitas.
+Primeira versão completa: da live gravada no OBS até o clipe publicado, passando pela revisão
+de manhã. Nada é publicado sem eu aprovar.
 
-## O que o app faz
+## O que tem nesta versão
 
-**Processamento da noite**
-- Percebe sozinho quando a live termina (a gravação do OBS fica 2 min sem mudar) e põe na
-  fila; enquanto você grava, a fila espera.
-- Fila retomável em SQLite: se o PC desligar ou travar, continua de onde parou; uma tarefa
-  que falha é tentada até 3 vezes; backup diário do banco (14 cópias).
-- Extrai a faixa da sua voz e transcreve com o Whisper na placa de vídeo (CUDA 12, para a
-  GTX 1050 Ti), salvando a cada 10 min de áudio.
-- Coleta os eventos do LoL durante a partida e os alinha ao segundo do vídeo.
-- Três detectores (plugins) acham os melhores momentos: picos da voz, expressões e fala
-  acelerada, eventos do LoL; cada momento ganha uma nota de 0 a 100 (até 30 por live).
-- Corta cada momento em horizontal, vertical com fundo desfocado e vertical com a câmera em
-  cima; legenda da fala, áudio sem a música, -14 LUFS; thumbnail do pico.
-- Sugere 3 títulos e as hashtags com uma IA local (Ollama + qwen3:4b), no seu estilo.
-- Impede a suspensão do Windows enquanto processa e pode desligar o PC no fim (em modo de
-  teste por padrão).
+### De madrugada
+- O app percebe quando a live termina (a gravação do OBS para de crescer por 2 minutos) e põe
+  ela na fila. Enquanto estou gravando, a fila espera.
+- A fila fica no SQLite e continua de onde parou se o PC desligar. Uma tarefa que falha é
+  tentada até 3 vezes, e o banco ganha um backup por dia.
+- A faixa da minha voz é transcrita com o Whisper na placa de vídeo, salvando a cada 10
+  minutos de áudio.
+- Os eventos do LoL são coletados durante a partida e alinhados ao segundo do vídeo.
+- Três detectores (voz, fala e eventos do jogo) acham até 30 momentos por live, cada um com
+  uma nota de 0 a 100.
+- Cada momento vira um clipe horizontal e dois verticais, com legenda, sem a música e com o
+  volume no padrão das redes. O horizontal ganha uma thumbnail.
+- Uma IA local (Ollama com o qwen3:4b) sugere 3 títulos e as hashtags.
+- O Windows não suspende no meio, e o PC pode desligar sozinho no fim (por padrão, só em modo
+  de teste).
 
-**Revisão**
-- Interface web local (React), toda pelo teclado: aprovar, recusar, desfazer, trocar formato
-  e título, ajustar o corte na linha do tempo (corta de novo só aquele clipe).
-- Limite diário (os 15 de maior nota), fila e erros, cota do YouTube, estatísticas.
-- API local (FastAPI) só em 127.0.0.1, com proteção contra pedidos de outros sites.
+### De manhã, na revisão
+- Uma interface web local, toda pelo teclado: aprovar, recusar, desfazer, trocar o formato e
+  o título e ajustar o corte na linha do tempo.
+- Mostra os 15 momentos de maior nota do dia, a fila, os erros, a cota do YouTube e as
+  estatísticas.
+- A API só aceita pedidos do próprio PC.
 
-**Publicação**
-- YouTube: Shorts e vídeos sobem privados e agendados nos seus horários, com intervalo
-  mínimo, hashtags na descrição e thumbnail; a cota diária é respeitada.
-- TikTok: os verticais vão para uma pasta com a legenda num `.txt`, ou como rascunho na caixa
-  de entrada do app (até 5 por dia).
-- 10 minutos para desfazer antes de qualquer envio; o cancelamento é atômico.
+### Publicação
+- No YouTube, os vídeos sobem privados e agendados nos horários que eu escolho, respeitando a
+  cota diária.
+- No TikTok, os verticais vão para uma pasta com a legenda num `.txt`, ou como rascunho no
+  app (até 5 por dia).
+- Há 10 minutos para desfazer antes de qualquer envio.
 
-**Aprendizado**
-- Com 100 decisões, uma regressão logística sugere os pesos da nota pelo seu gosto; a média
-  dos seus ajustes sugere a janela do corte.
-- Métricas de cada corte publicado em 24 h, 72 h e 7 dias (YouTube Data API e Analytics,
-  TikTok Display API), num índice comparável entre vídeos.
-- Com 50 cortes, os pesos passam a misturar o seu gosto com o engajamento previsto; hashtags e
-  tipos de título que funcionam vêm primeiro nas sugestões, com exploração (epsilon-greedy).
-- Nada muda sem o seu aceite; a comparação "antes e depois" é feita em dados que o treino não
-  viu.
+### Aprendizado
+- Com 100 decisões, uma regressão logística sugere novos pesos para a nota, e a média dos
+  meus ajustes sugere uma nova janela de corte.
+- As métricas de cada vídeo são coletadas com 24 h, 72 h e 7 dias.
+- Com 50 cortes publicados, os pesos passam a misturar o meu gosto com o que o público
+  assiste, e as hashtags e os tipos de título que funcionam aparecem primeiro.
+- Nada muda sem eu aceitar.
 
-**Demo**
-- `uv run clipador demo`: uma live falsa de 3 minutos e um histórico inventado de 6 lives,
-  sem placa de vídeo e sem contas (a internet só é usada para instalar).
-
-**Para conhecer o projeto**
-- Demo da revisão no navegador, sem instalar nada (GitHub Pages), com os clipes da demo.
-- README também em inglês e as [perguntas técnicas](perguntas-tecnicas.md) mais comuns, respondidas.
+### Para quem quer conhecer
+- Uma demo com uma live falsa de 3 minutos e um histórico inventado de 6 lives, que roda sem
+  placa de vídeo e sem contas.
+- A mesma revisão no navegador, sem instalar nada.
+- O README também em inglês.
 
 ## Qualidade
-
-- 649 testes (Python, 95% de cobertura) e 94 (interface, 85%); a CI exige 80% nos detectores,
-  no alinhamento e nas linhas da interface.
-- Lint e formatação (ruff), checagem de tipos (mypy, sem erros), pre-commit e CI no GitHub
-  Actions (Windows e Linux).
+- 649 testes em Python (95% de cobertura) e 94 na interface (85%).
+- Lint com o ruff, tipos com o mypy, pre-commit e CI no GitHub Actions, no Windows e no Linux.
 - 12 decisões técnicas registradas em `docs/adr/`.
 
-## Ainda não confirmado com dados reais
+## O que ainda falta confirmar com dados reais
+- O primeiro envio ao YouTube, o rascunho no TikTok e as métricas de verdade.
+- O alinhamento do LoL numa live gravada, a detecção com a voz numa faixa separada e uma
+  noite de desligamento fora do modo de teste.
 
-- O 1º envio real ao YouTube, o rascunho no sandbox do TikTok e as métricas reais.
-- O alinhamento do LoL numa live gravada, a detecção com a voz na faixa 2 e uma noite de
-  desligamento fora do modo de teste.
-
-Veja as [limitações conhecidas](../README.md#limitações-conhecidas).
+As limitações conhecidas estão no [README](../README.md#limitações-conhecidas).

@@ -1,6 +1,6 @@
 """Regras de texto dos títulos e hashtags, e o título simples (plano B, sem IA).
 
-Limites conferidos nas fontes oficiais (ver ``docs/stack.html``):
+Limites conferidos nas fontes oficiais:
 
 - título do YouTube: até **100 caracteres**;
 - hashtags: o YouTube recomenda de 3 a 5 por vídeo, sempre ligadas ao conteúdo (hashtag

@@ -24,15 +24,15 @@ série 10 continuarem codificando.
 ## Decisão
 
 O encoder passa a ser escolhido sozinho (`[cortes] encoder = "auto"`): o app testa o NVENC
-uma vez e, se ele não funcionar, corta no **processador** com o libx264 (preset `medium`,
+uma vez e, se ele não funcionar, corta no processador com o libx264 (preset `medium`,
 CRF 21), com um aviso no log. Também dá para forçar `h264_nvenc` ou `libx264`.
 
 ## Alternativas consideradas
 
-- **Instalar um FFmpeg compilado com a API 13.0** (por exemplo, da linha 8.x) só para os
+- Instalar um FFmpeg compilado com a API 13.0 (por exemplo, da linha 8.x) só para os
   cortes: volta a usar a placa, mas adiciona um segundo FFmpeg para manter e conferir a
   cada atualização. Fica como opção futura: o app já usa o NVENC sozinho se ele funcionar.
-- **Trocar de placa de vídeo**: fora do escopo de um projeto só com ferramentas gratuitas.
+- Trocar de placa de vídeo: fora do escopo de um projeto só com ferramentas gratuitas.
 
 ## Consequências
 

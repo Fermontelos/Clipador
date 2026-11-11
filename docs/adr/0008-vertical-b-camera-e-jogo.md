@@ -6,7 +6,7 @@
 ## Contexto
 
 O vertical A (etapa 9) mostra a tela inteira da live, pequena no meio do celular, com o
-fundo desfocado. O vertical B devia **aproximar**, para o clipe ocupar a tela do celular.
+fundo desfocado. O vertical B devia aproximar, para o clipe ocupar a tela do celular.
 Numa gravação 1920×1080, um vertical 9:16 com a altura inteira corresponde a uma faixa de
 608×1080.
 
@@ -15,11 +15,11 @@ O conteúdo da live é humor e reação (a voz do streamer é o sinal principal 
 
 ## Decisão
 
-- **Com câmera configurada** (`[cortes.vertical_b] camera`, um retângulo em pixels da
+- Com câmera configurada (`[cortes.vertical_b] camera`, um retângulo em pixels da
   gravação): a câmera ocupa o terço de cima (1080×640) e o centro do jogo os dois terços de
   baixo (1080×1280). A legenda fica na emenda entre os dois, para não cobrir o meio do jogo,
   onde está a ação.
-- **Sem câmera** (hoje): o vertical B é só o centro do jogo, ampliado (1080×1920), com a
+- Sem câmera (hoje): o vertical B é só o centro do jogo, ampliado (1080×1920), com a
   legenda na altura de sempre.
 - O recorte do jogo tem a proporção do espaço que vai ocupar e a altura inteira da
   gravação, centrado em `centro_x` (padrão: o meio). Ele é escrito com as medidas do
@@ -31,11 +31,11 @@ O conteúdo da live é humor e reação (a voz do streamer é o sinal principal 
 
 ## Alternativas consideradas
 
-- **Só o recorte fixo no centro**: o mais simples, mas sem a reação, que é o forte do
+- Só o recorte fixo no centro: o mais simples, mas sem a reação, que é o forte do
   conteúdo. Continua existindo como o caso "sem câmera".
-- **Centro + minimapa do LoL**: dá contexto para quem joga, mas é específico de um jogo (o
+- Centro + minimapa do LoL: dá contexto para quem joga, mas é específico de um jogo (o
   app não pode depender de um só) e ocupa parte da imagem.
-- **Seguir a ação** (visão computacional): o resultado mais profissional, mas complexo, e
+- Seguir a ação (visão computacional): o resultado mais profissional, mas complexo, e
   usaria a placa de vídeo, já ocupada com o Whisper. Fica para o futuro (etapa 19).
 
 ## Consequências

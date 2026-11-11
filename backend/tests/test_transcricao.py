@@ -1,7 +1,7 @@
 """Etapa 6: transcrição em blocos, retomada, pausa, legenda e o carregamento do Whisper.
 
 Nada aqui precisa de placa de vídeo: o Whisper é trocado por um transcritor falso que
-"ouve" um roteiro de falas. A transcrição real é testada à mão (ver docs/stack.html).
+"ouve" um roteiro de falas. A transcrição real foi testada à mão, em gravações de verdade.
 """
 
 import re

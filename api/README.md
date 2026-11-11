@@ -1,11 +1,15 @@
 # API
 
-Servidor local (FastAPI) que a interface de revisão usa: lista os clipes por nota, envia
-o vídeo, grava as decisões (aprovar, recusar, ajustar o corte). Construída na **etapa 12**.
+O servidor local que a interface da revisão usa (FastAPI). Ele lista os momentos por nota,
+manda os vídeos, grava as decisões e os ajustes de corte e mostra a fila, as estatísticas e o
+engajamento. Também traz o comando `clipador web`.
 
-Regras de segurança:
+Algumas regras que valem aqui:
 
-- ouve só em `127.0.0.1`: nenhum outro computador da rede consegue acessar;
-- usa o backend para ler e gravar no banco;
-- **nunca** importa as integrações direto: publicar vira uma tarefa na fila, que o backend
-  executa. Isso é conferido em `tests/test_arquitetura.py`.
+- Só escuta em `127.0.0.1`, então nenhum outro computador da rede chega nele.
+- Não tem senha, mas recusa nomes estranhos no `Host` e pedidos de outros sites que tentem
+  mudar algo ([ADR 0007](../docs/adr/0007-api-local-sem-senha.md)).
+- Nunca importa as integrações. Publicar vira uma tarefa na fila, que o backend executa
+  (conferido em `tests/test_arquitetura.py`).
+
+A documentação interativa fica em `http://127.0.0.1:8765/docs` com o `clipador web` aberto.

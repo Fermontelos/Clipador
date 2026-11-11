@@ -40,9 +40,9 @@ export function App() {
     <div className="min-h-screen">
       {DEMO_ESTATICA && (
         <p className="bg-[var(--superficie)] px-4 py-2 text-center text-sm text-[var(--texto-2)]">
-          Demo no navegador, com os dados inventados da demo: as decisões ficam só nesta aba, e
-          ajustar o corte não corta o vídeo de novo (não há FFmpeg aqui). Aperte <kbd>?</kbd>{" "}
-          para ver os atalhos.
+          Esta é a demo: os dados são inventados e o que você decidir fica só nesta aba. Aqui
+          ajustar o corte não gera um vídeo novo, porque o navegador não tem FFmpeg. Aperte{" "}
+          <kbd>?</kbd> para ver os atalhos.
         </p>
       )}
       <header className="flex items-center gap-6 border-b border-[var(--borda)] px-4 py-2">

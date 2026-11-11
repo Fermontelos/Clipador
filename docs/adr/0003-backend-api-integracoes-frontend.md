@@ -7,11 +7,11 @@
 
 O app vai ter quatro tipos de código bem diferentes:
 
-- o **backend**: pipeline de processamento, banco, fila, demo e linha de comando;
-- a **API** local da revisão (FastAPI, etapa 12);
-- as **integrações** com YouTube, TikTok e LoL (etapas 7 e 15 a 17), que precisam de
+- o backend: pipeline de processamento, banco, fila, demo e linha de comando;
+- a API local da revisão (FastAPI, etapa 12);
+- as integrações com YouTube, TikTok e LoL (etapas 7 e 15 a 17), que precisam de
   chaves e tokens;
-- o **frontend** de revisão (React, etapa 13), que roda no navegador.
+- o frontend de revisão (React, etapa 13), que roda no navegador.
 
 Misturar tudo numa pasta só torna fácil um vazamento acidental: por exemplo, a API ou o
 frontend passarem a ler as chaves do YouTube sem ninguém perceber.
@@ -33,17 +33,17 @@ frontend ──(HTTP)──> api ──> backend ──> integracoes ──> You
 
 Regras de segurança:
 
-- **Só as integrações leem o `.env`**, onde ficam as chaves e os tokens. O backend lê
+- Só as integrações leem o `.env`, onde ficam as chaves e os tokens. O backend lê
   apenas o `config.toml` e variáveis de ambiente. (Etapa 15: os arquivos do Google, a
   credencial do app e o token do login, ficam em `segredos/`, e a regra é a mesma: o
   backend só passa a pasta.)
-- **A API nunca chama as integrações direto**: publicar vira uma tarefa na fila, que o
+- A API nunca chama as integrações direto: publicar vira uma tarefa na fila, que o
   backend executa.
-- **O frontend nunca guarda chaves**: tudo o que vai para o navegador pode ser lido por
+- O frontend nunca guarda chaves: tudo o que vai para o navegador pode ser lido por
   qualquer pessoa.
 - A API só ouve em `127.0.0.1`.
 
-As três partes Python formam um **workspace do uv**: cada uma tem o próprio
+As três partes Python formam um workspace do uv: cada uma tem o próprio
 `pyproject.toml` (e as próprias dependências), mas todas compartilham um único ambiente e
 um único `uv.lock`. O frontend fica fora do workspace, com o próprio `package.json`.
 
@@ -53,16 +53,16 @@ de cada parte e falha se, por exemplo, a API importar as integrações ou o back
 
 ## Alternativas consideradas
 
-- **Tudo num pacote só, separado por subpastas** (ex.: `clipador/web`,
+- Tudo num pacote só, separado por subpastas (ex.: `clipador/web`,
   `clipador/publicacao`): mais simples, mas nada impede uma parte de importar a outra, e
   todas teriam acesso às mesmas dependências e às chaves.
-- **Repositórios separados para cada parte:** isolamento máximo, mas exagerado para um
+- Repositórios separados para cada parte: isolamento máximo, mas exagerado para um
   projeto de uma pessoa: cada mudança exigiria vários commits e versões coordenadas.
 
 ## Consequências
 
 - Separar pastas, sozinho, não deixa o projeto seguro. O que protege são as regras acima,
-  e a separação torna essas regras **fáceis de seguir e de conferir**.
+  e a separação torna essas regras fáceis de seguir e de conferir.
 - O backend deixou de ler o `.env` (antes lia, para "chaves futuras"). Quando a primeira
   chave aparecer, as integrações ganham a própria configuração que lê o `.env`.
   Atualização (etapa 15): o YouTube não precisou do `.env`. O Google entrega a credencial

@@ -8,36 +8,36 @@
 O app guarda o próprio estado num banco: a fila de tarefas, as gravações, os momentos, as
 decisões de revisão, as publicações e as métricas. Esse banco:
 
-- é usado por **uma pessoa, num PC só**;
+- é usado por uma pessoa, num PC só;
 - recebe pouca escrita (algumas centenas de linhas por live);
-- precisa de **dois leitores/escritores ao mesmo tempo**: o serviço da madrugada e a
+- precisa de dois leitores/escritores ao mesmo tempo: o serviço da madrugada e a
   interface web de revisão;
-- **não pode se perder**: decisões e métricas são o que o app usa para aprender, e não dá
+- não pode se perder: decisões e métricas são o que o app usa para aprender, e não dá
   para recriá-las.
 
 ## Decisão
 
-Usar **SQLite**, com:
+Usar SQLite, com:
 
-- **modo WAL** (`PRAGMA journal_mode=WAL`), para leitores e um escritor trabalharem juntos;
-- **`busy_timeout` de 5 s**, para uma escrita esperar a outra em vez de falhar;
-- **chaves estrangeiras ligadas** (`PRAGMA foreign_keys=ON`), que no SQLite vêm desligadas;
-- **Alembic** para as migrações, em modo *batch*, porque o SQLite não altera colunas com
+- modo WAL (`PRAGMA journal_mode=WAL`), para leitores e um escritor trabalharem juntos;
+- `busy_timeout` de 5 s, para uma escrita esperar a outra em vez de falhar;
+- chaves estrangeiras ligadas (`PRAGMA foreign_keys=ON`), que no SQLite vêm desligadas;
+- Alembic para as migrações, em modo *batch*, porque o SQLite não altera colunas com
   `ALTER TABLE`. O modo batch recria a tabela, o que falha com as chaves estrangeiras
   ligadas quando outra tabela a referencia (testado). Por isso a migração roda com as
   chaves desligadas, confere tudo com `PRAGMA foreign_key_check` e religa;
-- **backup automático antes de migrar** um banco que já existe: o driver do SQLite grava
+- backup automático antes de migrar um banco que já existe: o driver do SQLite grava
   algumas alterações de tabela fora da transação, então uma migração que falhe no meio
   nem sempre é desfeita por inteiro;
-- **backup diário** pela API de backup do SQLite, guardando as 14 cópias mais recentes,
+- backup diário pela API de backup do SQLite, guardando as 14 cópias mais recentes,
   cada uma como um arquivo único (modo `DELETE`, sem arquivos `-wal` ao lado).
 
 ## Alternativas consideradas
 
-- **PostgreSQL:** mais recursos e concorrência real entre muitos escritores. Mas exige
+- PostgreSQL: mais recursos e concorrência real entre muitos escritores. Mas exige
   instalar e manter um servidor rodando no PC, configurar usuário e senha, e o backup fica
   mais trabalhoso. Nada disso se paga com um usuário só.
-- **Arquivos JSON:** simples, mas sem transações. Uma queda de energia no meio de uma
+- Arquivos JSON: simples, mas sem transações. Uma queda de energia no meio de uma
   escrita pode corromper o arquivo, e consultas como "próxima tarefa pendente mais antiga"
   teriam de ser escritas à mão.
 

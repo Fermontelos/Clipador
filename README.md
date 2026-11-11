@@ -7,36 +7,38 @@
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab)
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 
-App em Python que transforma gravações de live (OBS) em clipes para YouTube e TikTok. O
-processamento roda de madrugada; de manhã você revisa os clipes pelo teclado, numa interface
-web local; e **nada é publicado sem a sua aprovação**. Com o tempo, o app aprende com as suas
-aprovações e com o engajamento do público quais momentos viram bons cortes.
+Faço umas 3 horas de live de LoL por dia na Twitch, e cortar os melhores momentos à mão estava
+me tomando mais tempo que a própria live. Então fiz o Clipador: ele pega a gravação do OBS,
+acha os momentos bons durante a madrugada e deixa os clipes prontos para eu revisar de manhã,
+só pelo teclado. O que eu aprovo vai para o YouTube e o TikTok. Nada sai sem eu aprovar.
 
-Projeto pessoal e de portfólio, feito só com ferramentas e APIs gratuitas.
+Com o tempo ele aprende com as minhas escolhas e com o que o público de fato assiste. É um
+projeto pessoal, que também uso como portfólio, e só usa ferramentas e APIs gratuitas.
 
 ![A revisão dos clipes, feita só pelo teclado](docs/imagens/revisao.gif)
 
-O fluxo inteiro em 1 minuto, na demo: [vídeo (MP4, sem som)](docs/imagens/demo.mp4).
-**Experimente a revisão no navegador, sem instalar nada:**
-[fermontelos.github.io/Clipador](https://fermontelos.github.io/Clipador/) (a demo, com os
-clipes de verdade e os dados inventados; as decisões ficam só na sua aba).
+Dá para testar a revisão direto no navegador, sem instalar nada:
+[fermontelos.github.io/Clipador](https://fermontelos.github.io/Clipador/). Os clipes são de
+uma live falsa que o próprio app gera, e as suas decisões ficam só na sua aba. Tem também um
+[vídeo de 1 minuto](docs/imagens/demo.mp4) com o fluxo inteiro.
 
 ## O que ele faz
 
-- **Acha os melhores momentos sozinho**: três detectores (plugins) olham a live inteira:
-  picos da sua voz, expressões na transcrição (Whisper) e eventos do LoL coletados durante a
-  partida, alinhados ao segundo do vídeo. Cada momento ganha uma nota de 0 a 100.
-- **Corta em três formatos**: horizontal, vertical com fundo desfocado e vertical com a
-  câmera em cima e o jogo embaixo; legenda da fala, áudio sem a música (direitos autorais) e
-  volume no padrão das redes.
-- **Sugere títulos e hashtags** com uma IA local (Ollama), no seu estilo, sem custo.
-- **Revisão pelo teclado**: aprovar, recusar, desfazer, ajustar o corte, trocar o título.
-- **Publica o que você aprovou**: no YouTube, privado e agendado (Shorts e vídeos); no
-  TikTok, numa pasta ou como rascunho no app. Dá 10 minutos para desfazer antes do envio.
-- **Aprende**: com as suas decisões (regressão logística, etapa 14) e com o engajamento dos
-  cortes publicados (etapa 17), sugere novos pesos para a nota; nada muda sem o seu aceite.
-- **Cuida do PC**: começa sozinho quando a live termina, continua de onde parou se a luz
-  cair, não deixa o Windows suspender no meio e pode desligar o PC no fim da noite.
+- Acha os momentos sozinho. Três detectores olham a live inteira: os picos da minha voz, o
+  que eu falo (transcrito pelo Whisper) e os eventos da partida de LoL, alinhados ao segundo
+  do vídeo. Cada momento ganha uma nota de 0 a 100.
+- Corta cada momento na horizontal e em dois formatos verticais (um com fundo desfocado,
+  outro com a câmera em cima e o jogo embaixo), com legenda e sem a música, por causa dos
+  direitos autorais.
+- Sugere títulos e hashtags com uma IA que roda no meu PC (Ollama), tentando imitar o meu
+  jeito de escrever.
+- Na revisão eu aprovo, recuso, desfaço, ajusto o início e o fim do corte e troco o título.
+- Publica no YouTube como privado e agendado, e no TikTok manda para uma pasta ou como
+  rascunho. Antes de qualquer envio há 10 minutos para desfazer.
+- Aprende: as minhas aprovações e o engajamento dos vídeos viram sugestões de pesos para a
+  nota. Só mudam se eu aceitar.
+- Cuida do PC: começa quando a live termina, continua de onde parou se a luz cair, não deixa
+  o Windows suspender no meio e pode desligar o computador no fim.
 
 ## Como funciona
 
@@ -46,7 +48,7 @@ flowchart LR
   MON --> AUD["Áudio da voz"] --> TRA["Transcrição<br/>(Whisper)"] --> DET["Detectores<br/>e nota"]
   LOL["Coletor do LoL<br/>(durante a live)"] --> DET
   DET --> COR["Cortes<br/>(FFmpeg)"] --> TIT["Títulos<br/>(IA local)"]
-  TIT --> REV{"Revisão no navegador<br/>(você aprova)"}
+  TIT --> REV{"Revisão no navegador<br/>(eu aprovo)"}
   REV -->|aprovado| PUB["Publicação<br/>YouTube · TikTok"]
   PUB --> MET["Métricas<br/>24 h · 72 h · 7 dias"]
   REV -. decisões .-> APR["Aprendizado<br/>(regressão logística)"]
@@ -54,107 +56,98 @@ flowchart LR
   APR -. pesos da nota .-> DET
 ```
 
-Do áudio aos títulos, e cada envio e coleta de métricas, são tarefas numa **fila retomável em
-SQLite**: se o PC desligar no meio, ela continua de onde parou. O código tem quatro partes com uma direção de dependência só
-(`frontend -> api -> backend -> integracoes`), e um teste confere que a API nunca fala com as
-redes sociais direto nem o backend lê as chaves ([ADR 0003](docs/adr/0003-backend-api-integracoes-frontend.md)).
+Cada passo é uma tarefa numa fila guardada no SQLite. Se o PC desliga no meio, a fila continua
+de onde parou quando ele volta. O código é dividido em quatro partes que só dependem numa
+direção (`frontend -> api -> backend -> integracoes`), e só as integrações tocam nas chaves das
+APIs. Um teste garante que ninguém quebre isso sem querer
+([ADR 0003](docs/adr/0003-backend-api-integracoes-frontend.md)).
 
-## Demo em 3 comandos
+## Rodando a demo
 
-Sem placa de vídeo, sem contas e sem configurar nada. Precisa do Git, do
-[uv](https://docs.astral.sh/uv/) e do FFmpeg (`winget install Gyan.FFmpeg`). No PowerShell:
+Não precisa de placa de vídeo nem de conta em nada, só Git, [uv](https://docs.astral.sh/uv/) e
+FFmpeg (`winget install Gyan.FFmpeg`). No PowerShell:
 
 ```powershell
 git clone https://github.com/Fermontelos/Clipador.git; cd Clipador
-$env:UV_NO_GROUP = "gpu"           # a demo não usa a placa: pula ~1 GB de bibliotecas da NVIDIA
+$env:UV_NO_GROUP = "gpu"           # a demo não usa a placa, então pula as bibliotecas da NVIDIA
 
-uv run clipador demo               # 1. cria uma live falsa de 3 min (~15 s)
-uv run clipador processar --demo   # 2. momentos, 12 clipes e títulos (~2 min)
-uv run clipador web --demo         # 3. abre a revisão no navegador
+uv run clipador demo               # cria uma live falsa de 3 minutos
+uv run clipador processar --demo   # acha os momentos, corta e gera os títulos (uns 2 min)
+uv run clipador web --demo         # abre a revisão no navegador
 ```
 
-O `UV_NO_GROUP` vale só para esse terminal: para usar o app com a placa de vídeo (veja
-abaixo), abra outro. A interface é construída uma vez, com o [Node.js](https://nodejs.org)
-22.12 ou mais novo (`winget install OpenJS.NodeJS.LTS`):
-`cd frontend; npm ci; npm run build; cd ..`. Sem ela, o passo 3 abre a documentação
-interativa da API, que também permite revisar.
+Para a interface aparecer, ela precisa ser construída uma vez com o
+[Node.js](https://nodejs.org) 22.12+: `cd frontend; npm ci; npm run build; cd ..`. Sem isso,
+o último comando abre a documentação da API, que também serve para revisar.
 
-A live falsa tem as mesmas 4 faixas de áudio do OBS (mistura, voz, jogo e música), quatro
-picos de voz em horários conhecidos (0:25, 1:10, 1:58 e 2:30), eventos de uma partida de LoL,
-uma "câmera" no canto, uma transcrição e títulos prontos. A demo traz também 6 lives antigas
-já revisadas e "publicadas" (dados inventados, só no banco), para o aprendizado e o
-engajamento terem o que mostrar: `uv run clipador aprender --demo` e
-`uv run clipador engajamento --demo`. Ela usa uma pasta e um banco separados
-(`dados/demo/`); `--do-zero` recria tudo. Para apresentar o app, há um
-[roteiro de demonstração de 5 minutos](docs/roteiro-de-demonstracao.md).
+A live falsa imita uma de verdade: as 4 faixas de áudio do OBS, quatro gritos em horários
+conhecidos, uma partida de LoL e uma "câmera" no canto. Ela vem com 6 lives antigas já
+revisadas e publicadas (tudo inventado, só no banco), para dar o que mostrar no aprendizado:
+`uv run clipador aprender --demo` e `uv run clipador engajamento --demo`. A demo fica em
+`dados/demo/`, separada do resto, e `--do-zero` recria tudo.
 
 ## O aprendizado, na demo
 
-> Os números abaixo são **inventados**: vêm do histórico da demo, que esconde de propósito um
-> "gosto" conhecido, para mostrar o aprendizado funcionando. Ainda não há métricas de lives
-> reais (veja as [limitações](#limitações-conhecidas)).
+> Esses números são inventados. O histórico da demo foi montado com um "gosto" escondido
+> justamente para ver se o aprendizado conseguia achá-lo. Ainda não tenho dados de lives reais.
 
 ![Engajamento por tipo de momento, com os dados da demo](docs/imagens/engajamento-por-tipo.svg)
 
-No histórico da demo, o público engaja mais com os **eventos do LoL** (índice médio 1,53,
-contra 1,13 dos gritos e 1,01 da fala; 1 = o vídeo típico da rede), justamente o tipo de
-momento que o streamer menos aprova.
+No histórico da demo, o público engaja mais com as jogadas de LoL (índice 1,53, contra 1,13
+dos gritos e 1,01 da fala, onde 1 é um vídeo típico do canal). E é justamente o tipo de
+momento que o streamer da demo menos aprova. Por isso a nota mistura os dois.
 
 ![Precisão nos de maior nota, antes e depois de aprender, com os dados da demo](docs/imagens/aprendizado-antes-e-depois.svg)
 
-Nos momentos de maior nota de cada dia, medidos em decisões e cortes que o treino não viu:
-com as aprovações, a precisão vai de **56% para 65%**; com o engajamento, os cortes acima
-da mediana do canal vão de **64% para 74%**. Os gráficos são gerados por
-`uv run python docs/gerar_imagens.py`.
+Medindo só em dados que o treino não viu: aprendendo com as aprovações, a precisão nos
+momentos de maior nota vai de 56% para 65%. Aprendendo com o engajamento, os cortes acima da
+mediana do canal vão de 64% para 74%. Os gráficos saem de `docs/gerar_imagens.py`.
 
-## Situação
+## Em que pé está
 
-As 18 etapas do roteiro estão feitas e testadas; algumas só se confirmam com lives e contas
-reais:
+Tudo está implementado e testado, mas parte só se confirma com lives e contas de verdade:
 
 | Parte | Situação |
 |---|---|
-| Banco e fila, demo, monitor da pasta, áudio, transcrição, cortes, títulos, API e interface da revisão (etapas 1–6, 9, 10, 12, 13) | ✅ testadas na demo; a pipeline (do áudio aos títulos) rodou também em 5 gravações reais antigas, só com a faixa da mistura |
-| Coletor do LoL (etapa 7) | ✅ testado numa partida real; ⏳ falta conferir o segundo dos eventos numa live gravada |
-| Detectores e nota (etapa 8) | ✅ na demo e nas gravações antigas; ⏳ falta uma live com a voz na faixa 2 |
-| Desligar o PC sozinho (etapa 11) | ✅ em modo de teste; ⏳ falta uma noite real para conferir o log |
-| Aprendizado com as decisões (etapa 14) | ✅ na demo; ⏳ falta o gráfico de lives reais (precisa de 100 decisões) |
-| Publicar no YouTube (etapa 15) | 🟡 testado com o YouTube simulado; falta o 1º envio real |
-| Publicar no TikTok (etapa 16) | 🟡 pasta pronta; rascunho testado com o TikTok simulado, falta o sandbox |
-| Métricas de engajamento (etapa 17) | 🟡 testadas com as APIs simuladas e na demo; faltam métricas reais |
+| Fila, áudio, transcrição, cortes, títulos e revisão | ✅ funcionam na demo e já rodaram em 5 gravações antigas minhas (ainda com o áudio todo misturado numa faixa) |
+| Coletor do LoL | ✅ testado numa partida real; ⏳ falta conferir o alinhamento numa live gravada |
+| Detectores e nota | ✅ na demo e nas gravações antigas; ⏳ falta uma live com a voz separada |
+| Desligar o PC sozinho | ✅ em modo de teste; ⏳ falta uma noite de verdade |
+| Aprendizado com as decisões | ✅ na demo; ⏳ precisa de 100 decisões minhas |
+| YouTube | 🟡 testado contra um YouTube simulado; falta o primeiro envio real |
+| TikTok | 🟡 a pasta funciona; o rascunho foi testado contra um TikTok simulado |
+| Métricas de engajamento | 🟡 testadas com APIs simuladas; faltam métricas reais |
 
-O roteiro completo, a stack e os riscos estão em
-[`docs/Clipador - Stack e Ferramentas.pdf`](docs/Clipador%20-%20Stack%20e%20Ferramentas.pdf).
-O que entrou na versão 1.0 está nas [notas da versão](docs/release-v1.0.md); o que vem
-depois (chat da Twitch, outros jogos, melhores horários) está na etapa 19.
+O que mudou em cada versão está nas [notas da versão](docs/release-v1.0.md). Na fila de ideias
+estão o chat da Twitch como mais um sinal, outros jogos e descobrir os melhores horários para
+postar.
 
 ## Limitações conhecidas
 
-- **Só Windows**: a abertura no login, a energia e o desligamento usam APIs do Windows.
-- **Os números de aprendizado e de engajamento do README são da demo.** O aprendizado precisa
-  de 100 decisões; o engajamento, de 50 cortes publicados com 7 dias de métricas.
-- **O modelo aprende entre os momentos que o detector já achou bons**: só os revisados têm
-  decisão, e quase todos são os de maior nota do dia.
-- **Engajamento depende de horário, tendência e algoritmo**, e com poucos vídeos os números
-  oscilam bastante (na demo, só mudar a ordem dos exemplos mudava a comparação). Hashtags e
-  tipos de título são correlação, não causa: só mudam a ordem das sugestões.
-- **O TikTok não posta sozinho**: o post direto exige uma auditoria que não aceita
-  ferramentas para as próprias contas ([ADR 0011](docs/adr/0011-tiktok-pasta-e-rascunho.md)).
-  O rascunho chega sem legenda, e as métricas só existem para vídeos públicos.
-- **A GTX 1050 Ti não usa o NVENC** com o FFmpeg 9: os cortes são feitos no processador
-  ([ADR 0006](docs/adr/0006-cortes-no-processador-sem-nvenc.md)).
-- **O player da revisão só tem o último corte**: aumentar o trecho só aparece depois do novo
-  corte (a tela avisa).
-- **O LoL é o único jogo com detector de eventos**; em outro jogo, a nota usa a voz e a fala.
+- Só roda no Windows, porque abrir no login, segurar a suspensão e desligar o PC usam APIs do
+  Windows.
+- Os números de aprendizado acima são da demo. O de verdade precisa de 100 decisões, e o de
+  engajamento de 50 cortes com uma semana de métricas.
+- O modelo só aprende com o que eu revisei, e eu reviso quase só os momentos de nota alta. Um
+  tipo de momento que o detector nunca sugere nunca vira exemplo.
+- Engajamento depende de horário, tendência e do algoritmo. Com poucos vídeos os números
+  oscilam muito, e hashtags e tipos de título são correlação, não causa. Por isso eles só
+  mudam a ordem das sugestões.
+- O TikTok não posta sozinho. O post direto exige uma auditoria que não aceita ferramentas
+  para as próprias contas ([ADR 0011](docs/adr/0011-tiktok-pasta-e-rascunho.md)).
+- A minha GTX 1050 Ti não consegue usar o NVENC com o FFmpeg 9, então os cortes são feitos no
+  processador ([ADR 0006](docs/adr/0006-cortes-no-processador-sem-nvenc.md)).
+- O player da revisão só tem o último corte: se eu aumento o trecho, o pedaço novo só aparece
+  depois que ele corta de novo.
+- Só o LoL tem detector de eventos. Em outro jogo a nota usa só a voz e a fala.
 
-## Como usar com as suas lives
+## Usando com as suas lives
 
-Requisitos: Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg
-(`winget install Gyan.FFmpeg`). O uv instala o Python 3.12 se precisar. Para transcrever na
-placa de vídeo: uma NVIDIA com driver 570 ou mais novo (as bibliotecas do CUDA 12, ~1 GB, vêm
-com o `uv sync`); sem ela, a transcrição usa o processador, bem mais devagar, e
-`uv sync --no-group gpu` pula esse download. Para os títulos com IA (opcional): o
-[Ollama](https://ollama.com) com o modelo `qwen3:4b`. Para a interface: o Node.js, como na demo.
+Precisa de Windows 10+, [uv](https://docs.astral.sh/uv/), Git e FFmpeg. Para transcrever na
+placa de vídeo, uma NVIDIA com driver 570 ou mais novo; sem ela a transcrição roda no
+processador, bem mais devagar (e `uv sync --no-group gpu` evita baixar as bibliotecas da
+NVIDIA). Os títulos com IA são opcionais e usam o [Ollama](https://ollama.com) com o
+`qwen3:4b`.
 
 ```powershell
 git clone https://github.com/Fermontelos/Clipador.git
@@ -164,143 +157,99 @@ Copy-Item config.example.toml config.toml
 uv run clipador config
 ```
 
-No OBS (uma vez), o app precisa de cada fonte de áudio numa faixa separada:
+No OBS, cada fonte de áudio precisa ir para uma faixa separada:
 
-1. Em **Configurações → Saída**, use o modo de saída **Avançado** e, na aba **Gravação**,
-   o formato **mkv** (um arquivo MKV não se perde se o OBS ou o PC caírem) e as **faixas de
-   áudio 1, 2, 3 e 4** marcadas.
-2. Capture o jogo e o player de música com uma **Captura de áudio de aplicativo** cada (OBS 28
-   ou mais novo) e desative o "Áudio da área de trabalho", que mistura tudo.
-3. Em **Edição → Propriedades avançadas de áudio**, ponha o microfone nas faixas 1 e 2, o
-   jogo nas faixas 1 e 3 e a música nas faixas 1 e 4. A faixa 1 é a mistura, a que vai para a
-   live (em **Saída → Transmissão**, ela continua sendo a faixa de áudio); o app usa as faixas
-   2 a 4, e a música nunca entra nos clipes.
+1. Em Configurações → Saída, use o modo Avançado. Na aba Gravação, escolha o formato mkv (ele
+   não se perde se o OBS cair) e marque as faixas de áudio 1, 2, 3 e 4.
+2. Capture o jogo e a música com uma "Captura de áudio de aplicativo" cada e desligue o
+   "Áudio da área de trabalho", que mistura tudo.
+3. Em Edição → Propriedades avançadas de áudio, coloque o microfone nas faixas 1 e 2, o jogo
+   nas faixas 1 e 3 e a música nas faixas 1 e 4. A faixa 1 continua sendo a que vai para a
+   live; o app usa as outras, e a música nunca entra nos clipes.
 
-Edite o `config.toml` (cada opção está explicada nele): `pasta_gravacoes` é a pasta onde o
-OBS salva as lives, e `[faixas]` diz em que faixa está cada fonte (o padrão é 1 = mistura,
-2 = voz, 3 = jogo, 4 = música). Caminhos relativos são contados a partir da pasta do
-`config.toml`. Depois:
+No `config.toml`, `pasta_gravacoes` é a pasta onde o OBS salva as lives e `[faixas]` diz o que
+tem em cada faixa. Cada opção está explicada no próprio arquivo. Depois disso:
 
-- `uv run clipador iniciar` liga o serviço (ou `clipador instalar-servico`, para ele abrir
-  sozinho no login do Windows); `uv run clipador web` abre a revisão de manhã.
-- Para publicar e coletar as métricas, ligue as contas: [configurar o YouTube e o
-  TikTok](docs/configurar-contas.md).
-- Todos os comandos e o que cada parte faz, em detalhe: o [guia de uso](docs/guia.md).
+- `uv run clipador iniciar` liga o serviço (`clipador instalar-servico` faz ele abrir sozinho
+  no login) e `uv run clipador web` abre a revisão.
+- Para publicar, é preciso [ligar as contas do YouTube e do TikTok](docs/configurar-contas.md).
+- Todos os comandos estão no [guia de uso](docs/guia.md).
 
 ## Desenvolvimento
 
 ```bash
-uv run pytest -m "not lento"  # testes rápidos (o pre-commit roda estes)
-uv run pytest              # todos, inclusive a demo real de 3 min
-uv run pytest --cov        # todos, com a cobertura (a CI roda este; --cov-report=html: htmlcov/)
-uv run ruff check          # lint
-uv run ruff format         # formatação
-uv run mypy                # tipos (as anotações das três partes Python)
-uv run pre-commit install  # a cada commit: lint, formatação, tipos, testes rápidos e, se o
-                           # frontend mudou, os tipos e os testes do Vitest
+uv run pytest -m "not lento"  # testes rápidos (os que o pre-commit roda)
+uv run pytest --cov           # todos, com cobertura (o que a CI roda)
+uv run ruff check             # lint
+uv run ruff format            # formatação
+uv run mypy                   # tipos
+uv run pre-commit install     # roda lint, tipos e testes a cada commit
 ```
 
-As imagens do README (os gráficos da demo e o selo da cobertura) saem de um script:
+A interface fica em `frontend/` (React, Vite, TypeScript e Tailwind):
 
 ```bash
-uv run pytest --cov --cov-report=json:dados/cobertura.json
-uv run python docs/gerar_imagens.py --cobertura
+npm run dev             # com o "clipador web" aberto; recarrega a cada mudança
+npm test                # testes do Vitest
+npm run test:cobertura  # os mesmos, com cobertura
+npm run build           # gera o frontend/dist que o "clipador web" serve
 ```
 
-A demo do navegador (GitHub Pages) é a mesma interface, num build que lê as respostas da API
-gravadas da demo em vez de falar com o `clipador web`. A cada push no `main`, o workflow
-`.github/workflows/demo.yml` gera a demo, grava as respostas e os vídeos
-(`docs/gerar_demo_estatica.py`) e publica. Para ver no seu PC:
-`cd frontend; npm run build:estatica; cd ..` e
-`uv run python docs/gerar_demo_estatica.py frontend/dist-estatica` (com a demo já processada).
+A demo do navegador é a mesma interface, num build que lê respostas gravadas da API em vez de
+falar com o servidor. A cada push no `main`, o workflow `demo.yml` gera a demo, grava as
+respostas e os vídeos com `docs/gerar_demo_estatica.py` e publica no GitHub Pages.
 
-A interface (em `frontend/`, React + Vite + TypeScript + Tailwind):
+Mudou uma tabela em `backend/src/clipador/banco/modelos.py`? Gere a migração com
+`uv run alembic revision --autogenerate -m "o que mudou"`.
 
-```bash
-npm run dev        # em frontend/, com o "clipador web" aberto: recarrega a cada mudança
-npm test           # testes do Vitest (atalhos, desfazer, contador, ajuste do corte)
-npm run test:cobertura  # os mesmos, com a cobertura (a CI exige 80% das linhas)
-npm run build      # gera frontend/dist, que o "clipador web" serve
-```
-
-No `npm run dev`, o Vite (em `127.0.0.1:5173`) repassa `/api` para o `clipador web`
-(porta 8765; outra: `CLIPADOR_API=http://127.0.0.1:PORTA`).
-
-Depois de mudar uma tabela em `backend/src/clipador/banco/modelos.py`, gere a migração do banco:
-
-```bash
-uv run alembic revision --autogenerate -m "o que mudou"
-```
-
-A CI (GitHub Actions) roda lint, formatação, tipos e testes com a cobertura em Windows a cada push
-(e falha se os detectores ou o alinhamento do LoL tiverem menos de 80%), e os tipos, os
-testes e o build da interface em Linux.
-Nenhum teste pode passar de 5 minutos (`pytest-timeout`): um teste travado falha mostrando
-onde parou. Os testes nunca mexem na abertura no login de verdade: usam uma chave de teste
-do registro, apagada no fim.
+A CI roda tudo isso a cada push: lint, tipos e testes com cobertura no Windows, e a interface no
+Linux. Ela falha se a cobertura dos detectores, do alinhamento do LoL ou da interface cair abaixo
+de 80%.
 
 ## Estrutura
 
-O projeto é dividido em quatro partes, com uma direção de dependência só
-([ADR 0003](docs/adr/0003-backend-api-integracoes-frontend.md)):
-
 ```
-frontend ──(HTTP)──> api ──> backend ──> integracoes ──> YouTube / TikTok / LoL
-```
-
-```
-backend/        pipeline, banco, fila, serviço, demo e a linha de comando (pacote clipador)
+backend/        a pipeline, o banco, a fila, o serviço, a demo e a linha de comando
   src/clipador/
-    banco/      tabelas, fila, backup e migrações (Alembic)
-    ingestao/   monitor da pasta do OBS, horário de início e extração do áudio da voz
-    transcricao/ Whisper na placa de vídeo, transcrição em blocos e legenda .srt
-    jogo/       coletor do LoL, eventos seus e alinhamento com o tempo da gravação
-    detectores/ detectores de momentos (plugins) e a nota de cada momento
-    cortes/     clipes horizontal e vertical, legenda do clipe e thumbnail
-    titulos/    títulos e hashtags com a IA local (Ollama) e o plano B sem IA
-    sistema/    serviço em segundo plano, energia, trava e abertura no login
-    demo/       roteiro e gerador da live falsa
-    revisao/    regras da revisão: momentos do dia, decisões, ajuste do corte e cota
-    aprendizado/ precisão, pesos da nota (regressão logística, pelo gosto e pelo
-                engajamento) e janela do corte
-    publicacao/ fila, agenda, pedido, cota e envio ao YouTube e ao TikTok
-    engajamento/ coleta das métricas, índice, rankings de hashtags e títulos
-    ffmpeg.py   chamadas ao FFmpeg e ao ffprobe
-  tests/
-api/            API local da revisão, FastAPI (etapa 12) e o comando clipador web
-integracoes/    YouTube, TikTok e LoL (etapas 7, 15-17): único código que lê as chaves
-frontend/       interface de revisão, React (etapa 13): nunca guarda chaves
-  src/revisao/  a tela de revisão: atalhos, ajuste do corte e estado (funções puras)
-  src/telas/    fila e status, estatísticas e engajamento (Recharts)
+    banco/        tabelas, fila, backup e migrações
+    ingestao/     monitor da pasta do OBS e extração do áudio da voz
+    transcricao/  Whisper e legendas
+    jogo/         coletor do LoL e alinhamento com o vídeo
+    detectores/   os detectores de momentos e a nota
+    cortes/       os clipes e as thumbnails
+    titulos/      títulos e hashtags (Ollama, com um plano B sem IA)
+    sistema/      serviço, energia e abertura no login
+    demo/         a live falsa
+    revisao/      as regras da revisão
+    aprendizado/  precisão e pesos da nota
+    publicacao/   agenda, cota e envio ao YouTube e ao TikTok
+    engajamento/  coleta das métricas e rankings
+api/            a API local da revisão (FastAPI) e o comando "clipador web"
+integracoes/    YouTube, TikTok e LoL; o único lugar que lê as chaves
+frontend/       a interface da revisão (React)
 tests/          testes de arquitetura (as regras entre as partes)
-conftest.py     proteções de todos os testes: nenhum abre o Whisper ou o Ollama de verdade,
-                mexe na abertura no login ou desliga o PC
-docs/           guias, roteiro em PDF, decisões técnicas (docs/adr/) e as imagens do README
-dados/          banco, backups, logs, clipes, temporários e a demo (fora do git, criado pelo app)
+docs/           guias, decisões técnicas (docs/adr/) e as imagens do README
 ```
 
-As três partes Python formam um workspace do uv: cada uma tem o próprio `pyproject.toml`,
-mas todas são instaladas juntas por `uv sync` e testadas juntas por `uv run pytest`, sempre
-a partir da raiz. As regras de segurança (por exemplo, a API nunca importar as integrações)
-são conferidas automaticamente em `tests/test_arquitetura.py`.
+As três partes em Python formam um workspace do uv: cada uma tem o próprio `pyproject.toml`,
+mas tudo é instalado e testado junto, a partir da raiz.
 
 ## Decisões técnicas
 
-As perguntas mais comuns sobre o projeto (por que SQLite, como a fila sobrevive a uma queda,
-por que regressão logística...) estão respondidas em [perguntas técnicas](docs/perguntas-tecnicas.md).
+Fui registrando as decisões maiores em ADRs curtos, com o que considerei e por que escolhi:
 
-- [ADR 0001: Python + SQLite + FastAPI](docs/adr/0001-python-sqlite-fastapi.md)
-- [ADR 0002: SQLite e não PostgreSQL](docs/adr/0002-sqlite-e-nao-postgres.md)
-- [ADR 0003: backend, API, integrações e frontend separados](docs/adr/0003-backend-api-integracoes-frontend.md)
-- [ADR 0004: abrir no login pela chave "Run"](docs/adr/0004-abrir-no-login-pela-chave-run.md)
-- [ADR 0005: detectores devolvem sinais, e a nota monta os momentos](docs/adr/0005-detectores-devolvem-sinais.md)
-- [ADR 0006: cortar no processador quando o NVENC não funcionar](docs/adr/0006-cortes-no-processador-sem-nvenc.md)
-- [ADR 0007: API da revisão local, sem senha](docs/adr/0007-api-local-sem-senha.md)
-- [ADR 0008: vertical B com a câmera em cima e o jogo embaixo](docs/adr/0008-vertical-b-camera-e-jogo.md)
-- [ADR 0009: regressão logística para aprender os pesos da nota](docs/adr/0009-regressao-logistica.md)
-- [ADR 0010: publicação agendada no YouTube, com tempo para desfazer](docs/adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)
-- [ADR 0011: TikTok pela pasta e por rascunho, post direto só após a auditoria](docs/adr/0011-tiktok-pasta-e-rascunho.md)
-- [ADR 0012: o engajamento ensina a nota, misturado com o seu gosto](docs/adr/0012-engajamento-ensina-a-nota.md)
+- [0001: Python, SQLite e FastAPI](docs/adr/0001-python-sqlite-fastapi.md)
+- [0002: SQLite e não PostgreSQL](docs/adr/0002-sqlite-e-nao-postgres.md)
+- [0003: backend, API, integrações e frontend separados](docs/adr/0003-backend-api-integracoes-frontend.md)
+- [0004: abrir no login pela chave "Run" do registro](docs/adr/0004-abrir-no-login-pela-chave-run.md)
+- [0005: detectores devolvem sinais, e a nota monta os momentos](docs/adr/0005-detectores-devolvem-sinais.md)
+- [0006: cortar no processador quando o NVENC não funciona](docs/adr/0006-cortes-no-processador-sem-nvenc.md)
+- [0007: API da revisão local, sem senha](docs/adr/0007-api-local-sem-senha.md)
+- [0008: vertical com a câmera em cima e o jogo embaixo](docs/adr/0008-vertical-b-camera-e-jogo.md)
+- [0009: regressão logística para aprender os pesos da nota](docs/adr/0009-regressao-logistica.md)
+- [0010: publicação agendada, com tempo para desfazer](docs/adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)
+- [0011: TikTok pela pasta e por rascunho](docs/adr/0011-tiktok-pasta-e-rascunho.md)
+- [0012: o engajamento ensina a nota, sem apagar o meu gosto](docs/adr/0012-engajamento-ensina-a-nota.md)
 
 ## Licença
 

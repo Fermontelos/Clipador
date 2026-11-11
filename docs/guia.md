@@ -21,7 +21,7 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
 - `clipador iniciar`: liga o serviço. Ele percebe sozinho quando uma live termina (o
   arquivo do OBS fica 2 minutos sem mudar), coloca a gravação na fila e processa. Durante
   a live, a fila fica pausada para não pesar no PC, e enquanto processa (ou espera para
-  desligar, etapa 11) o PC não suspende.
+  desligar) o PC não suspende.
   Por segurança, só entram vídeos com o nome no padrão do OBS (data e hora); outros vídeos
   da mesma pasta são ignorados (`so_nomes_do_obs` no `config.toml`), assim como os clipes do
   Buffer de Replay e, se você configurar `ignorar_gravacoes_antes_de`, as lives de antes
@@ -29,7 +29,7 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
   `minutos_gravacao_parada`, senão a live entra na fila pela metade.
 - `clipador processar`: processa a fila agora, sem o serviço, e sai quando acabar. Cada
   gravação passa pela cadeia inteira: áudio da voz, transcrição, momentos, clipes e títulos
-  (as etapas estão descritas abaixo). A 1ª tarefa extrai o áudio da voz (faixa 2 do OBS) num
+  (cada passo está descrito abaixo). A 1ª tarefa extrai o áudio da voz (faixa 2 do OBS) num
   WAV mono de 16 kHz; a 2ª transcreve a sua fala com o Whisper na placa de vídeo, palavra
   por palavra, salvando uma legenda `.srt` em `dados/transcricoes/` para conferir. Uma live de 3 h leva uns
   15 a 60 min de transcrição; na primeira vez, o modelo (~1,5 GB) é baixado. A transcrição
@@ -57,7 +57,7 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
   fundo desfocado) e vertical B (9:16, a sua câmera no terço de cima e o centro do jogo
   embaixo; sem câmera configurada, só o centro do jogo, ampliado). Os verticais têm a
   legenda da sua fala queimada ([ADR 0008](adr/0008-vertical-b-camera-e-jogo.md)). O áudio junta só a voz e o jogo,
-  **sem a música** (direitos autorais), normalizado para -14 LUFS, o padrão de YouTube e
+  sem a música (direitos autorais), normalizado para -14 LUFS, o padrão de YouTube e
   TikTok. O horizontal ganha uma thumbnail do pico do momento. Os cortes são feitos no
   processador quando o encoder da placa (NVENC) não funciona ([ADR 0006](adr/0006-cortes-no-processador-sem-nvenc.md)).
 - Títulos e hashtags com IA local: para cada momento, o [Ollama](https://ollama.com) com o
@@ -73,13 +73,13 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
   depois (como as métricas) não seguram o PC ligado. Só o serviço desliga: um
   `clipador processar` rodado à mão, não. E só depois de processar uma gravação: um novo
   corte pedido na revisão de manhã não faz o PC desligar quando você sai de perto. Vem em
-  **modo de teste**, que só escreve
+  modo de teste, que só escreve
   "desligaria agora" no log: confira uma noite inteira e então mude `modo_teste = false`
   em `[desligamento]` no `config.toml`. O `clipador status` mostra há quanto tempo o PC
   está ocioso. Se você estiver usando o PC quando a fila acabar, o app espera você sair de
   perto por até 4 h (`espera_maxima_horas`) e depois desiste até a próxima noite.
 - `clipador web`: abre a revisão no navegador, em quatro telas:
-  - **Revisão**: o clipe toca repetindo o trecho do momento, com a nota, o motivo, os 3
+  - Revisão: o clipe toca repetindo o trecho do momento, com a nota, o motivo, os 3
     títulos sugeridos, as hashtags e os formatos e destinos. Tudo pelo teclado:
 
     | Tecla | O que faz |
@@ -101,13 +101,13 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
     `duracao_maxima_s`); o player mostra na hora o trecho novo, e ao aprovar o app
     corta de novo só esse clipe. Encurtar aparece na hora; a parte que passa do corte
     atual só aparece depois do novo corte (a tela avisa).
-  - **Fila e status**: o que está processando, os erros (com o `clipador refazer` de
+  - Fila e status: o que está processando, os erros (com o `clipador refazer` de
     cada um), a cota do YouTube do dia e quantas pendentes estão só marcadas para depois
     (coletas de métricas, envios esperando a hora ou a cota).
-  - **Estatísticas**: a precisão do detector, aprovações por faixa de nota e por dia,
-    a força média de cada sinal nos aprovados e nos recusados, e o **aprendizado**
+  - Estatísticas: a precisão do detector, aprovações por faixa de nota e por dia,
+    a força média de cada sinal nos aprovados e nos recusados, e o aprendizado
     (veja abaixo), com o botão de aceitar.
-  - **Engajamento**: como os cortes publicados foram com o público (veja abaixo), e a
+  - Engajamento: como os cortes publicados foram com o público (veja abaixo), e a
     sugestão de pesos pelo engajamento, com o botão de aceitar.
 
   Por baixo, a interface usa a API (documentada e testável em `/docs`):
@@ -129,7 +129,7 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
 
   Os destinos padrão de cada formato ficam em `[revisao]` no `config.toml`. A API só aceita
   pedidos do próprio PC ([ADR 0007](adr/0007-api-local-sem-senha.md)). Nada é
-  publicado daqui: a publicação (etapas 15 e 16, abaixo) usa só o que você aprovou.
+  publicado daqui: a publicação (abaixo) usa só o que você aprovou.
 - `clipador momentos`: lista os momentos da gravação mais recente, da maior nota para a
   menor, com o trecho e o motivo ("voz alta (+24 dB) + pentakill seu + “não acredito”").
 - `clipador eventos`: mostra os eventos do LoL da gravação mais recente, com o segundo de
@@ -150,14 +150,14 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
   sugeridos. A média dos seus ajustes de corte também sugere uma nova janela (ex.: você
   sempre adianta o início em 3 s, então os próximos cortes começam 3 s antes), a partir de
   20 aprovações. Nada muda sozinho: você aceita, e a versão aceita vale a partir da próxima
-  detecção (os momentos já detectados ficam como estão). **Limitação**: só os momentos que
+  detecção (os momentos já detectados ficam como estão). Limitação: só os momentos que
   você revisou têm decisão, e quase todos são os de maior nota do dia; o modelo aprende
   entre os que o detector já achou bons, não sobre a live inteira.
 - Publicação no YouTube ([ADR 0010](adr/0010-publicacao-agendada-com-tempo-para-desfazer.md)):
   aprovar um momento com destino YouTube põe na fila um envio para cada formato (o
   horizontal sobe como vídeo normal; o vertical de até 3 min, como Short). O envio espera 10 min
   (`minutos_para_desfazer`): até lá, desfazer (`U`) cancela sem nada sair do PC. O vídeo
-  sobe **privado, com data de publicação**, e o YouTube o publica sozinho no próximo dos
+  sobe privado, com data de publicação, e o YouTube o publica sozinho no próximo dos
   `[youtube] horarios` (12h, 18h e 21h), com 2 h entre uma publicação e outra. Vai com o
   título que você aprovou, as hashtags na descrição (modelo em `[youtube] descricao`), as
   tags do config, a categoria Jogos e a declaração "não é conteúdo para crianças"; o
@@ -174,7 +174,7 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
   `.txt` com a legenda (título + hashtags, modelo em `[tiktok] legenda`) vão para
   `dados/exportar/tiktok/` (ou a `[tiktok] pasta`; uma pasta sincronizada com o celular
   evita copiar à mão), e você posta pelo celular. Com `[tiktok] modo = "rascunho"`, o
-  vídeo também vai para a **caixa de entrada do app do TikTok**: chega uma notificação, e
+  vídeo também vai para a caixa de entrada do app do TikTok: chega uma notificação, e
   você finaliza lá (o rascunho chega sem legenda: ela está no `.txt`). O TikTok aceita no
   máximo 5 rascunhos pendentes a cada 24 h; o sexto espera na fila (já com o vídeo na
   pasta; desfazer enquanto ele espera também o tira da pasta). O post direto, sem
@@ -183,17 +183,17 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
 - `clipador tiktok-entrar`: liga o app à sua conta do TikTok, para os rascunhos e as
   métricas (uma vez; veja [publicar no TikTok](configurar-contas.md#tiktok)).
 - Engajamento ([ADR 0012](adr/0012-engajamento-ensina-a-nota.md)): o app coleta as
-  métricas de cada corte publicado **24 h, 72 h e 7 dias** depois de ele ir ao ar
+  métricas de cada corte publicado 24 h, 72 h e 7 dias depois de ele ir ao ar
   (visualizações, curtidas, comentários e compartilhamentos; no YouTube, também a retenção,
   pelo YouTube Analytics). No TikTok, ele acha entre os seus vídeos públicos o que você
-  postou, pelo horário e pelo título. Com a coleta de 7 dias, cada corte ganha um **índice
-  de engajamento** (1 = o vídeo típico daquela rede no seu canal; no YouTube, Shorts e
-  vídeos normais têm medianas separadas), e a tela **Engajamento**
+  postou, pelo horário e pelo título. Com a coleta de 7 dias, cada corte ganha um índice
+  de engajamento (1 = o vídeo típico daquela rede no seu canal; no YouTube, Shorts e
+  vídeos normais têm medianas separadas), e a tela Engajamento
   mostra os cortes que mais engajaram, as hashtags e os tipos de título que funcionam (a
-  partir de 5 vídeos), o engajamento por tipo de momento e YouTube × TikTok. Com **50 cortes**,
+  partir de 5 vídeos), o engajamento por tipo de momento e YouTube × TikTok. Com 50 cortes,
   o app sugere pesos para a nota que preveem o engajamento, misturados meio a meio com o seu
   gosto (`[engajamento] mistura`), com a comparação antes e depois em cortes que o treino não
-  viu; nada muda até você aceitar. As sugestões de título e hashtag (etapa 10) passam a vir
+  viu; nada muda até você aceitar. As sugestões de título e hashtag passam a vir
   na ordem do que engaja, testando de vez em quando (10%) uma ainda pouco usada.
   Limitação: engajamento também depende de horário, tendência e algoritmo; com poucos
   vídeos, os números erram bastante.
@@ -202,11 +202,11 @@ seus dados, e `--arquivo` para outro `config.toml`. `uv run clipador --help` lis
   com uma grade a cada 100 px e as regiões do vertical B desenhadas (verde: o recorte do
   jogo; vermelho: a câmera). É de onde saem os números de `[cortes.vertical_b] camera`
   (`--segundo` escolhe o momento da live; `--demo` usa a demo).
-- `clipador demo`: cria a live falsa da demo (veja a [demo no README](../README.md#demo-em-3-comandos)).
+- `clipador demo`: cria a live falsa da demo (veja a [demo no README](../README.md#rodando-a-demo)).
 - `clipador backup`: faz uma cópia do banco agora. O app guarda as 14 mais recentes.
   Para restaurar uma cópia, veja [como restaurar um backup](#como-restaurar-um-backup).
 
-Por baixo, o app já tem o banco (SQLite, em modo WAL) e uma **fila retomável**: se o PC
+Por baixo, tudo passa por um banco SQLite (em modo WAL) e uma fila retomável: se o PC
 desligar no meio do processamento, as tarefas voltam para a fila na próxima abertura, e uma
 tarefa que falha é tentada até 3 vezes antes de virar erro.
 

@@ -9,14 +9,14 @@ A etapa 8 acha os melhores momentos de cada live. O planejamento previa detector
 plugins com a interface `Detector.detectar(gravacao) -> list[Momento]`: cada detector
 devolveria momentos prontos.
 
-Mas um momento bom quase sempre junta **vários aspectos** ao mesmo tempo: o grito (volume
+Mas um momento bom quase sempre junta vários aspectos ao mesmo tempo: o grito (volume
 da voz), o "não acredito!" (transcrição) e o pentakill (evento do LoL). Se cada detector
 devolvesse momentos, cada um teria a sua própria janela e a sua própria nota para a mesma
 jogada, e alguém ainda teria de juntar e desempatar esses momentos.
 
 ## Decisão
 
-Cada detector devolve **sinais**, e não momentos:
+Cada detector devolve sinais, e não momentos:
 
 ```python
 Detector.detectar(entrada) -> list[Sinal]   # Sinal = trecho + força (0 a 1) + motivo
@@ -29,15 +29,15 @@ Quem junta os sinais em momentos (sinais próximos viram um só), define a janel
 nota = 100 × Σ(peso × maior força do detector no momento) / Σ(pesos dos detectores disponíveis)
 ```
 
-Cada detector também diz se está **disponível** na gravação (ex.: o do LoL, numa live de
+Cada detector também diz se está disponível na gravação (ex.: o do LoL, numa live de
 outro jogo, não está). Um detector indisponível sai da média, para a nota máxima continuar
 sendo 100.
 
 ## Alternativas consideradas
 
-- **Cada detector devolve momentos** (o plano original): duplicaria a lógica de janela em
+- Cada detector devolve momentos (o plano original): duplicaria a lógica de janela em
   todos os detectores e exigiria uma regra para fundir momentos de detectores diferentes.
-- **Um detector só, com tudo dentro**: mais simples no começo, mas acrescentar outro jogo
+- Um detector só, com tudo dentro: mais simples no começo, mas acrescentar outro jogo
   ou o chat da Twitch exigiria mexer no código de todos os sinais.
 
 ## Consequências
